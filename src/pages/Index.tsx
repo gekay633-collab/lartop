@@ -46,10 +46,10 @@ const Index = () => {
     navigate('/auth');
   };
 
-  return (
-    <div className="min-h-screen gradient-hero">
-      <div className="max-w-lg mx-auto px-4 py-8">
-        
+ return (
+  <div className="min-h-screen gradient-hero overflow-x-hidden">
+    {/* Adicionamos flex, flex-col (coluna), items-center (alinhamento horizontal) e text-center */}
+    <div className="max-w-lg mx-auto px-4 py-6 md:py-12 flex flex-col items-center text-center">
         {/* Header de Boas-vindas ou Logout */}
         {currentUser && (
           <div className="flex justify-end mb-4">
@@ -79,7 +79,7 @@ const Index = () => {
         </div>
 
         {/* Benefits Icons */}
-        <div className="flex justify-center gap-6 mb-10 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+        <div className="flex justify-center gap-3 md:gap-8 mb-10 animate-fade-in" style={{ animationDelay: '0.1s' }}>
           <div className="flex flex-col items-center gap-1">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
               <Shield className="w-5 h-5 text-primary" />
