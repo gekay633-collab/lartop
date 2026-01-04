@@ -1,4 +1,15 @@
 # Logs
+# Logs# Security
+.env
+.env.local
+.env.*.local
+
+# Build
+dist/
+dist-ssr/
+
+# Dependencies
+node_modules/
 logs
 *.log
 npm-debug.log*
