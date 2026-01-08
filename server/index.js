@@ -2,13 +2,15 @@ const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const dns = require('dns'); 
 const path = require('path');
 const cloudinary = require('cloudinary').v2;
 
 // --- CONFIGURAÇÃO DE AMBIENTE LARTOP ---
+// Tenta carregar de dois locais para garantir que funcione localmente e no Render
 require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 // Resolve problemas de rede em ambientes locais (Windows/Node 17+)
 dns.setDefaultResultOrder('ipv4first');
@@ -51,32 +53,19 @@ db.on('error', (err) => {
     console.error('❌ Erro inesperado no pool do banco:', err.message);
 });
 
-// --- NODEMAILER (CONFIGURAÇÃO OTIMIZADA PARA RENDER) ---
-const transporter = nodemailer.createTransport({
-    service: 'gmail', // Use 'service' em vez de host/port para facilitar a rota do Gmail
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-    tls: {
-        rejectUnauthorized: false
-    },
-    connectionTimeout: 20000, // Aumentado para evitar Timeout no Render
-    greetingTimeout: 20000,
-    socketTimeout: 30000
-});
-
-transporter.verify((error) => {
-    if (error) {
-        console.log('❌ Erro no Nodemailer:', error.message);
-    } else {
-        console.log('📧 LARTOP pronto para enviar e-mails!');
-    }
-});
+// --- CONFIGURAÇÃO RESEND (ANTI-CRASH) ---
+let resend;
+if (process.env.RESEND_API_KEY) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+    console.log('📧 Resend configurado e pronto!');
+} else {
+    console.warn('⚠️ AVISO: RESEND_API_KEY não encontrada no .env. Envio de e-mail desativado.');
+    resend = null;
+}
 
 // --- ROTAS GERAIS ---
 app.get('/', (req, res) => res.send("API LARTOP Online"));
-app.get('/api/status', (req, res) => res.json({ status: "online", database: "connected" }));
+app.get('/api/status', (req, res) => res.json({ status: "online", database: "connected", email_service: resend ? "active" : "inactive" }));
 
 // --- ROTAS DE USUÁRIOS E AUTENTICAÇÃO ---
 
@@ -145,31 +134,43 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/forgot-password', async (req, res) => {
     const { identifier } = req.body;
     const cleanId = identifier?.toString().trim().toLowerCase();
+    
+    if (!resend) {
+        return res.status(500).json({ error: "Serviço de e-mail não configurado localmente." });
+    }
+
     try {
         const userRes = await db.query("SELECT id, nome, email FROM users WHERE LOWER(email) = $1 OR telefone = $1", [cleanId]);
         if (userRes.rows.length === 0) return res.status(404).json({ error: "Usuário não encontrado." });
+        
         const user = userRes.rows[0];
         const resetCode = Math.floor(100000 + Math.random() * 900000);
+
         await db.query("DELETE FROM password_resets WHERE email = $1", [user.email]);
         await db.query("INSERT INTO password_resets (email, code, expires_at) VALUES ($1, $2, NOW() + interval '15 minutes')", [user.email, resetCode]);
         
-        await transporter.sendMail({
-            from: `"LARTOP Suporte" <${process.env.EMAIL_USER}>`,
-            to: user.email,
+        const { error } = await resend.emails.send({
+            from: 'Lartop <onboarding@resend.dev>',
+            to: [user.email],
             subject: `${resetCode} é seu código LARTOP`,
-            html: `<div style="text-align:center; font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            html: `
+                <div style="text-align:center; font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
                     <h2 style="color: #FF5A5F;">LARTOP</h2>
                     <p>Olá <b>${user.nome}</b>, use o código abaixo:</p>
                     <div style="background: #f4f4f4; padding: 15px; border-radius: 10px; display: inline-block; margin: 15px 0;">
                         <b style="font-size: 32px; letter-spacing: 5px; color: #333;">${resetCode}</b>
                     </div>
                     <p style="font-size: 12px; color: #777;">Expira em 15 min.</p>
-                </div>`
+                </div>
+            `
         });
+
+        if (error) throw error;
         res.json({ message: "Código enviado!" });
+
     } catch (e) { 
-        console.error("Erro ao enviar email:", e.message);
-        res.status(500).json({ error: "Falha ao enviar e-mail. Verifique sua conexão." }); 
+        console.error("❌ Erro Forgot Password:", e.message);
+        res.status(500).json({ error: "Falha ao enviar e-mail." }); 
     }
 });
 
@@ -308,7 +309,6 @@ app.patch('/api/orders/:id', async (req, res) => {
 
 // --- AVALIAÇÕES E COMPATIBILIDADE ---
 
-// Rota de compatibilidade (Resolve o erro 404 no perfil)
 app.get('/api/providers/:id/reviews', async (req, res) => {
     const { id } = req.params;
     try {
