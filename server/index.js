@@ -53,9 +53,7 @@ db.on('error', (err) => {
 
 // --- NODEMAILER (CONFIGURAÇÃO OTIMIZADA PARA RENDER) ---
 const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true, 
+    service: 'gmail', // Use 'service' em vez de host/port para facilitar a rota do Gmail
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
