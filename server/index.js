@@ -32,7 +32,7 @@ cloudinary.config({
 const db = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 15000, // Aumentado para evitar quedas no Render
+    connectionTimeoutMillis: 15000, 
     idleTimeoutMillis: 30000,
     max: 20 
 });
@@ -51,7 +51,7 @@ db.on('error', (err) => {
     console.error('❌ Erro inesperado no pool do banco:', err.message);
 });
 
-// --- NODEMAILER (CONFIGURAÇÃO BLINDADA PARA RENDER) ---
+// --- NODEMAILER (CONFIGURAÇÃO OTIMIZADA PARA RENDER) ---
 const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 465,
@@ -61,18 +61,16 @@ const transporter = nodemailer.createTransport({
         pass: process.env.EMAIL_PASS
     },
     tls: {
-        // ESSENCIAL: Evita que o Render barre a conexão por certificado
         rejectUnauthorized: false
     },
-    connectionTimeout: 10000, // 10 segundos para conectar
-    greetingTimeout: 10000,
-    socketTimeout: 10000
+    connectionTimeout: 20000, // Aumentado para evitar Timeout no Render
+    greetingTimeout: 20000,
+    socketTimeout: 30000
 });
 
 transporter.verify((error) => {
     if (error) {
         console.log('❌ Erro no Nodemailer:', error.message);
-        console.log('DICA: Verifique se a Senha de App está correta no painel do Render.');
     } else {
         console.log('📧 LARTOP pronto para enviar e-mails!');
     }
@@ -157,7 +155,6 @@ app.post('/api/forgot-password', async (req, res) => {
         await db.query("DELETE FROM password_resets WHERE email = $1", [user.email]);
         await db.query("INSERT INTO password_resets (email, code, expires_at) VALUES ($1, $2, NOW() + interval '15 minutes')", [user.email, resetCode]);
         
-        // Tentativa de envio com tratamento de erro específico
         await transporter.sendMail({
             from: `"LARTOP Suporte" <${process.env.EMAIL_USER}>`,
             to: user.email,
@@ -229,7 +226,7 @@ app.get('/api/professional_profiles/:id', async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Erro ao buscar perfil profissional." }); }
 });
 
-// --- ATUALIZAÇÃO DE PERFIL (SOLUÇÃO BLINDADA PARA NULOS) ---
+// --- ATUALIZAÇÃO DE PERFIL ---
 const handleUpdateUser = async (req, res) => {
     const { nome, telefone, cidade, valor_base, nicho, foto_url, working_days, descricao } = req.body;
     const userId = req.params.id;
@@ -238,10 +235,8 @@ const handleUpdateUser = async (req, res) => {
             "SELECT u.nome, u.telefone, u.cidade, u.foto_url, p.nicho, p.valor_base FROM users u LEFT JOIN professional_profiles p ON u.id = p.user_id WHERE u.id = $1",
             [userId]
         );
-
         if (currentData.rows.length === 0) return res.status(404).json({ error: "Usuário não encontrado." });
         const existing = currentData.rows[0];
-
         const finalNome = nome || existing.nome;
         const finalTelefone = telefone || existing.telefone;
         const finalCidade = cidade || existing.cidade;
@@ -254,7 +249,6 @@ const handleUpdateUser = async (req, res) => {
         if (profCheck.rows.length > 0) {
             const finalNicho = nicho || existing.nicho || 'domestica';
             const finalValor = valor_base !== undefined ? (parseFloat(valor_base) || 0) : existing.valor_base;
-
             await db.query(
                 "UPDATE professional_profiles SET valor_base = $1, nicho = $2, foto_url = $3, working_days = $4, descricao = $5 WHERE user_id = $6", 
                 [finalValor, finalNicho, finalFoto, working_days, descricao || '', userId]
@@ -263,7 +257,7 @@ const handleUpdateUser = async (req, res) => {
         res.json({ message: "Perfil atualizado com sucesso!" });
     } catch (e) {
         console.error("❌ Erro ao atualizar perfil:", e.message);
-        res.status(500).json({ error: "Erro interno no servidor: " + e.message });
+        res.status(500).json({ error: "Erro interno no servidor." });
     }
 };
 
@@ -314,7 +308,24 @@ app.patch('/api/orders/:id', async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Erro ao atualizar pedido." }); }
 });
 
-// --- AVALIAÇÕES ---
+// --- AVALIAÇÕES E COMPATIBILIDADE ---
+
+// Rota de compatibilidade (Resolve o erro 404 no perfil)
+app.get('/api/providers/:id/reviews', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const sql = `
+            SELECT r.*, u.nome as cliente_nome, u.foto_url as cliente_foto 
+            FROM reviews r 
+            JOIN users u ON r.user_id = u.id 
+            WHERE r.provider_id = $1 
+            ORDER BY r.created_at DESC`;
+        const result = await db.query(sql, [id]);
+        res.json(result.rows || []);
+    } catch (e) { 
+        res.status(500).json({ error: "Erro ao buscar avaliações." }); 
+    }
+});
 
 app.post('/api/reviews', async (req, res) => {
     const { provider_id, user_id, rating, comment, order_id } = req.body;
@@ -332,18 +343,16 @@ app.get('/api/reviews/provider/:id', async (req, res) => {
             FROM reviews r
             JOIN users u ON r.user_id = u.id
             WHERE r.provider_id = $1
-            ORDER BY r.created_at DESC
-        `;
+            ORDER BY r.created_at DESC`;
         const result = await db.query(query, [id]);
         res.json(result.rows || []);
     } catch (error) {
-        console.error('Erro ao buscar reviews para dashboard:', error);
         res.status(500).json({ error: 'Erro interno' });
     }
 });
 
-// --- INICIALIZAÇÃO PARA RENDER ---
-const PORT = process.env.PORT || 10000; // Ajustado para porta padrão do Render
+// --- INICIALIZAÇÃO ---
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 LARTOP API Online | Porta: ${PORT}`);
 });
