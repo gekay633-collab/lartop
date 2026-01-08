@@ -32,7 +32,7 @@ cloudinary.config({
 const db = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 10000,
+    connectionTimeoutMillis: 15000, // Aumentado para evitar quedas no Render
     idleTimeoutMillis: 30000,
     max: 20 
 });
@@ -51,7 +51,7 @@ db.on('error', (err) => {
     console.error('❌ Erro inesperado no pool do banco:', err.message);
 });
 
-// --- NODEMAILER (GMAIL SEGURO) ---
+// --- NODEMAILER (CONFIGURAÇÃO BLINDADA PARA RENDER) ---
 const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 465,
@@ -59,12 +59,20 @@ const transporter = nodemailer.createTransport({
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
-    }
+    },
+    tls: {
+        // ESSENCIAL: Evita que o Render barre a conexão por certificado
+        rejectUnauthorized: false
+    },
+    connectionTimeout: 10000, // 10 segundos para conectar
+    greetingTimeout: 10000,
+    socketTimeout: 10000
 });
 
 transporter.verify((error) => {
     if (error) {
-        console.log('❌ Erro no Nodemailer: Verifique a Senha de App no .env');
+        console.log('❌ Erro no Nodemailer:', error.message);
+        console.log('DICA: Verifique se a Senha de App está correta no painel do Render.');
     } else {
         console.log('📧 LARTOP pronto para enviar e-mails!');
     }
@@ -148,6 +156,8 @@ app.post('/api/forgot-password', async (req, res) => {
         const resetCode = Math.floor(100000 + Math.random() * 900000);
         await db.query("DELETE FROM password_resets WHERE email = $1", [user.email]);
         await db.query("INSERT INTO password_resets (email, code, expires_at) VALUES ($1, $2, NOW() + interval '15 minutes')", [user.email, resetCode]);
+        
+        // Tentativa de envio com tratamento de erro específico
         await transporter.sendMail({
             from: `"LARTOP Suporte" <${process.env.EMAIL_USER}>`,
             to: user.email,
@@ -163,8 +173,8 @@ app.post('/api/forgot-password', async (req, res) => {
         });
         res.json({ message: "Código enviado!" });
     } catch (e) { 
-        console.error(e);
-        res.status(500).json({ error: "Falha ao enviar e-mail." }); 
+        console.error("Erro ao enviar email:", e.message);
+        res.status(500).json({ error: "Falha ao enviar e-mail. Verifique sua conexão." }); 
     }
 });
 
@@ -224,7 +234,6 @@ const handleUpdateUser = async (req, res) => {
     const { nome, telefone, cidade, valor_base, nicho, foto_url, working_days, descricao } = req.body;
     const userId = req.params.id;
     try {
-        // 1. Busca os dados atuais para evitar sobrescrever com nulo
         const currentData = await db.query(
             "SELECT u.nome, u.telefone, u.cidade, u.foto_url, p.nicho, p.valor_base FROM users u LEFT JOIN professional_profiles p ON u.id = p.user_id WHERE u.id = $1",
             [userId]
@@ -233,17 +242,14 @@ const handleUpdateUser = async (req, res) => {
         if (currentData.rows.length === 0) return res.status(404).json({ error: "Usuário não encontrado." });
         const existing = currentData.rows[0];
 
-        // 2. Define valores finais (novo valor OU valor que já existe no banco)
         const finalNome = nome || existing.nome;
         const finalTelefone = telefone || existing.telefone;
         const finalCidade = cidade || existing.cidade;
         const finalFoto = foto_url || existing.foto_url;
 
-        // Atualiza a tabela users
         await db.query("UPDATE users SET nome = $1, telefone = $2, cidade = $3, foto_url = $4 WHERE id = $5", 
             [finalNome, finalTelefone, finalCidade, finalFoto, userId]);
         
-        // 3. Atualiza perfil profissional se existir
         const profCheck = await db.query("SELECT id FROM professional_profiles WHERE user_id = $1", [userId]);
         if (profCheck.rows.length > 0) {
             const finalNicho = nicho || existing.nicho || 'domestica';
@@ -308,7 +314,7 @@ app.patch('/api/orders/:id', async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Erro ao atualizar pedido." }); }
 });
 
-// --- AVALIAÇÕES (CORREÇÃO DE DASHBOARD) ---
+// --- AVALIAÇÕES ---
 
 app.post('/api/reviews', async (req, res) => {
     const { provider_id, user_id, rating, comment, order_id } = req.body;
@@ -318,17 +324,6 @@ app.post('/api/reviews', async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Erro ao salvar avaliação." }); }
 });
 
-// Rota 1: Mantida para compatibilidade
-app.get('/api/providers/:id/reviews', async (req, res) => {
-    const sql = `SELECT r.*, u.nome as cliente_nome, u.foto_url as cliente_foto FROM reviews r JOIN users u ON r.user_id = u.id WHERE r.provider_id = $1 ORDER BY r.created_at DESC`;
-    try {
-        const result = await db.query(sql, [req.params.id]);
-        res.json(result.rows || []);
-    } catch (e) { res.status(500).json({ error: "Erro ao buscar avaliações." }); }
-});
-
-// Rota 2 (NOVA): Específica para o ProviderDashboard do Frontend Lartop
-// Retorna o campo 'nome' diretamente, como o React espera.
 app.get('/api/reviews/provider/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -347,8 +342,8 @@ app.get('/api/reviews/provider/:id', async (req, res) => {
     }
 });
 
-// --- INICIALIZAÇÃO OTIMIZADA PARA RENDER ---
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, '0.0.0.0', () => { // O '0.0.0.0' garante que o Render consiga mapear o tráfego externo
+// --- INICIALIZAÇÃO PARA RENDER ---
+const PORT = process.env.PORT || 10000; // Ajustado para porta padrão do Render
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 LARTOP API Online | Porta: ${PORT}`);
 });
