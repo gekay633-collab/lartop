@@ -115,6 +115,10 @@ const Index = () => {
               type="quintal" 
               onClick={() => handleServiceClick('quintal' as ServiceType)} 
             />
+            <ServiceCard 
+              type="manutencao" 
+              onClick={() => handleServiceClick('manutencao' as ServiceType)} 
+            />
           </div>
         </div>
 

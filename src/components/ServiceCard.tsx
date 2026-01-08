@@ -1,4 +1,4 @@
-import { Home, Leaf } from 'lucide-react';
+import { Home, Leaf,Wrench } from 'lucide-react/';
 import { Button } from '@/components/ui/button';
 import { ServiceType } from '@/types';
 
@@ -10,18 +10,25 @@ interface ServiceCardProps {
 const serviceConfig = {
   domestica: {
     icon: Home,
-    title: 'Doméstica / Diarista',
-    description: 'Limpeza completa da sua casa com profissionais de confiança',
+    title: 'Serviços Internos',
+    description: 'Limpeza, organização e cuidados dentro do seu lar',
     color: 'primary',
   },
   quintal: {
     icon: Leaf,
-    title: 'Limpeza de Quintal',
-    description: 'Corte de grama, poda e limpeza de áreas externas',
+    title: 'Serviços Externos',
+    description: 'Manutenção de quintais, jardins, piscinas e fachadas.',
     color: 'secondary',
   },
-};
 
+// ADICIONE ESTE AQUI:
+  manutencao: {
+    icon: Wrench, // Você vai precisar importar o ícone Wrench do 'lucide-react'
+    title: 'Reparos e Técnica',
+    description: 'Eletricistas, encanadores e técnicos em geral.',
+    color: 'accent', // Ou uma cor que você já use no seu tema
+  },
+};
 export function ServiceCard({ type, onClick }: ServiceCardProps) {
   const config = serviceConfig[type];
   const Icon = config.icon;

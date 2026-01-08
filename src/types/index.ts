@@ -10,7 +10,7 @@ export type OrderStatus =
   | 'completed' 
   | 'cancelled';
 
-export type ServiceType = 'domestica' | 'quintal';
+export type ServiceType = 'domestica' | 'quintal'| 'manutencao';
 
 export interface User {
   id: string;

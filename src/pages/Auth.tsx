@@ -6,7 +6,7 @@ import { useApp } from '@/contexts/AppContext';
 import { UserRole, ServiceType } from '@/types';
 import { toast } from 'sonner';
 import { 
-  Home, Leaf, Eye, EyeOff, Loader2, MapPin, 
+  Home, Leaf, Wrench, Eye, EyeOff, Loader2, MapPin, 
   KeyRound, ArrowLeft, Mail, Phone, CheckCircle2, DollarSign 
 } from 'lucide-react';
 import api from '@/api'; 
@@ -45,7 +45,6 @@ const Auth = () => {
     }
     setLoading(true);
     try {
-      // AJUSTE: O backend espera 'identifier' (que pode ser email ou telefone)
       const response = await api.post('/forgot-password', { 
         identifier: email.trim().toLowerCase() 
       });
@@ -69,7 +68,6 @@ const Auth = () => {
     
     setLoading(true);
     try {
-      // O backend espera email, code e newPassword
       await api.post('/reset-password', { 
         email: email.trim().toLowerCase(), 
         code: resetCode, 
@@ -112,7 +110,6 @@ const Auth = () => {
         const userTypeDB = user.tipo; 
         const selectedRole = role === 'client' ? 'cliente' : 'prestador';
 
-        // Validação de tipo de conta (exceto admin)
         if (user.tipo !== 'admin' && userTypeDB !== selectedRole) {
           const msg = role === 'client' 
             ? "Esta conta é de um Prestador. Use a aba 'Sou Prestador'." 
@@ -143,7 +140,6 @@ const Auth = () => {
         if (user.tipo === 'prestador') {
           navigate('/provider-dashboard');
         } else if (user.tipo === 'admin') {
-          // Sua URL que costuma esquecer ;)
           navigate('/admin-lartop-privado');
         } else {
           navigate(selectedService ? `/providers?nicho=${selectedService}` : '/');
@@ -180,12 +176,11 @@ const Auth = () => {
     }
   };
 
-  // RENDERIZAÇÃO DA TELA DE ESQUECEU SENHA
   if (isForgotPassword) {
     return (
       <div className="min-h-screen bg-background">
         <Header showBack={false} title="Recuperar Senha" />
-        <main className="max-w-lg mx-auto px-6 py-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <main className="max-w-lg mx-auto px-6 py-12">
           <button 
             onClick={() => { setIsForgotPassword(false); setForgotStep('request'); }} 
             className="flex items-center gap-2 text-muted-foreground font-black uppercase text-[10px] mb-8 hover:text-primary transition-colors"
@@ -198,9 +193,6 @@ const Auth = () => {
               <KeyRound className="text-primary" size={38} />
             </div>
             <h2 className="text-2xl font-black italic uppercase tracking-tighter">Esqueceu a senha?</h2>
-            <p className="text-sm text-muted-foreground mt-2 font-medium px-4">
-              Enviaremos um código de acesso para o seu e-mail cadastrado.
-            </p>
           </div>
 
           {forgotStep === 'request' ? (
@@ -216,9 +208,7 @@ const Auth = () => {
                     placeholder="seu@email.com"
                     required
                   />
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/30">
-                    <Mail size={18} />
-                  </div>
+                  <Mail className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/30" size={18} />
                 </div>
               </div>
               <Button type="submit" className="w-full py-8 rounded-[28px] font-black uppercase italic tracking-widest text-base shadow-lg shadow-primary/20" disabled={loading}>
@@ -239,17 +229,14 @@ const Auth = () => {
                   required 
                 />
               </div>
-
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase ml-1 text-muted-foreground">Nova senha</label>
                 <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full h-14 bg-muted/50 border-2 border-transparent focus:border-primary rounded-2xl px-4 outline-none font-bold" placeholder="Nova senha" required />
               </div>
-
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase ml-1 text-muted-foreground">Confirme a senha</label>
                 <input type="password" value={newPasswordConfirm} onChange={(e) => setNewPasswordConfirm(e.target.value)} className="w-full h-14 bg-muted/50 border-2 border-transparent focus:border-primary rounded-2xl px-4 outline-none font-bold" placeholder="Confirme a nova senha" required />
               </div>
-
               <Button type="submit" className="w-full py-8 rounded-[28px] font-black uppercase italic tracking-widest text-base shadow-lg shadow-primary/20" disabled={loading}>
                 {loading ? <Loader2 className="animate-spin" /> : 'REDEFINIR SENHA'}
               </Button>
@@ -397,7 +384,8 @@ const Auth = () => {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 animate-in zoom-in-95 duration-300">
+                  {/* GRID ATUALIZADO PARA 3 COLUNAS */}
+                  <div className="grid grid-cols-3 gap-2 animate-in zoom-in-95 duration-300">
                     <button
                       type="button"
                       onClick={() => setServiceType('domestica')}
@@ -406,7 +394,7 @@ const Auth = () => {
                       }`}
                     >
                       <Home size={20} />
-                      <span className="text-[9px] font-black uppercase">Doméstica</span>
+                      <span className="text-[8px] font-black uppercase">Interno</span>
                     </button>
                     <button
                       type="button"
@@ -416,7 +404,18 @@ const Auth = () => {
                       }`}
                     >
                       <Leaf size={20} />
-                      <span className="text-[9px] font-black uppercase">Quintal</span>
+                      <span className="text-[8px] font-black uppercase">Externo</span>
+                    </button>
+                    {/* NOVO CARD: MANUTENÇÃO */}
+                    <button
+                      type="button"
+                      onClick={() => setServiceType('manutencao' as any)}
+                      className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${
+                        serviceType === ('manutencao' as any) ? 'border-primary bg-primary/5 text-primary' : 'border-muted text-muted-foreground opacity-50'
+                      }`}
+                    >
+                      <Wrench size={20} />
+                      <span className="text-[8px] font-black uppercase">Técnico</span>
                     </button>
                   </div>
                 </>
