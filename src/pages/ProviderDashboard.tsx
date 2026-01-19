@@ -48,6 +48,8 @@ const ProviderDashboard = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [quotePrice, setQuotePrice] = useState<{ [key: number]: string }>({});
+  
+  // ESTADO DA AGENDA LARTOP
   const [workingDays, setWorkingDays] = useState<string[]>([]);
   const daysOfWeek = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
   
@@ -57,17 +59,14 @@ const ProviderDashboard = () => {
   const loadOrders = useCallback(async (isSilent = false) => {
     if (!currentUser?.id) return;
     try {
-      // Chamada para o seu servidor Node/Neon
       const response = await api.get(`/orders/provider/${currentUser.id}`);
       const ordersData = Array.isArray(response.data) ? response.data : [];
 
-      // SOMA DE GANHOS (Mantida lógica original)
       const earnings = ordersData
         .filter((o: any) => o.status === 'completed')
         .reduce((acc, o) => acc + Number(o.price || 0), 0);
       setTotalEarnings(earnings);
 
-      // FILTRO DE FILA (Pedidos Ativos)
       const activeOrders = ordersData.filter((o: any) => 
         !['completed', 'cancelled', 'cancelled_rain_confirmed'].includes(o.status)
       );
@@ -84,22 +83,26 @@ const ProviderDashboard = () => {
     }
   }, [currentUser]);
 
-  // CARREGAR PERFIL E REVIEWS VIA NODE
+  // CARREGAR PERFIL E REVIEWS COM SINCRONIZAÇÃO DE AGENDA
   const loadProfileAndReviews = useCallback(async () => {
     if (!currentUser?.id) return;
     try {
-      // Buscando dados do perfil e avaliações do seu servidor
       const [reviewsRes, profileRes] = await Promise.all([
         api.get(`/reviews/provider/${currentUser.id}`),
         api.get(`/professional_profiles/${currentUser.id}`)
       ]);
 
       if (reviewsRes.data) setReviews(reviewsRes.data);
+      
       if (profileRes.data) {
-        const pData = profileRes.data;
+        // Algumas APIs retornam array, outras objeto direto
+        const pData = Array.isArray(profileRes.data) ? profileRes.data[0] : profileRes.data;
         setProfile(pData);
+        
+        // SINCRONIA: Se houver dias no banco, carrega no estado de marcação
         if (pData.working_days) {
-          setWorkingDays(pData.working_days.split(',').filter(Boolean));
+          const daysArray = pData.working_days.split(',').map((d: string) => d.trim()).filter(Boolean);
+          setWorkingDays(daysArray);
         }
       }
     } catch (err) { 
@@ -139,18 +142,13 @@ const ProviderDashboard = () => {
     }
   };
 
-  // UPLOAD DE FOTOS VIA CLOUDINARY (Substituindo Storage do Supabase)
   const handleFileUpload = async (orderId: number, type: 'before' | 'after', file: File) => {
     const uploadKey = `${orderId}-${type}`;
     try {
       setUploadingId(uploadKey);
-      
-      // Envia para o Cloudinary através da função que criamos no seu api.ts
       const photoUrl = await api.uploadPhoto(file);
-
       if (!photoUrl) throw new Error("Falha no upload");
 
-      // Atualiza o pedido no seu banco Neon com a URL do Cloudinary
       await api.patch(`/orders/${orderId}`, { 
         [type === 'before' ? 'photo_before' : 'photo_after']: photoUrl 
       });
@@ -170,13 +168,30 @@ const ProviderDashboard = () => {
     );
   };
 
+  /**
+   * SALVAR AGENDA: Persiste e mantém a marcação visual
+   */
   const saveAgenda = async () => {
+    if (!currentUser?.id) return;
     try {
-      await api.put(`/professional_profiles/${currentUser?.id}`, { 
-        working_days: workingDays.join(',') 
+      const daysString = workingDays.join(',');
+
+      // 1. Salva no banco de dados via PATCH
+      await api.patch(`/professional_profiles/${currentUser.id}`, { 
+        working_days: daysString
       });
-      toast.success("Agenda Lartop atualizada!");
-    } catch (e) { toast.error("Erro ao salvar agenda."); }
+      
+      // 2. Atualiza o estado do profile local para manter a consistência
+      setProfile((prev: any) => ({
+        ...prev,
+        working_days: daysString
+      }));
+
+      toast.success("Agenda Lartop salva com sucesso!");
+    } catch (e) { 
+      console.error("Erro ao salvar agenda Lartop:", e);
+      toast.error("Erro ao salvar agenda."); 
+    }
   };
 
   if (loading && !profile) {
@@ -377,26 +392,38 @@ const ProviderDashboard = () => {
           </div>
         )}
 
-        {/* AGENDA */}
+        {/* AGENDA - CORRIGIDA PARA PERSISTIR MARCAÇÃO */}
         {activeTab === 'agenda' && (
           <div className="bg-card p-6 rounded-[32px] border-2 border-primary/10 shadow-sm">
             <h3 className="font-black uppercase italic text-sm mb-4 flex items-center gap-2">
               <Calendar size={18} className="text-primary" /> Dias de Atendimento
             </h3>
             <div className="grid grid-cols-4 gap-2 mb-8">
-              {daysOfWeek.map(day => (
-                <button
-                  key={day}
-                  onClick={() => toggleDay(day)}
-                  className={`py-3 rounded-2xl font-black text-[10px] uppercase transition-all ${workingDays.includes(day) ? 'bg-primary text-white shadow-lg scale-105' : 'bg-muted text-muted-foreground'}`}
-                >
-                  {day}
-                </button>
-              ))}
+              {daysOfWeek.map(day => {
+                const isSelected = workingDays.includes(day);
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => toggleDay(day)}
+                    className={`py-3 rounded-2xl font-black text-[10px] uppercase transition-all duration-200 ${
+                      isSelected 
+                        ? 'bg-primary text-white shadow-lg scale-105' 
+                        : 'bg-muted text-muted-foreground active:scale-95'
+                    }`}
+                  >
+                    {day}
+                  </button>
+                );
+              })}
             </div>
-            <Button onClick={saveAgenda} className="w-full h-14 rounded-2xl bg-primary font-black uppercase italic tracking-wider">
+            <Button 
+              onClick={saveAgenda} 
+              className="w-full h-14 rounded-2xl bg-primary font-black uppercase italic tracking-wider shadow-md hover:shadow-lg transition-all"
+            >
               Salvar Agenda Lartop
             </Button>
+            <p className="text-[8px] text-center mt-4 text-muted-foreground font-bold uppercase italic">Os dias marcados ficarão ativos no seu perfil público.</p>
           </div>
         )}
       </main>

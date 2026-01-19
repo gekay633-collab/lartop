@@ -132,7 +132,8 @@ const MyOrders = () => {
         ) : (
           <div className="space-y-6">
             {orders.map((order: any) => {
-              const currentPrice = order.price ? Number(order.price) : 0;
+              // CORREÇÃO: Usar parseFloat para garantir leitura de centavos (ex: 0.50)
+              const currentPrice = order.price ? parseFloat(String(order.price)) : 0;
               const isOwner = currentUser.id === order.user_id;
               const safeProvider = order.prestador ? { ...order.prestador, senha: null } : null;
               const providerDisplayName = safeProvider?.nome || "Profissional Lartop";
@@ -141,7 +142,8 @@ const MyOrders = () => {
                 <div key={order.id} className="space-y-3">
                   <OrderCard order={{ ...order, prestador: safeProvider, providerName: providerDisplayName }} />
 
-                  {isOwner && order.status === 'waiting_client' && currentPrice > 0 && (
+                  {/* CORREÇÃO: Removido 'currentPrice > 0' para permitir valores < 1 aparecerem */}
+                  {isOwner && order.status === 'waiting_client' && (
                     <div className="bg-primary/10 p-5 rounded-[2.5rem] border-2 border-primary shadow-xl mx-2">
                       <div className="flex items-center justify-between mb-4 px-2">
                         <div className="flex items-center gap-2">
@@ -177,7 +179,7 @@ const MyOrders = () => {
                   {isOwner && (order.status === 'waiting_confirmation' || order.status === 'waiting_completion') && (
                     <div className="bg-green-600 p-5 rounded-[2.5rem] shadow-xl text-white mx-2">
                       <p className="text-[11px] font-black uppercase italic text-center mb-3">
-                         Confira o resultado final:
+                          Confira o resultado final:
                       </p>
                       
                       <div className="grid grid-cols-2 gap-2 mb-4">
@@ -248,7 +250,7 @@ const MyOrders = () => {
         <DialogContent className="rounded-[2.5rem] w-[92%] mx-auto p-6 bg-white">
           <DialogHeader>
             <DialogTitle className="text-center font-black text-primary uppercase italic text-lg tracking-tight">
-               Avaliar Lartop
+                Avaliar Lartop
             </DialogTitle>
             <DialogDescription className="text-center text-[10px] font-bold text-slate-400 uppercase">
                Sua opinião ajuda a manter a qualidade dos nossos serviços.

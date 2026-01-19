@@ -4,9 +4,12 @@ import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { useApp } from '@/contexts/AppContext';
-import api from '@/api';
+import { api } from '@/api'; // Centralizado no seu Node/Supabase
 import { toast } from 'sonner';
-import { MapPin, Clock, Calendar as CalendarIcon, Loader2, AlertCircle, Camera, FileText, X, Info, CheckCircle2 } from 'lucide-react';
+import { 
+  MapPin, Clock, Calendar as CalendarIcon, Loader2, 
+  AlertCircle, Camera, FileText, X, Info, CheckCircle2 
+} from 'lucide-react';
 
 const Booking = () => {
   const { providerId } = useParams();
@@ -30,7 +33,7 @@ const Booking = () => {
     { label: "Período da Tarde", sub: "Início às 14:00", value: "14:00" }
   ];
 
-  // 1. Carrega dados do prestador
+  // 1. Carrega dados do prestador (Incluindo Working Days)
   useEffect(() => {
     const fetchProvider = async () => {
       if (!providerId) {
@@ -39,7 +42,7 @@ const Booking = () => {
       }
       try {
         setFetchingProvider(true);
-        // Busca via api.ts que já faz o join correto
+        // O endpoint do Node deve retornar o campo working_days do professional_profile
         const res = await api.get(`/api/providers?id=${providerId}`);
         if (res.data && res.data.length > 0) {
           setProvider(res.data[0]);
@@ -47,7 +50,7 @@ const Booking = () => {
           toast.error("Prestador não encontrado.");
         }
       } catch (err) {
-        console.error("Erro ao buscar prestador:", err);
+        console.error("Erro ao buscar prestador Lartop:", err);
       } finally {
         setFetchingProvider(false);
       }
@@ -55,14 +58,13 @@ const Booking = () => {
     fetchProvider();
   }, [providerId]);
 
-  // 2. Checa horários ocupados (Sincronizado com as regras do Lartop)
+  // 2. Checa horários ocupados
   useEffect(() => {
     const checkBookedSlots = async () => {
       if (!date || !providerId) return;
       
       try {
         const formattedDate = date.toISOString().split('T')[0];
-        // Busca pedidos do prestador via Supabase (definido no api.ts)
         const res = await api.get(`/api/service_orders?provider_id=eq.${providerId}`);
         
         const dayOrders = res.data.filter((order: any) => {
@@ -70,7 +72,6 @@ const Booking = () => {
                  ['pending', 'accepted', 'in_progress', 'waiting_confirmation'].includes(order.status);
         });
         
-        // Normaliza o formato da hora para bater com o shifts.value
         setOccupiedSlots(dayOrders.map((o: any) => o.time.substring(0, 5)));
       } catch (err) {
         console.error("Erro ao checar horários ocupados", err);
@@ -101,7 +102,6 @@ const Booking = () => {
     e.target.value = ''; 
   };
 
-  // 3. LOGICA DE ENVIO REFINADA
   const handleConfirmBooking = async () => {
     if (!currentUser) {
       toast.error("Acesse sua conta para agendar.");
@@ -125,7 +125,6 @@ const Booking = () => {
 
     try {
       setLoading(true);
-
       const formattedDate = date.toISOString().split('T')[0];
 
       const bookingData = {
@@ -136,13 +135,11 @@ const Booking = () => {
         time: time,
         address: address,
         description_request: description,
-        // Enviamos o array puro, o api.ts ou o Backend cuidam do JSON.stringify
         photos_request: photos, 
         price: Number(provider?.valor_base) || 0,
         status: 'pending'
       };
 
-      // O api.post('/api/orders') agora vai para o NODE (ajustado no seu api.ts)
       await api.post('/api/orders', bookingData);
       
       toast.success("Solicitação enviada com sucesso!");
@@ -150,7 +147,7 @@ const Booking = () => {
       
     } catch (error: any) {
       console.error("Erro no agendamento Lartop:", error);
-      toast.error("Erro ao processar agendamento. Tente novamente.");
+      toast.error("Erro ao processar agendamento.");
     } finally {
       setLoading(false);
     }
@@ -170,16 +167,32 @@ const Booking = () => {
       <Header title="Solicitar Orçamento" showBack />
       <main className="max-w-lg mx-auto px-4 py-6 space-y-8">
         
-        {/* Card do Prestador */}
-        <section className="bg-primary/5 border border-primary/20 rounded-[2rem] p-5 shadow-sm">
-          <div className="flex justify-between items-start mb-2">
-            <h2 className="font-black text-lg uppercase tracking-tighter text-foreground italic">
+        {/* Card do Prestador Lartop Atualizado */}
+        <section className="bg-primary/5 border border-primary/20 rounded-[2rem] p-6 shadow-sm">
+          <div className="flex justify-between items-start mb-1">
+            <h2 className="font-black text-2xl uppercase tracking-tighter text-foreground italic">
               {fetchingProvider ? "Carregando..." : provider?.nome}
             </h2>
             <div className="bg-primary text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1">
               <CheckCircle2 size={12} /> VERIFICADO
             </div>
           </div>
+
+          {/* EXIBIÇÃO DA AGENDA DO PRESTADOR */}
+          {provider?.working_days && (
+            <div className="flex flex-wrap gap-1.5 mb-4 mt-1">
+              <div className="flex items-center gap-1.5 mr-1">
+                <CalendarIcon size={12} className="text-primary" />
+                <span className="text-[9px] font-black uppercase text-muted-foreground italic">Atendimento:</span>
+              </div>
+              {provider.working_days.split(',').map((day: string) => (
+                <span key={day} className="bg-white border border-primary/20 text-primary text-[9px] font-black px-2 py-0.5 rounded-md uppercase italic shadow-sm">
+                  {day.trim()}
+                </span>
+              ))}
+            </div>
+          )}
+
           <p className="text-[11px] font-bold text-muted-foreground flex items-center gap-2 uppercase italic">
             <Info size={14} className="text-primary" />
             Trabalhos de ~3h a 4h por turno.

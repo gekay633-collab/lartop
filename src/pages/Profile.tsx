@@ -26,6 +26,9 @@ const Profile = () => {
   const [nicho, setNicho] = useState('');
   const [descricao, setDescricao] = useState('');
   
+  // PROTEÇÃO DA AGENDA: Armazena os dias atuais para não apagá-los ao salvar o perfil
+  const [currentWorkingDays, setCurrentWorkingDays] = useState('');
+  
   const [isSaving, setIsSaving] = useState(false);
   const [portfolioPhotos, setPortfolioPhotos] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'perfil' | 'portfolio'>('perfil');
@@ -42,7 +45,7 @@ const Profile = () => {
     if (!user?.id) return;
     try {
       if (isProvider) {
-        // Busca portfólio baseado em ordens (usa a rota interceptada pelo api.ts)
+        // Busca portfólio baseado em ordens
         const portfolioRes = await api.get(`/orders/provider/${user.id}`);
         const completedOrders = Array.isArray(portfolioRes.data) 
           ? portfolioRes.data.filter((o: any) => o.status === 'completed')
@@ -73,7 +76,6 @@ const Profile = () => {
 
     const loadProfessionalInfo = async () => {
         try {
-          // A API index.ts agora intercepta esta rota para evitar 404/500
           const response = await api.get(`/professional_profiles/${user.id}`);
           const data = Array.isArray(response.data) ? response.data[0] : response.data;
           
@@ -81,6 +83,8 @@ const Profile = () => {
               setValorBase(data.valor_base?.toString() || '');
               setNicho(data.nicho || '');
               setDescricao(data.descricao || '');
+              // CRÍTICO: Guarda a agenda atual na memória
+              setCurrentWorkingDays(data.working_days || '');
           }
         } catch (e) {
           console.log("Perfil profissional ainda não criado.");
@@ -115,7 +119,6 @@ const Profile = () => {
 
     try {
       // 1. Atualiza dados básicos do usuário
-      // O index.ts redirecionará /users/ID para /providers/ID se necessário e limpará campos sensíveis
       await api.put(`/users/${user.id}`, { 
         nome, 
         telefone, 
@@ -124,15 +127,16 @@ const Profile = () => {
       });
 
       if (isProvider) {
-        // 2. Atualiza dados profissionais
+        // 2. Atualiza dados profissionais (INCLUINDO A AGENDA PRESERVADA)
         await api.put(`/professional_profiles/${user.id}`, {
           nicho,
           valor_base: parseFloat(valor_base) || 0,
-          descricao
+          descricao,
+          working_days: currentWorkingDays // <--- Isso evita que a agenda suma!
         });
       }
 
-      // Atualiza o contexto global para refletir as mudanças na interface
+      // Atualiza o contexto global
       setCurrentUser({ 
           ...user, 
           nome, telefone, cidade, foto_url,

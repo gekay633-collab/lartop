@@ -259,7 +259,43 @@ const handleUpdateUser = async (req, res) => {
         res.status(500).json({ error: "Erro interno no servidor." });
     }
 };
+// Rota específica para atualizar campos do perfil (Agenda, Bio, etc) sem apagar nada
+app.patch('/api/professional_profiles/:id', async (req, res) => {
+    const userId = req.params.id;
+    const fields = req.body; // Ex: { working_days: 'Seg,Ter' }
+    
+    if (Object.keys(fields).length === 0) {
+        return res.status(400).json({ error: "Nenhum campo para atualizar." });
+    }
 
+    try {
+        const sets = [];
+        const params = [];
+        let count = 1;
+
+        for (const key in fields) {
+            // Lista de campos permitidos para evitar SQL Injection ou updates indevidos
+            if (['working_days', 'descricao', 'valor_base', 'nicho', 'foto_url', 'status'].includes(key)) {
+                sets.push(`${key} = $${count++}`);
+                params.push(fields[key]);
+            }
+        }
+
+        params.push(userId);
+        const sql = `UPDATE professional_profiles SET ${sets.join(', ')} WHERE user_id = $${count}`;
+        
+        const result = await db.query(sql, params);
+        
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: "Perfil não encontrado." });
+        }
+
+        res.json({ message: "Perfil Lartop atualizado com sucesso!" });
+    } catch (e) {
+        console.error("Erro PATCH profile:", e.message);
+        res.status(500).json({ error: "Erro interno ao atualizar perfil." });
+    }
+});
 app.put('/api/users/:id', handleUpdateUser);
 app.put('/api/providers/:id', handleUpdateUser);
 
