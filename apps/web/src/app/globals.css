@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --color-sauge-50: #F7F9F1;
+  --color-sauge-100: #EEF2E4;
+  --color-sauge-200: #DDE6C8;
+  --color-pinho-900: #1F3524;
+  --color-pinho-700: #2B4A33;
+  --color-relva-500: #6FA33B;
+  --color-relva-600: #598A2E;
+  --color-terra-500: #8C5A34;
+  --color-terra-600: #714628;
+  --color-areia-300: #D8CFB0;
+  --color-areia-200: #E8E1CB;
+
+  --font-display: "Fraunces Variable", serif;
+  --font-body: "Work Sans Variable", sans-serif;
+  --font-data: "IBM Plex Mono", monospace;
+}
+
+body {
+  background: var(--color-sauge-50);
+  color: var(--color-pinho-900);
+  font-family: var(--font-body);
+}
+
+.textura-gramado {
+  background-image: repeating-linear-gradient(
+    100deg,
+    var(--color-relva-500) 0px,
+    var(--color-relva-500) 64px,
+    var(--color-relva-600) 64px,
+    var(--color-relva-600) 128px
+  );
+}
+
+.textura-gramado-sutil {
+  background-image: repeating-linear-gradient(
+    100deg,
+    var(--color-sauge-100) 0px,
+    var(--color-sauge-100) 48px,
+    var(--color-sauge-200) 48px,
+    var(--color-sauge-200) 96px
+  );
+}

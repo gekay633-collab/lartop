@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lartop-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lartop
+      POSTGRES_PASSWORD: lartop_dev_password
+      POSTGRES_DB: lartop
+    ports:
+      - "5433:5432"
+    volumes:
+      - lartop_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lartop"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: lartop-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - lartop_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  lartop_pg_data:
+  lartop_redis_data:

@@ -1,0 +1,19 @@
+{
+  "name": "lartop",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev:api": "pnpm --filter @lartop/api dev",
+    "dev:web": "pnpm --filter @lartop/web dev",
+    "dev:worker": "pnpm --filter @lartop/worker dev",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "db:migrate": "pnpm --filter @lartop/api prisma migrate dev",
+    "db:studio": "pnpm --filter @lartop/api prisma studio",
+    "db:generate": "pnpm --filter @lartop/api prisma generate"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

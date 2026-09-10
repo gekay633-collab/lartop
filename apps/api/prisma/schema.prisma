@@ -1,0 +1,240 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+enum TipoUsuario {
+  CLIENTE
+  PROFISSIONAL
+  ADMIN
+}
+
+enum PlanoProfissional {
+  GRATUITO
+  PAGO
+}
+
+enum StatusSolicitacao {
+  PENDENTE
+  RESPONDIDA
+  ACEITA
+  RECUSADA
+  CONCLUIDA
+  CANCELADA
+}
+
+enum TipoAvaliacao {
+  CLIENTE_AVALIA_PROFISSIONAL
+  PROFISSIONAL_AVALIA_CLIENTE
+}
+
+model Usuario {
+  id               String      @id @default(uuid())
+  email            String      @unique
+  senhaHash        String      @map("senha_hash")
+  tipo             TipoUsuario
+  nome             String
+  telefone         String?
+  telefoneVerificado Boolean   @default(false) @map("telefone_verificado")
+  emailVerificado  Boolean     @default(false) @map("email_verificado")
+  ativo            Boolean     @default(true)
+  criadoEm         DateTime    @default(now()) @map("criado_em")
+  atualizadoEm     DateTime    @updatedAt @map("atualizado_em")
+
+  perfilProfissional PerfilProfissional?
+  solicitacoesFeitas SolicitacaoOrcamento[] @relation("ClienteSolicitacoes")
+  avaliacoesFeitas   Avaliacao[]            @relation("AvaliadorAvaliacoes")
+  avaliacoesRecebidas Avaliacao[]           @relation("AvaliadoAvaliacoes")
+  refreshTokens      RefreshToken[]
+
+  @@map("usuarios")
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  usuarioId  String   @map("usuario_id")
+  tokenHash  String   @map("token_hash")
+  revogado   Boolean  @default(false)
+  expiraEm   DateTime @map("expira_em")
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("refresh_tokens")
+}
+
+model Cidade {
+  id       String  @id @default(uuid())
+  nome     String
+  estado   String
+  slug     String  @unique
+  lat      Float
+  lng      Float
+
+  ceps               Cep[]
+  perfisProfissionais PerfilProfissional[]
+
+  @@index([estado])
+  @@map("cidades")
+}
+
+model Cep {
+  cep      String  @id
+  cidadeId String  @map("cidade_id")
+  lat      Float
+  lng      Float
+
+  cidade Cidade @relation(fields: [cidadeId], references: [id])
+
+  @@index([cidadeId])
+  @@map("ceps")
+}
+
+model Categoria {
+  id    String  @id @default(uuid())
+  nome  String
+  slug  String  @unique
+  ativo Boolean @default(true)
+
+  profissionais ProfissionalCategoria[]
+  solicitacoes  SolicitacaoOrcamento[]
+
+  @@map("categorias")
+}
+
+model PerfilProfissional {
+  usuarioId        String   @id @map("usuario_id")
+  nomeExibicao     String   @map("nome_exibicao")
+  bio              String?
+  fotoPerfilUrl    String?  @map("foto_perfil_url")
+  cepBase          String   @map("cep_base")
+  cidadeId         String   @map("cidade_id")
+  lat              Float
+  lng              Float
+  raioAtendimentoKm Int     @default(15) @map("raio_atendimento_km")
+  seloVerificado   Boolean  @default(false) @map("selo_verificado")
+  notaMedia        Float    @default(0) @map("nota_media")
+  totalAvaliacoes  Int      @default(0) @map("total_avaliacoes")
+  plano            PlanoProfissional @default(GRATUITO)
+  perfilPublicado  Boolean  @default(false) @map("perfil_publicado")
+  criadoEm         DateTime @default(now()) @map("criado_em")
+  atualizadoEm     DateTime @updatedAt @map("atualizado_em")
+
+  usuario     Usuario                  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  cidade      Cidade                   @relation(fields: [cidadeId], references: [id])
+  categorias  ProfissionalCategoria[]
+  fotos       FotoPortfolio[]
+  solicitacoes SolicitacaoOrcamento[]  @relation("ProfissionalSolicitacoes")
+
+  @@index([cidadeId])
+  @@index([lat, lng])
+  @@map("perfis_profissionais")
+}
+
+model ProfissionalCategoria {
+  id             String  @id @default(uuid())
+  profissionalId String  @map("profissional_id")
+  categoriaId    String  @map("categoria_id")
+  valorReferencia Float? @map("valor_referencia")
+
+  profissional PerfilProfissional @relation(fields: [profissionalId], references: [usuarioId], onDelete: Cascade)
+  categoria    Categoria          @relation(fields: [categoriaId], references: [id])
+
+  @@unique([profissionalId, categoriaId])
+  @@map("profissional_categorias")
+}
+
+model FotoPortfolio {
+  id             String  @id @default(uuid())
+  profissionalId String  @map("profissional_id")
+  urlAntes       String? @map("url_antes")
+  urlDepois      String  @map("url_depois")
+  descricao      String?
+  criadoEm       DateTime @default(now()) @map("criado_em")
+
+  profissional PerfilProfissional @relation(fields: [profissionalId], references: [usuarioId], onDelete: Cascade)
+
+  @@index([profissionalId])
+  @@map("fotos_portfolio")
+}
+
+model SolicitacaoOrcamento {
+  id             String            @id @default(uuid())
+  clienteId      String            @map("cliente_id")
+  profissionalId String            @map("profissional_id")
+  categoriaId    String            @map("categoria_id")
+  cep            String
+  endereco       String
+  tamanhoM2      Float             @map("tamanho_m2")
+  descricao      String?
+  fotos          String[]          @default([])
+  status         StatusSolicitacao @default(PENDENTE)
+  criadoEm       DateTime          @default(now()) @map("criado_em")
+  atualizadoEm   DateTime          @updatedAt @map("atualizado_em")
+
+  cliente      Usuario            @relation("ClienteSolicitacoes", fields: [clienteId], references: [id])
+  profissional PerfilProfissional @relation("ProfissionalSolicitacoes", fields: [profissionalId], references: [usuarioId])
+  categoria    Categoria          @relation(fields: [categoriaId], references: [id])
+  avaliacoes   Avaliacao[]
+
+  @@index([clienteId])
+  @@index([profissionalId])
+  @@index([status])
+  @@map("solicitacoes_orcamento")
+}
+
+model Avaliacao {
+  id             String        @id @default(uuid())
+  solicitacaoId  String        @map("solicitacao_id")
+  avaliadorId    String        @map("avaliador_id")
+  avaliadoId     String        @map("avaliado_id")
+  tipo           TipoAvaliacao
+  nota           Int
+  comentario     String?
+  criadoEm       DateTime      @default(now()) @map("criado_em")
+
+  solicitacao SolicitacaoOrcamento @relation(fields: [solicitacaoId], references: [id])
+  avaliador   Usuario              @relation("AvaliadorAvaliacoes", fields: [avaliadorId], references: [id])
+  avaliado    Usuario              @relation("AvaliadoAvaliacoes", fields: [avaliadoId], references: [id])
+
+  @@unique([solicitacaoId, avaliadorId])
+  @@index([avaliadoId])
+  @@map("avaliacoes")
+}
+
+enum TipoEvento {
+  PESQUISA
+  VISUALIZACAO_PERFIL
+  CONTATO_GERADO
+}
+
+model EventoAnalytics {
+  id            String     @id @default(uuid())
+  tipo          TipoEvento
+  cidadeId      String?    @map("cidade_id")
+  categoriaId   String?    @map("categoria_id")
+  profissionalId String?   @map("profissional_id")
+  criadoEm      DateTime   @default(now()) @map("criado_em")
+
+  @@index([tipo, cidadeId, categoriaId])
+  @@index([criadoEm])
+  @@map("eventos_analytics")
+}
+
+model TokenRecuperacaoSenha {
+  id         String   @id @default(uuid())
+  usuarioId  String   @map("usuario_id")
+  tokenHash  String   @map("token_hash")
+  usado      Boolean  @default(false)
+  expiraEm   DateTime @map("expira_em")
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  @@index([usuarioId])
+  @@map("tokens_recuperacao_senha")
+}
