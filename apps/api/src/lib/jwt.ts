@@ -7,8 +7,8 @@ interface PayloadAccessToken {
 
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET as string;
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET as string;
-const ACCESS_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES_IN ?? '15m';
-const REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN ?? '30d';
+const ACCESS_EXPIRES_IN = (process.env.JWT_ACCESS_EXPIRES_IN ?? '15m') as jwt.SignOptions['expiresIn'];
+const REFRESH_EXPIRES_IN = (process.env.JWT_REFRESH_EXPIRES_IN ?? '30d') as jwt.SignOptions['expiresIn'];
 
 if (!ACCESS_SECRET || !REFRESH_SECRET) {
   throw new Error('JWT secrets nao configurados no .env');

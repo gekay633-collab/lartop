@@ -47,7 +47,7 @@ async function consultarNominatim(query: string): Promise<{ lat: number; lng: nu
 
     if (!resposta.ok) return null;
 
-    const resultados: ResultadoNominatim[] = await resposta.json();
+    const resultados = (await resposta.json()) as ResultadoNominatim[];
     if (resultados.length === 0) return null;
 
     return { lat: parseFloat(resultados[0].lat), lng: parseFloat(resultados[0].lon) };
@@ -57,7 +57,6 @@ async function consultarNominatim(query: string): Promise<{ lat: number; lng: nu
 }
 
 async function geocodificarEndereco(dados: RespostaViaCep): Promise<{ lat: number; lng: number } | null> {
-  // Nivel 1: endereco completo (rua + bairro + cidade)
   if (dados.logradouro) {
     const queryCompleta = [dados.logradouro, dados.bairro, dados.localidade, dados.uf, 'Brasil']
       .filter(Boolean)
@@ -66,14 +65,12 @@ async function geocodificarEndereco(dados: RespostaViaCep): Promise<{ lat: numbe
     if (resultado) return resultado;
   }
 
-  // Nivel 2: so bairro + cidade (mais generico, mas ainda mais preciso que o centro da cidade)
   if (dados.bairro) {
     const queryBairro = [dados.bairro, dados.localidade, dados.uf, 'Brasil'].filter(Boolean).join(', ');
     const resultado = await consultarNominatim(queryBairro);
     if (resultado) return resultado;
   }
 
-  // Nivel 3: nao encontrou nada, retorna null (fora chama o fallback do centro da cidade)
   return null;
 }
 
@@ -96,7 +93,7 @@ export async function resolverCep(cepBruto: string) {
     throw new CepInvalidoError('Nao foi possivel consultar o CEP no momento');
   }
 
-  const dados: RespostaViaCep = await resposta.json();
+  const dados = (await resposta.json()) as RespostaViaCep;
   if (dados.erro) {
     throw new CepInvalidoError('CEP nao existe');
   }
