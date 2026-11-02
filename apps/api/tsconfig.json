@@ -16,8 +16,7 @@
     "declaration": false,
     "sourceMap": true,
     "noImplicitAny": false,
-    "noEmitOnError": false,
-    "suppressImplicitAnyIndexErrors": true
+    "noEmitOnError": false
   },
   "include": [
     "src"
