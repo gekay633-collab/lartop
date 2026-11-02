@@ -215,8 +215,12 @@ export async function obterOfertaDemanda() {
     }),
   ]);
 
-  const mapaCidades = new Map(cidades.map((c) => [c.id, c]));
-  const mapaCategorias = new Map(categorias.map((c) => [c.id, c]));
+  const mapaCidades = new Map<string, (typeof cidades)[number]>(
+    cidades.map((cidade) => [cidade.id, cidade] as const),
+  );
+  const mapaCategorias = new Map<string, (typeof categorias)[number]>(
+    categorias.map((categoria) => [categoria.id, categoria] as const),
+  );
 
   const mapaPrestadores = new Map<string, number>();
   prestadoresPorCidadeCategoria.forEach((pc) => {
@@ -224,8 +228,12 @@ export async function obterOfertaDemanda() {
     mapaPrestadores.set(chave, (mapaPrestadores.get(chave) ?? 0) + 1);
   });
 
-  const mapaPesquisas = new Map(pesquisas.map((p) => [`${p.cidadeId}::${p.categoriaId}`, p._count.id]));
-  const mapaContatos = new Map(contatos.map((c) => [`${c.cidadeId}::${c.categoriaId}`, c._count.id]));
+  const mapaPesquisas = new Map<string, number>(
+    pesquisas.map((pesquisa) => [`${pesquisa.cidadeId}::${pesquisa.categoriaId}`, pesquisa._count.id] as const),
+  );
+  const mapaContatos = new Map<string, number>(
+    contatos.map((contato) => [`${contato.cidadeId}::${contato.categoriaId}`, contato._count.id] as const),
+  );
 
   const linhas = [...chaves].map((chave) => {
     const [cidadeId, categoriaId] = chave.split('::');
