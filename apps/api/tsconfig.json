@@ -15,7 +15,9 @@
     "resolveJsonModule": true,
     "declaration": false,
     "sourceMap": true,
-    "noImplicitAny": false
+    "noImplicitAny": false,
+    "noEmitOnError": false,
+    "suppressImplicitAnyIndexErrors": true
   },
   "include": [
     "src"
