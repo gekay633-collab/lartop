@@ -44,7 +44,7 @@ export async function buscarProfissionais(params: {
   return dados;
 }
 
-export function ehErroApi(dados: RespostaBusca | ErroApi): dados is ErroApi {
+export function ehErroApi<T>(dados: T | ErroApi): dados is ErroApi {
   return "erro" in dados;
 }
 
