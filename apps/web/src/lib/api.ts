@@ -1,4 +1,10 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
+// No deploy, usar a URL configurada para a API ou a origem da Vercel,
+ // que encaminha /api/* para o serviço de backend.
+const apiUrlConfigurada = process.env.NEXT_PUBLIC_API_URL?.trim();
+const API_URL = (
+  apiUrlConfigurada ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3333")
+).replace(/\/+$/, "");
 
 export interface ProfissionalResultado {
   usuarioId: string;
@@ -27,6 +33,40 @@ export interface ErroApi {
   erro: string;
 }
 
+const MENSAGEM_API_INDISPONIVEL =
+  "Não foi possível consultar os profissionais agora. Tente novamente em instantes.";
+
+async function consultarApi<T extends object>(caminho: string): Promise<T | ErroApi> {
+  try {
+    const resposta = await fetch(`${API_URL}${caminho}`, { cache: "no-store" });
+    const tipoConteudo = resposta.headers.get("content-type") ?? "";
+
+    if (!tipoConteudo.includes("application/json")) {
+      console.error("[api] Resposta não JSON:", caminho.split("?")[0], resposta.status);
+      return { erro: MENSAGEM_API_INDISPONIVEL };
+    }
+
+    const dados: unknown = await resposta.json();
+
+    if (!dados || typeof dados !== "object" || Array.isArray(dados)) {
+      console.error("[api] Resposta JSON inválida:", caminho.split("?")[0]);
+      return { erro: MENSAGEM_API_INDISPONIVEL };
+    }
+
+    if (!resposta.ok) {
+      const mensagem = "erro" in dados && typeof dados.erro === "string"
+        ? dados.erro
+        : MENSAGEM_API_INDISPONIVEL;
+      return { erro: mensagem };
+    }
+
+    return dados as T;
+  } catch (erro) {
+    console.error("[api] Falha de conexão:", caminho.split("?")[0], erro);
+    return { erro: MENSAGEM_API_INDISPONIVEL };
+  }
+}
+
 export async function buscarProfissionais(params: {
   cep: string;
   categoria?: string;
@@ -36,11 +76,14 @@ export async function buscarProfissionais(params: {
   if (params.categoria) query.set("categoria", params.categoria);
   if (params.raioKm) query.set("raioKm", String(params.raioKm));
 
-  const resposta = await fetch(`${API_URL}/api/profissionais/buscar?${query.toString()}`, {
-    cache: "no-store",
-  });
+  const dados = await consultarApi<RespostaBusca>(`/api/profissionais/buscar?${query.toString()}`);
+  if (ehErroApi(dados)) return dados;
 
-  const dados = await resposta.json();
+  if (!Array.isArray(dados.resultados) || typeof dados.cidadeId !== "string") {
+    console.error("[api] Estrutura inesperada na busca por CEP");
+    return { erro: MENSAGEM_API_INDISPONIVEL };
+  }
+
   return dados;
 }
 
@@ -84,16 +127,31 @@ export interface Avaliacao {
 }
 
 export async function obterPerfilPublico(id: string): Promise<PerfilPublico | ErroApi> {
-  const API_URL_LOCAL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
-  const resposta = await fetch(`${API_URL_LOCAL}/api/profissionais/${id}`, { cache: "no-store" });
-  return resposta.json();
+  const perfil = await consultarApi<PerfilPublico>(`/api/profissionais/${encodeURIComponent(id)}`);
+  if (ehErroApi(perfil)) return perfil;
+
+  if (!perfil.cidade || !Array.isArray(perfil.categorias) || !Array.isArray(perfil.fotos)) {
+    console.error("[api] Estrutura inesperada no perfil público");
+    return { erro: MENSAGEM_API_INDISPONIVEL };
+  }
+
+  return perfil;
 }
 
 export async function listarAvaliacoes(id: string): Promise<Avaliacao[]> {
-  const API_URL_LOCAL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
-  const resposta = await fetch(`${API_URL_LOCAL}/api/profissionais/${id}/avaliacoes`, { cache: "no-store" });
-  if (!resposta.ok) return [];
-  return resposta.json();
+  try {
+    const resposta = await fetch(
+      `${API_URL}/api/profissionais/${encodeURIComponent(id)}/avaliacoes`,
+      { cache: "no-store" }
+    );
+    if (!resposta.ok) return [];
+
+    const dados: unknown = await resposta.json();
+    return Array.isArray(dados) ? (dados as Avaliacao[]) : [];
+  } catch (erro) {
+    console.error("[api] Falha ao consultar avaliações:", erro);
+    return [];
+  }
 }
 
 export interface RespostaBuscaCidade {
@@ -110,13 +168,22 @@ export async function buscarProfissionaisPorCidade(params: {
   cidadeSlug: string;
   categoria?: string;
 }): Promise<RespostaBuscaCidade | ErroApi> {
-  const API_URL_LOCAL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
   const query = new URLSearchParams();
   if (params.categoria) query.set("categoria", params.categoria);
 
-  const resposta = await fetch(
-    `${API_URL_LOCAL}/api/cidades/${params.estado}/${params.cidadeSlug}/profissionais?${query.toString()}`,
-    { cache: "no-store" }
+  const resultado = await consultarApi<RespostaBuscaCidade>(
+    `/api/cidades/${encodeURIComponent(params.estado)}/${encodeURIComponent(params.cidadeSlug)}/profissionais?${query.toString()}`
   );
-  return resposta.json();
+  if (ehErroApi(resultado)) return resultado;
+
+  if (
+    !resultado.cidade ||
+    typeof resultado.cidade.nome !== "string" ||
+    !Array.isArray(resultado.resultados)
+  ) {
+    console.error("[api] Estrutura inesperada na busca por cidade");
+    return { erro: MENSAGEM_API_INDISPONIVEL };
+  }
+
+  return resultado;
 }
