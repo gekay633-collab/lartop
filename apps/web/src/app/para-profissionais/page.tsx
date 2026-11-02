@@ -6,7 +6,7 @@ import { Cabecalho } from "@/components/Cabecalho";
 import { Rodape } from "@/components/Rodape";
 import { salvarSessao, type SessaoLocal } from "@/lib/auth-client";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
+
 
 export default function ParaProfissionaisPage() {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function ParaProfissionaisPage() {
     setErro("");
     setCarregando(true);
     try {
-      const resposta = await fetch(`${API_URL}/api/auth/registrar/profissional`, {
+      const resposta = await fetch(`/api/auth/registrar/profissional`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

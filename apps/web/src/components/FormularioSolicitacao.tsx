@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { obterSessao, entrar, registrarComoCliente, type SessaoLocal } from "@/lib/auth-client";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
+
 
 interface Categoria {
   id: string;
@@ -103,7 +103,7 @@ function FormularioPedido({ profissionalId, profissionalNome, categorias, access
     setErro("");
     setCarregando(true);
     try {
-      const resposta = await fetch(`${API_URL}/api/solicitacoes`, {
+      const resposta = await fetch(`/api/solicitacoes`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ profissionalId, categoriaId, cep: cep.replace(/\D/g, ""), endereco, tamanhoM2: Number(tamanhoM2), descricao: descricao || undefined }),

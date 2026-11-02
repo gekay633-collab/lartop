@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useGuardaAdmin } from "@/components/GuardaAdmin";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
+
 
 interface Dashboard {
   hoje: { novosClientes: number; novosPrestadores: number; solicitacoes: number };
@@ -33,7 +33,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (!sessao) return;
-    fetch(`${API_URL}/api/admin/dashboard`, { headers: { Authorization: `Bearer ${sessao.accessToken}` } })
+    fetch(`/api/admin/dashboard`, { headers: { Authorization: `Bearer ${sessao.accessToken}` } })
       .then((r) => r.json())
       .then(setDados);
   }, [sessao]);

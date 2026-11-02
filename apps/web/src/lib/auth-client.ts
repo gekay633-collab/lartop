@@ -4,7 +4,7 @@ const CHAVE_TOKEN = "lartop_access_token";
 const CHAVE_TIPO = "lartop_tipo_usuario";
 const CHAVE_NOME = "lartop_nome_usuario";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
+
 
 export interface SessaoLocal {
   accessToken: string;
@@ -34,7 +34,7 @@ export function limparSessao() {
 }
 
 async function buscarUsuarioLogado(accessToken: string): Promise<{ nome: string; tipo: SessaoLocal["tipo"] }> {
-  const resposta = await fetch(`${API_URL}/api/usuarios/mim`, {
+  const resposta = await fetch(`/api/usuarios/mim`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   const dados = await resposta.json();
@@ -42,7 +42,7 @@ async function buscarUsuarioLogado(accessToken: string): Promise<{ nome: string;
 }
 
 export async function entrar(email: string, senha: string): Promise<SessaoLocal> {
-  const resposta = await fetch(`${API_URL}/api/auth/login`, {
+  const resposta = await fetch(`/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -61,7 +61,7 @@ export async function entrar(email: string, senha: string): Promise<SessaoLocal>
 }
 
 export async function registrarComoCliente(input: { nome: string; email: string; senha: string; telefone?: string }): Promise<SessaoLocal> {
-  const resposta = await fetch(`${API_URL}/api/auth/registrar/cliente`, {
+  const resposta = await fetch(`/api/auth/registrar/cliente`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",

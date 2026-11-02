@@ -1,10 +1,9 @@
-// No deploy, usar a URL configurada para a API ou a origem da Vercel,
- // que encaminha /api/* para o serviço de backend.
-const apiUrlConfigurada = process.env.NEXT_PUBLIC_API_URL?.trim();
-const API_URL = (
-  apiUrlConfigurada ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3333")
-).replace(/\/+$/, "");
+// Apenas chamadas no servidor: no navegador, use /api/* (mesma origem).
+const BACKEND_PADRAO =
+  process.env.NODE_ENV === "production"
+    ? "https://lartop-production.up.railway.app"
+    : "http://localhost:3333";
+const API_URL = (process.env.API_BACKEND_URL?.trim() || BACKEND_PADRAO).replace(/\/+$/, "");
 
 export interface ProfissionalResultado {
   usuarioId: string;

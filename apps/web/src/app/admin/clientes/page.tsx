@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useGuardaAdmin } from "@/components/GuardaAdmin";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
+
 
 interface Cliente {
   id: string;
@@ -24,7 +24,7 @@ export default function AdminClientesPage() {
     if (!sessao) return;
     const query = new URLSearchParams();
     if (busca) query.set("busca", busca);
-    const resposta = await fetch(`${API_URL}/api/admin/clientes?${query.toString()}`, {
+    const resposta = await fetch(`/api/admin/clientes?${query.toString()}`, {
       headers: { Authorization: `Bearer ${sessao.accessToken}` },
     });
     const dados = await resposta.json();
@@ -37,7 +37,7 @@ export default function AdminClientesPage() {
 
   async function alternarBloqueio(id: string, ativo: boolean) {
     if (!sessao) return;
-    await fetch(`${API_URL}/api/admin/usuarios/${id}/bloqueio`, {
+    await fetch(`/api/admin/usuarios/${id}/bloqueio`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessao.accessToken}` },
       body: JSON.stringify({ ativo }),

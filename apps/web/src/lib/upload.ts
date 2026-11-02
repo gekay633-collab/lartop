@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
+
 
 const TIPOS_PERMITIDOS = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 const TAMANHO_MAXIMO_BYTES = 5 * 1024 * 1024; // 5MB
@@ -12,7 +12,7 @@ export async function enviarImagem(arquivo: File, accessToken: string): Promise<
     throw new Error("Imagem muito grande. O tamanho maximo e 5MB.");
   }
 
-  const respostaAssinatura = await fetch(`${API_URL}/api/upload/assinatura`, {
+  const respostaAssinatura = await fetch(`/api/upload/assinatura`, {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}` },
   });

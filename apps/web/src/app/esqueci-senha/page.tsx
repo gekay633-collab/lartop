@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Cabecalho } from "@/components/Cabecalho";
 import { Rodape } from "@/components/Rodape";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
+
 
 export default function EsqueciSenhaPage() {
   const [email, setEmail] = useState("");
@@ -15,7 +15,7 @@ export default function EsqueciSenhaPage() {
     evento.preventDefault();
     setCarregando(true);
     try {
-      await fetch(`${API_URL}/api/auth/esqueci-senha`, {
+      await fetch(`/api/auth/esqueci-senha`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),

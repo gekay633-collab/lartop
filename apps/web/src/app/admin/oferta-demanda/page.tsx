@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useGuardaAdmin } from "@/components/GuardaAdmin";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
+
 
 interface Linha {
   cidade: { id: string; nome: string; estado: string } | null;
@@ -26,7 +26,7 @@ export default function AdminOfertaDemandaPage() {
 
   useEffect(() => {
     if (!sessao) return;
-    fetch(`${API_URL}/api/admin/oferta-demanda`, { headers: { Authorization: `Bearer ${sessao.accessToken}` } })
+    fetch(`/api/admin/oferta-demanda`, { headers: { Authorization: `Bearer ${sessao.accessToken}` } })
       .then((r) => r.json())
       .then(setLinhas);
   }, [sessao]);

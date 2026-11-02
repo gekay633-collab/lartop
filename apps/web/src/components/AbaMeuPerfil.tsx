@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { enviarImagem } from "@/lib/upload";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
+
 
 interface PerfilProprio {
   nomeExibicao: string;
@@ -35,8 +35,8 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
 
   async function carregar() {
     const [respostaPerfil, respostaCategorias] = await Promise.all([
-      fetch(`${API_URL}/api/perfil/mim`, { headers: { Authorization: `Bearer ${accessToken}` } }),
-      fetch(`${API_URL}/api/categorias`),
+      fetch(`/api/perfil/mim`, { headers: { Authorization: `Bearer ${accessToken}` } }),
+      fetch(`/api/categorias`),
     ]);
     const dadosPerfil = await respostaPerfil.json();
     const dadosCategorias = await respostaCategorias.json();
@@ -55,7 +55,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
     setErro("");
     setMensagem("");
     try {
-      const resposta = await fetch(`${API_URL}/api/perfil/mim`, {
+      const resposta = await fetch(`/api/perfil/mim`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ bio }),
@@ -80,7 +80,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
     setErro("");
     setMensagem("");
     try {
-      const resposta = await fetch(`${API_URL}/api/perfil/mim/categorias`, {
+      const resposta = await fetch(`/api/perfil/mim/categorias`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ categorias: categoriasSelecionadas.map((categoriaId) => ({ categoriaId })) }),
@@ -100,7 +100,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
     setErro("");
     try {
       const acao = perfil.perfilPublicado ? "despublicar" : "publicar";
-      const resposta = await fetch(`${API_URL}/api/perfil/mim/${acao}`, {
+      const resposta = await fetch(`/api/perfil/mim/${acao}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}` },
       });
@@ -123,7 +123,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
     setMensagem("");
     try {
       const url = await enviarImagem(arquivo, accessToken);
-      const resposta = await fetch(`${API_URL}/api/perfil/mim`, {
+      const resposta = await fetch(`/api/perfil/mim`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ fotoPerfilUrl: url }),
@@ -148,7 +148,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
     setMensagem("");
     try {
       const url = await enviarImagem(arquivo, accessToken);
-      const resposta = await fetch(`${API_URL}/api/perfil/mim/fotos`, {
+      const resposta = await fetch(`/api/perfil/mim/fotos`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ urlDepois: url }),

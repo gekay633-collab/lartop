@@ -6,7 +6,7 @@ import { Rodape } from "@/components/Rodape";
 import { CardMinhaSolicitacao } from "@/components/CardMinhaSolicitacao";
 import { useGuardaCliente } from "@/components/GuardaCliente";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
+
 
 interface Solicitacao {
   id: string;
@@ -26,7 +26,7 @@ export default function MinhasSolicitacoesPage() {
   useEffect(() => {
     if (!sessao) return;
 
-    fetch(`${API_URL}/api/solicitacoes/minhas`, {
+    fetch(`/api/solicitacoes/minhas`, {
       headers: { Authorization: `Bearer ${sessao.accessToken}` },
     })
       .then((r) => r.json())

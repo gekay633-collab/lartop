@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
+
 
 interface Lead {
   id: string;
@@ -36,7 +36,7 @@ export function AbaLeads({ accessToken }: { accessToken: string }) {
 
   async function carregar() {
     try {
-      const resposta = await fetch(`${API_URL}/api/solicitacoes/recebidas`, {
+      const resposta = await fetch(`/api/solicitacoes/recebidas`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       const dados = await resposta.json();
@@ -52,7 +52,7 @@ export function AbaLeads({ accessToken }: { accessToken: string }) {
   }, []);
 
   async function mudarStatus(id: string, status: string) {
-    await fetch(`${API_URL}/api/solicitacoes/${id}/status`, {
+    await fetch(`/api/solicitacoes/${id}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({ status }),

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useGuardaAdmin } from "@/components/GuardaAdmin";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
+
 
 interface Categoria {
   id: string;
@@ -30,7 +30,7 @@ export default function AdminCategoriasPage() {
 
   async function carregar() {
     if (!sessao) return;
-    const resposta = await fetch(`${API_URL}/api/admin/categorias`, {
+    const resposta = await fetch(`/api/admin/categorias`, {
       headers: { Authorization: `Bearer ${sessao.accessToken}` },
     });
     setCategorias(await resposta.json());
@@ -43,7 +43,7 @@ export default function AdminCategoriasPage() {
   async function criar() {
     if (!sessao || !nomeNova.trim()) return;
     setErro("");
-    const resposta = await fetch(`${API_URL}/api/admin/categorias`, {
+    const resposta = await fetch(`/api/admin/categorias`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessao.accessToken}` },
       body: JSON.stringify({ nome: nomeNova, slug: gerarSlug(nomeNova) }),
@@ -59,7 +59,7 @@ export default function AdminCategoriasPage() {
 
   async function alternarAtivo(id: string, ativo: boolean) {
     if (!sessao) return;
-    await fetch(`${API_URL}/api/admin/categorias/${id}`, {
+    await fetch(`/api/admin/categorias/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessao.accessToken}` },
       body: JSON.stringify({ ativo }),

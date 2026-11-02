@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Cabecalho } from "@/components/Cabecalho";
 import { Rodape } from "@/components/Rodape";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
+
 
 function FormularioRedefinirSenha() {
   const router = useRouter();
@@ -30,7 +30,7 @@ function FormularioRedefinirSenha() {
 
     setCarregando(true);
     try {
-      const resposta = await fetch(`${API_URL}/api/auth/redefinir-senha`, {
+      const resposta = await fetch(`/api/auth/redefinir-senha`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ usuarioId, token, novaSenha }),
