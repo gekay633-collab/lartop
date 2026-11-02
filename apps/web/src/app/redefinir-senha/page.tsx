@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Cabecalho } from "@/components/Cabecalho";
 import { Rodape } from "@/components/Rodape";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
 
-export default function RedefinirSenhaPage() {
+function FormularioRedefinirSenha() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
@@ -91,5 +91,25 @@ export default function RedefinirSenhaPage() {
       </main>
       <Rodape />
     </>
+  );
+}
+
+export default function RedefinirSenhaPage() {
+  return (
+    <Suspense
+      fallback={
+        <>
+          <Cabecalho />
+          <main className="flex-1">
+            <div className="mx-auto max-w-sm px-4 py-16 text-center sm:px-6">
+              <p className="text-pinho-700">Carregando link de recuperação...</p>
+            </div>
+          </main>
+          <Rodape />
+        </>
+      }
+    >
+      <FormularioRedefinirSenha />
+    </Suspense>
   );
 }
