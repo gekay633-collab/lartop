@@ -20,10 +20,8 @@
   },
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": {
-        "service": "api"
-      }
+      "source": "/api/:path*",
+      "destination": "https://lartop-production.up.railway.app/api/:path*"
     },
     {
       "source": "/(.*)",
