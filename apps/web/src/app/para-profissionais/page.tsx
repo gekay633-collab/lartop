@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Cabecalho } from "@/components/Cabecalho";
 import { Rodape } from "@/components/Rodape";
-import { salvarSessao, type SessaoLocal } from "@/lib/auth-client";
+import { lerRespostaAutenticacao, salvarSessao, type SessaoLocal } from "@/lib/auth-client";
 
 
 
@@ -29,9 +29,12 @@ export default function ParaProfissionaisPage() {
         credentials: "include",
         body: JSON.stringify({ nome, email, senha, telefone, cepBase: cepBase.replace(/\D/g, "") }),
       });
-      const dados = await resposta.json();
-      if (!resposta.ok) {
-        throw new Error(dados.erro ?? "Nao foi possivel cadastrar");
+      const dados = await lerRespostaAutenticacao<{
+        accessToken: string;
+        usuario: { tipo: SessaoLocal["tipo"]; nome: string };
+      }>(resposta, "Não foi possível cadastrar");
+      if (!dados.accessToken || !dados.usuario?.tipo || !dados.usuario?.nome) {
+        throw new Error("Resposta incompleta do servidor ao cadastrar.");
       }
       const sessao: SessaoLocal = { accessToken: dados.accessToken, tipo: dados.usuario.tipo, nome: dados.usuario.nome };
       salvarSessao(sessao);
