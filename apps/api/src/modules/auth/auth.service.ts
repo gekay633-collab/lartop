@@ -59,7 +59,7 @@ export async function registrarProfissional(input: {
 
   const senhaHash = await gerarHashSenha(input.senha);
 
-  const usuario = await prisma.$transaction(async (tx) => {
+  const usuario = await prisma.$transaction(async (tx: any) => {
     const novoUsuario = await tx.usuario.create({
       data: {
         nome: input.nome,

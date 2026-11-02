@@ -49,7 +49,7 @@ export async function definirCategorias(usuarioId: string, input: DefinirCategor
     throw new PerfilError('Perfil profissional nao encontrado');
   }
 
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: any) => {
     await tx.profissionalCategoria.deleteMany({ where: { profissionalId: usuarioId } });
     await tx.profissionalCategoria.createMany({
       data: input.categorias.map((c) => ({

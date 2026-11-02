@@ -29,7 +29,7 @@ export async function avaliarComoCliente(clienteId: string, input: CriarAvaliaca
     throw new AvaliacaoError('Voce ja avaliou essa solicitacao', 409);
   }
 
-  const avaliacao = await prisma.$transaction(async (tx) => {
+  const avaliacao = await prisma.$transaction(async (tx: any) => {
     const novaAvaliacao = await tx.avaliacao.create({
       data: {
         solicitacaoId: input.solicitacaoId,
