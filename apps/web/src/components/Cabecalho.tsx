@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { obterSessao, limparSessao, type SessaoLocal } from "@/lib/auth-client";
+import { SinoNotificacoes } from "@/components/SinoNotificacoes";
 
 export function Cabecalho() {
   const router = useRouter();
@@ -48,6 +49,7 @@ export function Cabecalho() {
           {linksNavegacao}
           {!carregado ? null : sessao ? (
             <div className="flex items-center gap-3">
+              <SinoNotificacoes accessToken={sessao.accessToken} tipo={sessao.tipo} />
               <span className="text-pinho-900">Olá, {sessao.nome.split(" ")[0]}</span>
               <button onClick={sair} className="rounded-lg border border-pinho-900 px-4 py-2 text-pinho-900 transition hover:bg-pinho-900 hover:text-sauge-50">Sair</button>
             </div>
@@ -56,9 +58,16 @@ export function Cabecalho() {
           )}
         </nav>
 
-        <button onClick={() => setMenuAberto(!menuAberto)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-areia-300 text-pinho-900 sm:hidden" aria-label="Abrir menu">
-          {menuAberto ? "✕" : "☰"}
-        </button>
+        <div className="flex items-center gap-2 sm:hidden">
+          {carregado && sessao && (
+            <SinoNotificacoes accessToken={sessao.accessToken} tipo={sessao.tipo} />
+          )}
+          <button onClick={() => setMenuAberto(!menuAberto)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-areia-300 text-pinho-900"
+            aria-label={menuAberto ? "Fechar menu" : "Abrir menu"} aria-expanded={menuAberto}>
+            {menuAberto ? "✕" : "☰"}
+          </button>
+        </div>
       </div>
 
       {menuAberto && (

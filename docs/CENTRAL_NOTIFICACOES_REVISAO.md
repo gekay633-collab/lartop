@@ -1,0 +1,73 @@
+# Central de notificações — proposta em revisão
+
+Esta branch contém a **Etapa A: notificações internas**. Não contém Web Push,
+WhatsApp automático nem e-mail. Não está aprovada para publicação.
+
+## Regras de negócio
+
+| Operação realizada | Notificação criada para |
+| --- | --- |
+| Cliente envia solicitação | Prestador selecionado |
+| Prestador responde | Cliente |
+| Prestador aceita | Cliente |
+| Prestador recusa | Cliente |
+| Prestador conclui | Cliente |
+| Cliente cancela | Prestador |
+
+Uma solicitação é criada junto com sua notificação em **uma transação**.
+As transições de status usam atualização condicional (CAS) para evitar
+alterações concorrentes e notificações inconsistentes. Existe índice único
+por destinatário, solicitação e tipo para evitar avisos repetidos.
+
+**Não incluir dados pessoais sensíveis em títulos ou mensagens.**
+A central permite ver somente notificações vinculadas ao ID obtido do
+token autenticado; nenhum cliente pode consultar notificações de outro.
+
+## Migração do Supabase
+
+**Não aplicar em produção antes da revisão.** Nova migração:
+`apps/api/prisma/migrations/20261103233000_add_notificacoes/migration.sql`.
+
+A migração adiciona somente a tabela `notificacoes` e o enum
+`TipoNotificacao`. Não reescreve pedidos, usuários ou avaliações.
+
+**Atenção:** o histórico de migrações do repositório parece incompleto em
+relação ao esquema atual (ex.: `refresh_tokens`). Antes de rodar
+`prisma migrate deploy`, verificar `_prisma_migrations` no Supabase,
+comparar o estado real do banco e confirmar backup/restauração.
+A implantação exige esta ordem: 1) validar e aplicar migração no ambiente
+de homologação; 2) testar API; 3) migrar produção com backup; 4) implantar
+API e frontend na mesma janela controlada. Não publicar o código da API
+antes de criar a tabela nova, pois novos pedidos poderiam falhar.
+
+## Verificações obrigatórias antes de liberar
+
+1. Criar duas contas de teste: cliente e prestador, com CEP válido.
+2. Criar pedido e verificar exatamente 1 notificação para prestador.
+3. Verificar que cliente não pode ler a notificação do prestador (404).
+4. Testar resposta, aceite, recusa e conclusão, com avisos apenas ao cliente.
+5. Testar cancelamento pelo cliente com aviso ao prestador.
+6. Simular duas atualizações simultâneas: apenas uma pode vencer.
+7. Simular falha na gravação da notificação: a transação deve reverter.
+8. Marcar uma notificação como lida, depois todas; verificar contagem.
+9. Testar usuário sem login, token expirado e usuário bloqueado.
+10. Abrir sino no celular e computador; validar que não cobre controles.
+11. Simular Redis temporariamente indisponível; conferir comportamento da API.
+12. Validar build: `pnpm --filter @lartop/api build`,
+    `pnpm --filter @lartop/api test:notificacoes`,
+    `pnpm --filter @lartop/web build`.
+
+## Possível rollback
+
+Não excluir a tabela `notificacoes` para efetuar rollback. Desativar
+o consumo e a gravação de avisos via versão anterior da API/frontend.
+Preservar registros para análise. Não há rotina automática de limpeza.
+
+## Limitações desta etapa
+
+- O sino consulta a API a cada 30 segundos enquanto a página está visível
+  e quando a aba volta ao foco.
+- O aviso **não** chega com o site fechado; isto será tratado por Web Push.
+- A lista mostra os 15 avisos mais recentes (histórico integral permanece
+  armazenado no banco).
+- A liberação precisa da aprovação e de testes de ponta a ponta.

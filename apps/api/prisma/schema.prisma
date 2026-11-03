@@ -51,6 +51,7 @@ model Usuario {
   avaliacoesFeitas   Avaliacao[]            @relation("AvaliadorAvaliacoes")
   avaliacoesRecebidas Avaliacao[]           @relation("AvaliadoAvaliacoes")
   refreshTokens      RefreshToken[]
+  notificacoes       Notificacao[]
 
   @@map("usuarios")
 }
@@ -182,6 +183,7 @@ model SolicitacaoOrcamento {
   profissional PerfilProfissional @relation("ProfissionalSolicitacoes", fields: [profissionalId], references: [usuarioId])
   categoria    Categoria          @relation(fields: [categoriaId], references: [id])
   avaliacoes   Avaliacao[]
+  notificacoes Notificacao[]
 
   @@index([clienteId])
   @@index([profissionalId])
@@ -237,4 +239,32 @@ model TokenRecuperacaoSenha {
 
   @@index([usuarioId])
   @@map("tokens_recuperacao_senha")
+}
+
+enum TipoNotificacao {
+  NOVA_SOLICITACAO
+  SOLICITACAO_RESPONDIDA
+  SOLICITACAO_ACEITA
+  SOLICITACAO_RECUSADA
+  SOLICITACAO_CONCLUIDA
+  SOLICITACAO_CANCELADA
+}
+
+model Notificacao {
+  id             String           @id @default(uuid())
+  destinatarioId String           @map("destinatario_id")
+  solicitacaoId  String?          @map("solicitacao_id")
+  tipo           TipoNotificacao
+  titulo         String
+  mensagem       String
+  lidaEm         DateTime?        @map("lida_em")
+  criadoEm       DateTime         @default(now()) @map("criado_em")
+
+  destinatario Usuario             @relation(fields: [destinatarioId], references: [id], onDelete: Cascade)
+  solicitacao  SolicitacaoOrcamento? @relation(fields: [solicitacaoId], references: [id], onDelete: SetNull)
+
+  // Cada evento de uma solicitação deve gerar um único aviso por destinatário.
+  @@unique([destinatarioId, solicitacaoId, tipo])
+  @@index([destinatarioId, lidaEm, criadoEm])
+  @@map("notificacoes")
 }
