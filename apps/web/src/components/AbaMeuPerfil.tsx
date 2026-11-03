@@ -30,25 +30,66 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
   const [enviandoPortfolio, setEnviandoPortfolio] = useState(false);
   const [categoriasDisponiveis, setCategoriasDisponiveis] = useState<CategoriaDisponivel[]>([]);
   const [categoriasSelecionadas, setCategoriasSelecionadas] = useState<string[]>([]);
+  const [carregandoCategorias, setCarregandoCategorias] = useState(true);
+  const [erroCategorias, setErroCategorias] = useState("");
+  const [erroPerfil, setErroPerfil] = useState("");
   const inputFotoPerfil = useRef<HTMLInputElement>(null);
   const inputPortfolio = useRef<HTMLInputElement>(null);
 
+  async function carregarPerfil() {
+    try {
+      const resposta = await fetch("/api/perfil/mim", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store",
+      });
+      if (!resposta.ok) throw new Error("Não foi possível carregar seu perfil.");
+      const dados = (await resposta.json()) as PerfilProprio;
+      if (!Array.isArray(dados.categorias) || !Array.isArray(dados.fotos)) {
+        throw new Error("O servidor retornou um perfil incompleto.");
+      }
+      setPerfil(dados);
+      setBio(dados.bio ?? "");
+      setCategoriasSelecionadas(dados.categorias.map((c) => c.categoria.id));
+      setErroPerfil("");
+    } catch (err) {
+      setErroPerfil(err instanceof Error ? err.message : "Erro ao carregar o perfil.");
+    }
+  }
+
+  async function carregarCategorias() {
+    setCarregandoCategorias(true);
+    setErroCategorias("");
+    try {
+      const resposta = await fetch("/api/categorias", { cache: "no-store" });
+      if (!resposta.ok) {
+        throw new Error("Não foi possível consultar os serviços disponíveis.");
+      }
+      const dados: unknown = await resposta.json();
+      if (
+        !Array.isArray(dados) ||
+        !dados.every((item) => (
+          item && typeof item.id === "string" &&
+          typeof item.nome === "string" && typeof item.slug === "string"
+        ))
+      ) {
+        throw new Error("O servidor retornou uma lista de serviços inválida.");
+      }
+      setCategoriasDisponiveis(dados as CategoriaDisponivel[]);
+    } catch (err) {
+      setCategoriasDisponiveis([]);
+      setErroCategorias(err instanceof Error ? err.message : "Erro ao carregar os serviços.");
+    } finally {
+      setCarregandoCategorias(false);
+    }
+  }
+
   async function carregar() {
-    const [respostaPerfil, respostaCategorias] = await Promise.all([
-      fetch(`/api/perfil/mim`, { headers: { Authorization: `Bearer ${accessToken}` } }),
-      fetch(`/api/categorias`),
-    ]);
-    const dadosPerfil = await respostaPerfil.json();
-    const dadosCategorias = await respostaCategorias.json();
-    setPerfil(dadosPerfil);
-    setBio(dadosPerfil.bio ?? "");
-    setCategoriasSelecionadas(dadosPerfil.categorias.map((c: PerfilProprio["categorias"][number]) => c.categoria.id));
-    setCategoriasDisponiveis(dadosCategorias);
+    await Promise.all([carregarPerfil(), carregarCategorias()]);
   }
 
   useEffect(() => {
-    carregar();
-  }, []);
+    void carregar();
+  }, [accessToken]);
 
   async function salvarBio() {
     setSalvando(true);
@@ -70,25 +111,54 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
   }
 
   function alternarCategoria(id: string) {
-    setCategoriasSelecionadas((atual) =>
-      atual.includes(id) ? atual.filter((c) => c !== id) : [...atual, id]
-    );
+    setErro("");
+    if (categoriasSelecionadas.includes(id)) {
+      setCategoriasSelecionadas((atual) => atual.filter((categoria) => categoria !== id));
+    } else if (categoriasSelecionadas.length >= 6) {
+      setErro("Você pode selecionar no máximo 6 serviços.");
+    } else {
+      setCategoriasSelecionadas((atual) => [...atual, id]);
+    }
   }
 
   async function salvarCategorias() {
-    setSalvando(true);
     setErro("");
     setMensagem("");
+    if (carregandoCategorias || erroCategorias || categoriasDisponiveis.length === 0) {
+      setErro("Os serviços não estão disponíveis para seleção. Tente recarregar a lista.");
+      return;
+    }
+
+    const idsDisponiveis = new Set(categoriasDisponiveis.map((categoria) => categoria.id));
+    const categoriasValidas = categoriasSelecionadas.filter((id) => idsDisponiveis.has(id));
+    if (categoriasValidas.length === 0) {
+      setErro("Selecione pelo menos um serviço antes de salvar.");
+      return;
+    }
+    if (categoriasValidas.length > 6) {
+      setErro("Selecione no máximo 6 serviços.");
+      return;
+    }
+
+    setSalvando(true);
     try {
-      const resposta = await fetch(`/api/perfil/mim/categorias`, {
+      const resposta = await fetch("/api/perfil/mim/categorias", {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ categorias: categoriasSelecionadas.map((categoriaId) => ({ categoriaId })) }),
+        body: JSON.stringify({ categorias: categoriasValidas.map((categoriaId) => ({ categoriaId })) }),
       });
-      if (!resposta.ok) throw new Error("Nao foi possivel salvar as categorias");
-      setMensagem("Categorias atualizadas!");
+      const dados = await resposta.json().catch(() => null);
+      if (!resposta.ok) {
+        throw new Error(
+          dados && typeof dados.erro === "string"
+            ? dados.erro
+            : `Não foi possível salvar os serviços (HTTP ${resposta.status}).`
+        );
+      }
+      setMensagem("Serviços atualizados!");
+      await carregarPerfil();
     } catch (err) {
-      setErro(err instanceof Error ? err.message : "Erro ao salvar categorias");
+      setErro(err instanceof Error ? err.message : "Erro ao salvar os serviços.");
     } finally {
       setSalvando(false);
     }
@@ -164,7 +234,11 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
     }
   }
 
-  if (!perfil) return <p className="text-pinho-700">Carregando...</p>;
+  if (!perfil) {
+    return erroPerfil
+      ? <p role="alert" className="text-terra-600">{erroPerfil}</p>
+      : <p className="text-pinho-700">Carregando perfil...</p>;
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -211,8 +285,20 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
       <div className="rounded-2xl border border-areia-300 bg-white/70 p-5">
         <p className="text-xs font-medium uppercase tracking-wide text-pinho-700">Servicos que voce oferece</p>
         <div className="mt-2 flex flex-col gap-2">
-          {categoriasDisponiveis.length === 0 ? (
-            <p className="text-sm text-pinho-700">Carregando servicos disponiveis...</p>
+          {carregandoCategorias ? (
+            <p className="text-sm text-pinho-700">Carregando serviços disponíveis...</p>
+          ) : erroCategorias ? (
+            <div className="space-y-2">
+              <p role="alert" className="text-sm text-terra-600">{erroCategorias}</p>
+              <button type="button" onClick={() => void carregarCategorias()} className="text-sm font-medium text-relva-600 hover:underline">
+                Tentar novamente
+              </button>
+            </div>
+          ) : categoriasDisponiveis.length === 0 ? (
+            <p role="status" className="text-sm text-terra-600">
+              Nenhum serviço ativo disponível. O administrador precisa cadastrar ou ativar
+              categorias no painel administrativo.
+            </p>
           ) : (
             categoriasDisponiveis.map((c) => (
               <label key={c.id} className="flex items-center gap-2 text-pinho-900">
@@ -222,7 +308,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
             ))
           )}
         </div>
-        <button onClick={salvarCategorias} disabled={salvando} className="mt-3 rounded-lg bg-pinho-900 px-4 py-2 text-sm font-medium text-sauge-50 hover:bg-pinho-700">
+        <button onClick={salvarCategorias} disabled={salvando || carregandoCategorias || Boolean(erroCategorias) || categoriasDisponiveis.length === 0 || categoriasSelecionadas.length === 0} className="mt-3 rounded-lg bg-pinho-900 px-4 py-2 text-sm font-medium text-sauge-50 hover:bg-pinho-700 disabled:cursor-not-allowed disabled:opacity-50">
           Salvar servicos
         </button>
       </div>
