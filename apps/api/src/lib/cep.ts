@@ -2,7 +2,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { prisma } from './prisma.js';
 
-class CepInvalidoError extends Error {}
+class CepInvalidoError extends Error {
+  constructor(message: string, public readonly status = 404) {
+    super(message);
+  }
+}
 
 interface RespostaViaCep {
   cep: string;
@@ -12,6 +16,117 @@ interface RespostaViaCep {
   uf: string;
   ibge?: string;
   erro?: boolean;
+}
+
+interface RespostaBrasilApi {
+  cep?: string;
+  state?: string;
+  city?: string;
+  street?: string | null;
+  neighborhood?: string | null;
+}
+
+interface RespostaOpenCep {
+  cep?: string;
+  uf?: string;
+  localidade?: string;
+  logradouro?: string | null;
+  bairro?: string | null;
+  ibge?: string;
+}
+
+class CepNaoEncontradoError extends Error {}
+
+type ProvedorCep = 'ViaCEP' | 'BrasilAPI' | 'OpenCEP';
+const TEMPO_LIMITE_CEP_MS = 3500;
+
+function enderecoProvedor(provedor: ProvedorCep, cep: string): string {
+  switch (provedor) {
+    case 'ViaCEP': return `https://viacep.com.br/ws/${cep}/json/`;
+    case 'BrasilAPI': return `https://brasilapi.com.br/api/cep/v1/${cep}`;
+    case 'OpenCEP': return `https://opencep.com/v1/${cep}.json`;
+  }
+}
+
+async function consultarCepEmProvedor(
+  provedor: ProvedorCep,
+  cep: string,
+): Promise<RespostaViaCep> {
+  const resposta = await fetch(enderecoProvedor(provedor, cep), {
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(TEMPO_LIMITE_CEP_MS),
+  });
+
+  if (resposta.status === 404) {
+    throw new CepNaoEncontradoError(`${provedor}: CEP nao encontrado`);
+  }
+  if (!resposta.ok) {
+    throw new Error(`${provedor}: HTTP ${resposta.status}`);
+  }
+
+  const bruto: unknown = await resposta.json();
+  if (!bruto || typeof bruto !== 'object' || Array.isArray(bruto)) {
+    throw new Error(`${provedor}: Resposta invalida`);
+  }
+
+  const dados = bruto as Record<string, unknown>;
+  if (dados.erro === true) {
+    throw new CepNaoEncontradoError(`${provedor}: CEP nao encontrado`);
+  }
+
+  // BrasilAPI usa nomes em ingles; ViaCEP e OpenCEP usam nomes em portugues.
+  const localidade = provedor === 'BrasilAPI' ? dados.city : dados.localidade;
+  const uf = provedor === 'BrasilAPI' ? dados.state : dados.uf;
+  const logradouro = provedor === 'BrasilAPI' ? dados.street : dados.logradouro;
+  const bairro = provedor === 'BrasilAPI' ? dados.neighborhood : dados.bairro;
+  const ibge = dados.ibge;
+
+  if (typeof localidade !== 'string' || !localidade.trim()
+      || typeof uf !== 'string' || !/^[A-Z]{2}$/.test(uf.toUpperCase())) {
+    throw new Error(`${provedor}: Municipio ou UF ausente na resposta`);
+  }
+
+  const cepRetornado = typeof dados.cep === 'string'
+    ? dados.cep.replace(/\D/g, '')
+    : '';
+  if (cepRetornado.length === 8 && cepRetornado !== cep) {
+    throw new Error(`${provedor}: CEP da resposta nao corresponde a busca`);
+  }
+
+  return {
+    cep,
+    localidade: localidade.trim(),
+    uf: uf.toUpperCase(),
+    logradouro: typeof logradouro === 'string' ? logradouro : '',
+    bairro: typeof bairro === 'string' ? bairro : '',
+    ibge: typeof ibge === 'string' ? ibge : undefined,
+  };
+}
+
+async function consultarCepComAlternativas(cep: string): Promise<RespostaViaCep> {
+  // A primeira resposta valida e utilizada. Os demais provedores funcionam
+  // como redundancia para falhas de conexao, HTTP 5xx, timeout ou CEP ausente.
+  const provedores: ProvedorCep[] = ['ViaCEP', 'BrasilAPI', 'OpenCEP'];
+  try {
+    return await Promise.any(provedores.map((provedor) => consultarCepEmProvedor(provedor, cep)));
+  } catch (erro) {
+    const erros = erro instanceof AggregateError ? erro.errors as unknown[] : [erro];
+    if (erros.length > 0 && erros.every((falha) => falha instanceof CepNaoEncontradoError)) {
+      throw new CepInvalidoError('CEP nao encontrado nas bases de enderecos', 404);
+    }
+
+    // Nao expor dados do endereco nas mensagens de log ou para o usuario.
+    console.warn('[cep] Nenhum provedor de CEP respondeu com dados validos',
+      erros.map((falha, indice) => ({
+        provedor: provedores[indice],
+        tipo: falha instanceof CepNaoEncontradoError ? 'nao_encontrado' : 'indisponivel',
+      })),
+    );
+    throw new CepInvalidoError(
+      'Servicos de consulta de CEP temporariamente indisponiveis. Tente novamente.',
+      503,
+    );
+  }
 }
 
 interface ResultadoNominatim {
@@ -120,6 +235,7 @@ async function consultarNominatim(query: string): Promise<{ lat: number; lng: nu
     const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(query)}`;
     const resposta = await fetch(url, {
       headers: { 'User-Agent': 'LartopApp/1.0 (contato@lartop.dev)' },
+      signal: AbortSignal.timeout(2200),
     });
 
     if (!resposta.ok) return null;
@@ -165,15 +281,7 @@ export async function resolverCep(cepBruto: string) {
     return cepExistente;
   }
 
-  const resposta = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-  if (!resposta.ok) {
-    throw new CepInvalidoError('Nao foi possivel consultar o CEP no momento');
-  }
-
-  const dados = (await resposta.json()) as RespostaViaCep;
-  if (dados.erro) {
-    throw new CepInvalidoError('CEP nao existe');
-  }
+  const dados = await consultarCepComAlternativas(cep);
 
   if (!dados.localidade || !dados.uf) {
     throw new CepInvalidoError('Nao foi possivel identificar a cidade deste CEP');

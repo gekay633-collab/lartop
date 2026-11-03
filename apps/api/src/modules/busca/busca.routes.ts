@@ -14,7 +14,7 @@ export async function buscaRoutes(app: FastifyInstance) {
       return reply.send(resultado);
     } catch (err) {
       if (err instanceof BuscaError) {
-        return reply.status(404).send({ erro: err.message });
+        return reply.status(err.status).send({ erro: err.message });
       }
       request.log.error(err);
       return reply.status(500).send({ erro: 'Erro interno na busca' });
@@ -37,7 +37,7 @@ export async function buscaRoutes(app: FastifyInstance) {
       return reply.send(resultado);
     } catch (err) {
       if (err instanceof BuscaError) {
-        return reply.status(404).send({ erro: err.message });
+        return reply.status(err.status).send({ erro: err.message });
       }
       request.log.error(err);
       return reply.status(500).send({ erro: 'Erro interno na busca' });

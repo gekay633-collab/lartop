@@ -5,7 +5,11 @@ import type { BuscarProfissionaisInput } from './busca.schemas.js';
 
 const CACHE_TTL_SEGUNDOS = 60;
 
-class BuscaError extends Error {}
+class BuscaError extends Error {
+  constructor(message: string, public readonly status = 404) {
+    super(message);
+  }
+}
 
 interface ProfissionalResultado {
   usuarioId: string;
@@ -89,7 +93,7 @@ export async function buscarProfissionaisPorCep(input: BuscarProfissionaisInput)
     cep = await resolverCep(input.cep);
   } catch (err) {
     if (err instanceof CepInvalidoError) {
-      throw new BuscaError(err.message);
+      throw new BuscaError(err.message, err.status);
     }
     throw err;
   }

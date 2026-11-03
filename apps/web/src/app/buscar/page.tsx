@@ -55,8 +55,19 @@ export default async function BuscarPage({ searchParams }: PageProps) {
           {ehErroApi(resultado) ? (
             <div className="mt-10 rounded-2xl border border-terra-500/30 bg-terra-500/10 p-6">
               <p className="font-medium text-terra-600">{resultado.erro}</p>
-              <p className="mt-2 text-sm text-pinho-700">Confira se o CEP digitado está correto e tente novamente.</p>
-              <a href="/" className="mt-4 inline-block text-sm font-medium text-relva-600 hover:underline">Voltar para a busca</a>
+              <p className="mt-2 text-sm text-pinho-700">
+                Se o CEP estiver correto, a consulta pode estar temporariamente indisponível.
+                Você pode tentar novamente sem precisar digitar o CEP.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-4">
+                <a
+                  href={`/buscar?cep=${encodeURIComponent(cep)}${categoria ? `&categoria=${encodeURIComponent(categoria)}` : ""}`}
+                  className="inline-block text-sm font-medium text-relva-600 hover:underline"
+                >
+                  Tentar novamente
+                </a>
+                <a href="/" className="inline-block text-sm font-medium text-relva-600 hover:underline">Voltar para a busca</a>
+              </div>
             </div>
           ) : resultado.resultados.length === 0 ? (
             <div className="mt-10 rounded-2xl border border-areia-300 bg-white/60 p-8 text-center">
