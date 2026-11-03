@@ -23,7 +23,9 @@ export function Cabecalho() {
     router.push("/");
   }
 
-  const linksNavegacao = !carregado ? null : sessao?.tipo === "PROFISSIONAL" ? (
+  const linksNavegacao = !carregado ? null : sessao?.tipo === "ADMIN" ? (
+    <Link href="/admin" className="block py-2 hover:text-pinho-900 sm:py-0">Painel administrativo</Link>
+  ) : sessao?.tipo === "PROFISSIONAL" ? (
     <Link href="/painel" className="block py-2 hover:text-pinho-900 sm:py-0">Meu painel</Link>
   ) : sessao?.tipo === "CLIENTE" ? (
     <>
