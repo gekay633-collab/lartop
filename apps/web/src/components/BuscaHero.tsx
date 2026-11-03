@@ -1,24 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-const CATEGORIAS = [
-  { slug: "", nome: "Todos os servicos" },
-  { slug: "corte-de-grama", nome: "Corte de grama" },
-  { slug: "poda", nome: "Poda de arvores e arbustos" },
-  { slug: "paisagismo", nome: "Paisagismo" },
-  { slug: "manutencao-jardim", nome: "Manutencao de jardim" },
-  { slug: "limpeza-terreno", nome: "Limpeza de terreno" },
-  { slug: "instalacao", nome: "Instalacao de grama/jardim" },
-  { slug: "piscineiro", nome: "Piscineiro" },
-];
+interface CategoriaBusca {
+  slug: string;
+  nome: string;
+}
 
 export function BuscaHero() {
   const router = useRouter();
   const [cep, setCep] = useState("");
   const [categoria, setCategoria] = useState("");
   const [erro, setErro] = useState("");
+  const [categorias, setCategorias] = useState<CategoriaBusca[]>([]);
+
+  useEffect(() => {
+    let ativo = true;
+    fetch("/api/categorias", { cache: "no-store" })
+      .then(async (resposta) => {
+        if (!resposta.ok) throw new Error("Erro ao listar serviços");
+        const dados: unknown = await resposta.json();
+        if (!Array.isArray(dados)) throw new Error("Resposta inválida de serviços");
+        return dados.filter((item): item is CategoriaBusca =>
+          item && typeof item.slug === "string" && typeof item.nome === "string"
+        );
+      })
+      .then((dados) => { if (ativo) setCategorias(dados); })
+      .catch(() => { if (ativo) setCategorias([]); });
+    return () => { ativo = false; };
+  }, []);
 
   function aoSubmeter(evento: React.FormEvent) {
     evento.preventDefault();
@@ -47,7 +58,8 @@ export function BuscaHero() {
       <div className="flex flex-1 flex-col gap-1 px-2 py-1 sm:py-2">
         <label htmlFor="categoria" className="text-xs font-medium uppercase tracking-wide text-pinho-700">Servico</label>
         <select id="categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)} className="bg-transparent text-base text-pinho-900 outline-none">
-          {CATEGORIAS.map((c) => (
+          <option value="">Todos os serviços</option>
+          {categorias.map((c) => (
             <option key={c.slug} value={c.slug}>{c.nome}</option>
           ))}
         </select>

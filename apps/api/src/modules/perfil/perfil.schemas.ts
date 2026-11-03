@@ -16,7 +16,9 @@ export const definirCategoriasSchema = z.object({
       })
     )
     .min(1)
-    .max(6),
+    .refine((itens) => new Set(itens.map((item) => item.categoriaId)).size === itens.length, {
+      message: 'Nao selecione servicos repetidos',
+    }),
 });
 
 export const adicionarFotoPortfolioSchema = z.object({

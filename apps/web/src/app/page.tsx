@@ -1,18 +1,8 @@
 import { Cabecalho } from "@/components/Cabecalho";
 import { Rodape } from "@/components/Rodape";
 import { BuscaHero } from "@/components/BuscaHero";
-import { CardCategoria } from "@/components/CardCategoria";
+import { CategoriasHome } from "@/components/CategoriasHome";
 import { Faq } from "@/components/Faq";
-
-const CATEGORIAS = [
-  { slug: "corte-de-grama", nome: "Corte de grama" },
-  { slug: "poda", nome: "Poda de arvores e arbustos" },
-  { slug: "paisagismo", nome: "Paisagismo" },
-  { slug: "manutencao-jardim", nome: "Manutencao de jardim" },
-  { slug: "limpeza-terreno", nome: "Limpeza de terreno" },
-  { slug: "instalacao", nome: "Instalacao de grama/jardim" },
-  { slug: "piscineiro", nome: "Piscineiro" },
-];
 
 const PASSOS = [
   { numero: "01", titulo: "Digite seu CEP", texto: "Mostramos os profissionais mais proximos de voce." },
@@ -40,11 +30,7 @@ export default function HomePage() {
 
         <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
           <h2 className="font-display text-2xl font-semibold text-pinho-900">O que voce precisa cuidar em casa?</h2>
-          <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-            {CATEGORIAS.map((c) => (
-              <CardCategoria key={c.slug} slug={c.slug} nome={c.nome} />
-            ))}
-          </div>
+          <CategoriasHome />
         </section>
 
         <section className="textura-gramado-sutil border-y border-areia-300">

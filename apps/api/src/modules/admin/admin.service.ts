@@ -147,6 +147,26 @@ export async function listarCategoriasAdmin() {
   });
 }
 
+// Servicos iniciais do Lartop. O administrador decide quando adiciona-los.
+// Categorias ja existentes (inclusive inativas) nao sao alteradas.
+const SERVICOS_INICIAIS = [
+  { nome: 'Corte de grama', slug: 'corte-de-grama' },
+  { nome: 'Poda de árvores e arbustos', slug: 'poda' },
+  { nome: 'Paisagismo', slug: 'paisagismo' },
+  { nome: 'Manutenção de jardim', slug: 'manutencao-jardim' },
+  { nome: 'Limpeza de terreno', slug: 'limpeza-terreno' },
+  { nome: 'Instalação de grama/jardim', slug: 'instalacao' },
+  { nome: 'Piscineiro', slug: 'piscineiro' },
+];
+
+export async function cadastrarServicosIniciais() {
+  const resultado = await prisma.categoria.createMany({
+    data: SERVICOS_INICIAIS,
+    skipDuplicates: true,
+  });
+  return { adicionados: resultado.count, totalSugestoes: SERVICOS_INICIAIS.length };
+}
+
 export async function criarCategoria(input: CriarCategoriaInput) {
   const existente = await prisma.categoria.findUnique({ where: { slug: input.slug } });
   if (existente) {

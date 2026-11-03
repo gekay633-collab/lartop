@@ -11,7 +11,7 @@ const ITENS_MENU = [
   { href: "/admin/oferta-demanda", label: "Oferta e Demanda" },
   { href: "/admin/prestadores", label: "Prestadores" },
   { href: "/admin/clientes", label: "Clientes" },
-  { href: "/admin/categorias", label: "Categorias" },
+  { href: "/admin/categorias", label: "Serviços" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

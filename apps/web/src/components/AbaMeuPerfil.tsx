@@ -110,12 +110,18 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
     }
   }
 
+  function alternarTodasCategorias() {
+    const idsAtivos = categoriasDisponiveis.map((categoria) => categoria.id);
+    const todosMarcados = idsAtivos.every((id) => categoriasSelecionadas.includes(id));
+    setCategoriasSelecionadas(todosMarcados ? [] : idsAtivos);
+    setErro("");
+    setMensagem("");
+  }
+
   function alternarCategoria(id: string) {
     setErro("");
     if (categoriasSelecionadas.includes(id)) {
       setCategoriasSelecionadas((atual) => atual.filter((categoria) => categoria !== id));
-    } else if (categoriasSelecionadas.length >= 6) {
-      setErro("Você pode selecionar no máximo 6 serviços.");
     } else {
       setCategoriasSelecionadas((atual) => [...atual, id]);
     }
@@ -135,11 +141,6 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
       setErro("Selecione pelo menos um serviço antes de salvar.");
       return;
     }
-    if (categoriasValidas.length > 6) {
-      setErro("Selecione no máximo 6 serviços.");
-      return;
-    }
-
     setSalvando(true);
     try {
       const resposta = await fetch("/api/perfil/mim/categorias", {
@@ -300,12 +301,25 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
               categorias no painel administrativo.
             </p>
           ) : (
-            categoriasDisponiveis.map((c) => (
-              <label key={c.id} className="flex items-center gap-2 text-pinho-900">
-                <input type="checkbox" checked={categoriasSelecionadas.includes(c.id)} onChange={() => alternarCategoria(c.id)} />
-                {c.nome}
+            <>
+              <label className="flex items-center gap-2 border-b border-areia-300 pb-2 font-medium text-pinho-900">
+                <input
+                  type="checkbox"
+                  checked={categoriasDisponiveis.every((c) => categoriasSelecionadas.includes(c.id))}
+                  onChange={alternarTodasCategorias}
+                />
+                Selecionar todos os serviços
               </label>
-            ))
+              {categoriasDisponiveis.map((c) => (
+                <label key={c.id} className="flex items-center gap-2 text-pinho-900">
+                  <input type="checkbox" checked={categoriasSelecionadas.includes(c.id)} onChange={() => alternarCategoria(c.id)} />
+                  {c.nome}
+                </label>
+              ))}
+              <p className="text-xs text-pinho-700">
+                {categoriasDisponiveis.filter((c) => categoriasSelecionadas.includes(c.id)).length} de {categoriasDisponiveis.length} serviços selecionados
+              </p>
+            </>
           )}
         </div>
         <button onClick={salvarCategorias} disabled={salvando || carregandoCategorias || Boolean(erroCategorias) || categoriasDisponiveis.length === 0 || categoriasSelecionadas.length === 0} className="mt-3 rounded-lg bg-pinho-900 px-4 py-2 text-sm font-medium text-sauge-50 hover:bg-pinho-700 disabled:cursor-not-allowed disabled:opacity-50">

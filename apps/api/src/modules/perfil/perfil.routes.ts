@@ -75,7 +75,7 @@ export async function perfilRoutes(app: FastifyInstance) {
       return reply.send(perfil);
     } catch (err) {
       if (err instanceof PerfilError) {
-        return reply.status(404).send({ erro: err.message });
+        return reply.status(err.status).send({ erro: err.message });
       }
       request.log.error(err);
       return reply.status(500).send({ erro: 'Erro interno ao definir categorias' });

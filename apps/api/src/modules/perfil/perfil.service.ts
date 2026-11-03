@@ -6,7 +6,11 @@ import type {
   AdicionarFotoPortfolioInput,
 } from './perfil.schemas.js';
 
-class PerfilError extends Error {}
+class PerfilError extends Error {
+  constructor(message: string, public readonly status: number = 404) {
+    super(message);
+  }
+}
 
 const MINIMO_CAMPOS_PARA_PUBLICAR = ['nomeExibicao', 'bio'] as const;
 
@@ -47,6 +51,15 @@ export async function definirCategorias(usuarioId: string, input: DefinirCategor
   const perfilExistente = await prisma.perfilProfissional.findUnique({ where: { usuarioId } });
   if (!perfilExistente) {
     throw new PerfilError('Perfil profissional nao encontrado');
+  }
+
+  // Apenas categorias existentes e ativas podem ser associadas ao prestador.
+  const ids = input.categorias.map((categoria) => categoria.categoriaId);
+  const categoriasAtivas = await prisma.categoria.count({
+    where: { id: { in: ids }, ativo: true },
+  });
+  if (categoriasAtivas !== ids.length) {
+    throw new PerfilError('Escolha apenas servicos ativos cadastrados pela Lartop', 400);
   }
 
   await prisma.$transaction(async (tx: any) => {

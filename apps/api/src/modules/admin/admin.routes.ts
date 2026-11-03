@@ -15,6 +15,7 @@ import {
   alternarPublicacaoPrestador,
   listarCategoriasAdmin,
   criarCategoria,
+  cadastrarServicosIniciais,
   atualizarCategoria,
   obterOfertaDemanda,
   AdminError,
@@ -116,6 +117,17 @@ export async function adminRoutes(app: FastifyInstance) {
     } catch (err) {
       request.log.error(err);
       return reply.status(500).send({ erro: 'Erro interno ao listar categorias' });
+    }
+  });
+
+  // Apenas administradores podem iniciar o cadastro do catalogo padrao.
+  app.post('/admin/categorias/iniciais', { preHandler: somenteAdmin }, async (request, reply) => {
+    try {
+      const resultado = await cadastrarServicosIniciais();
+      return reply.send(resultado);
+    } catch (err) {
+      request.log.error(err);
+      return reply.status(500).send({ erro: 'Erro interno ao cadastrar servicos iniciais' });
     }
   });
 
