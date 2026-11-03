@@ -57,6 +57,11 @@ export default function EntrarPage() {
           </form>
 
           <p className="mt-6 text-sm text-pinho-700">
+            Ainda não tem conta?{" "}
+            <a href="/cadastro" className="font-medium text-relva-600 hover:underline">Crie uma conta de cliente</a>
+          </p>
+
+          <p className="mt-6 text-sm text-pinho-700">
             E profissional e ainda nao tem conta?{" "}
             <a href="/para-profissionais" className="font-medium text-relva-600 hover:underline">Cadastre-se aqui</a>
           </p>
