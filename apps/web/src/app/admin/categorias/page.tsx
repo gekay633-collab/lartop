@@ -98,7 +98,9 @@ export default function AdminServicosPage() {
     try {
       const resposta = await fetch("/api/admin/categorias/iniciais", {
         method: "POST",
-        headers: cabecalhos,
+        // Esta operacao nao envia JSON. Fastify rejeita um body vazio com
+        // Content-Type: application/json (HTTP 400).
+        headers: { Authorization: `Bearer ${sessao.accessToken}` },
       });
       if (!resposta.ok) throw new Error(await lerErro(resposta));
       const dados = await resposta.json() as { adicionados: number };
