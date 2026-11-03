@@ -36,7 +36,7 @@ export default function AdminServicosPage() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [nomeEdicao, setNomeEdicao] = useState("");
 
-  const cabecalhos = sessao ? {
+  const cabecalhos: Record<string, string> = sessao ? {
     Authorization: `Bearer ${sessao.accessToken}`,
     "Content-Type": "application/json",
   } : {};
