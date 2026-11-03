@@ -19,6 +19,11 @@ import {
 } from './auth.service.js';
 import { verificarAccessToken } from '../../lib/jwt.js';
 import { limiteAutenticacao } from '../../plugins/seguranca.js';
+import {
+  consultarBloqueioLogin,
+  registrarFalhaLogin,
+  limparFalhasLogin,
+} from './limite-login.js';
 
 const COOKIE_REFRESH_NOME = 'lartop_refresh';
 
@@ -86,12 +91,42 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     try {
+      const bloqueio = await consultarBloqueioLogin(parse.data.email);
+      if (bloqueio !== null) {
+        reply.header('Retry-After', String(bloqueio));
+        return reply.status(429).send({
+          erro: 'Muitas tentativas incorretas. Tente novamente em ate 15 minutos ou use a recuperacao de senha.',
+          aguardarSegundos: bloqueio,
+        });
+      }
+
       const { accessToken, refreshToken } = await autenticar(parse.data.email, parse.data.senha);
+      await limparFalhasLogin(parse.data.email);
       definirCookieRefresh(reply, refreshToken);
       return reply.send({ accessToken });
     } catch (err) {
       if (err instanceof AuthError) {
-        return reply.status(401).send({ erro: 'E-mail ou senha invalidos' });
+        try {
+          const tentativa = await registrarFalhaLogin(parse.data.email);
+          if (tentativa.bloqueado) {
+            reply.header('Retry-After', String(tentativa.aguardarSegundos));
+            return reply.status(429).send({
+              erro: 'Limite de 5 tentativas incorretas atingido. Aguarde ate 15 minutos e tente novamente.',
+              aguardarSegundos: tentativa.aguardarSegundos,
+            });
+          }
+
+          const restantes = tentativa.restantes;
+          return reply.status(401).send({
+            erro: `E-mail ou senha invalidos. Restam ${restantes} tentativa${restantes === 1 ? '' : 's'} antes do bloqueio temporario.`,
+            tentativasRestantes: restantes,
+          });
+        } catch (erroContador) {
+          request.log.error(erroContador);
+          return reply.status(503).send({
+            erro: 'Nao foi possivel validar o limite de tentativas no momento. Tente novamente mais tarde.',
+          });
+        }
       }
       request.log.error(err);
       return reply.status(500).send({ erro: 'Erro interno ao autenticar' });
