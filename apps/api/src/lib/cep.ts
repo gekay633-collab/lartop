@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { prisma } from './prisma.js';
 
 class CepInvalidoError extends Error {}
@@ -8,6 +10,7 @@ interface RespostaViaCep {
   bairro: string;
   localidade: string;
   uf: string;
+  ibge?: string;
   erro?: boolean;
 }
 
@@ -22,6 +25,80 @@ function normalizarNomeCidade(nome: string): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim();
+}
+
+interface MunicipioBase {
+  codigo_ibge: number;
+  codigo_uf: number;
+  nome: string;
+  latitude: number;
+  longitude: number;
+}
+
+interface EstadoBase {
+  codigo_uf: number;
+  uf: string;
+}
+
+interface LocalizacaoMunicipio {
+  lat: number;
+  lng: number;
+}
+
+let baseMunicipiosCarregada = false;
+const municipiosPorIbge = new Map<string, LocalizacaoMunicipio>();
+const municipiosPorNomeUf = new Map<string, LocalizacaoMunicipio>();
+
+// A base nacional ja pertence ao projeto (prisma/seed/data). Evita depender
+// de um seed manual sempre que o banco e migrado para um novo provedor.
+function obterMunicipioDaBase(
+  nome: string,
+  uf: string,
+  codigoIbge?: string,
+): LocalizacaoMunicipio | null {
+  if (!baseMunicipiosCarregada) {
+    baseMunicipiosCarregada = true;
+    try {
+      const diretorio = join(process.cwd(), 'prisma', 'seed', 'data');
+      const lerJson = (arquivo: string) =>
+        JSON.parse(readFileSync(join(diretorio, arquivo), 'utf8').replace(/^\uFEFF/, ''));
+
+      const estados = lerJson('estados.json') as EstadoBase[];
+      const municipios = lerJson('municipios.json') as MunicipioBase[];
+      const ufs = new Map(estados.map((estado) => [estado.codigo_uf, estado.uf]));
+
+      for (const municipio of municipios) {
+        const ufMunicipio = ufs.get(municipio.codigo_uf);
+        if (!ufMunicipio) continue;
+
+        const localizacao = { lat: municipio.latitude, lng: municipio.longitude };
+        if (!Number.isFinite(localizacao.lat) || !Number.isFinite(localizacao.lng)) continue;
+
+        municipiosPorIbge.set(String(municipio.codigo_ibge), localizacao);
+        municipiosPorNomeUf.set(
+          `${ufMunicipio}:${normalizarNomeCidade(municipio.nome)}`,
+          localizacao,
+        );
+      }
+    } catch (erro) {
+      // Se a distribuicao nao contiver os arquivos de seed, ainda e possivel
+      // localizar o municipio pelo geocodificador ja utilizado pelo projeto.
+      console.error('[cep] Nao foi possivel carregar a base nacional de municipios', erro);
+    }
+  }
+
+  return (
+    (codigoIbge ? municipiosPorIbge.get(codigoIbge) : undefined) ??
+    municipiosPorNomeUf.get(`${uf}:${normalizarNomeCidade(nome)}`) ??
+    null
+  );
+}
+
+function slugDaCidade(nome: string, uf: string): string {
+  const nomeSlug = normalizarNomeCidade(nome)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+  return `${nomeSlug}-${uf.toLowerCase()}`;
 }
 
 let ultimaChamadaNominatim = 0;
@@ -98,23 +175,49 @@ export async function resolverCep(cepBruto: string) {
     throw new CepInvalidoError('CEP nao existe');
   }
 
+  if (!dados.localidade || !dados.uf) {
+    throw new CepInvalidoError('Nao foi possivel identificar a cidade deste CEP');
+  }
+
   const nomeNormalizado = normalizarNomeCidade(dados.localidade);
   const cidadesDoEstado = await prisma.cidade.findMany({ where: { estado: dados.uf } });
-  const cidade = cidadesDoEstado.find((c) => normalizarNomeCidade(c.nome) === nomeNormalizado);
+  let cidade = cidadesDoEstado.find((c) => normalizarNomeCidade(c.nome) === nomeNormalizado);
 
   if (!cidade) {
-    throw new CepInvalidoError(
-      `Cidade "${dados.localidade}/${dados.uf}" nao encontrada na base de municipios`
-    );
+    // Em um banco novo, a tabela de municipios pode estar vazia.
+    // Cria somente a cidade consultada, de forma idempotente e com dados
+    // da base nacional do repositorio (incluindo as coordenadas do IBGE).
+    const coordenadasDaCidade =
+      obterMunicipioDaBase(dados.localidade, dados.uf, dados.ibge) ??
+      (await consultarNominatim(`${dados.localidade}, ${dados.uf}, Brasil`));
+
+    if (!coordenadasDaCidade) {
+      throw new CepInvalidoError(
+        'Nao foi possivel localizar este municipio no momento. Tente novamente.'
+      );
+    }
+
+    cidade = await prisma.cidade.upsert({
+      where: { slug: slugDaCidade(dados.localidade, dados.uf) },
+      create: {
+        nome: dados.localidade,
+        estado: dados.uf,
+        slug: slugDaCidade(dados.localidade, dados.uf),
+        lat: coordenadasDaCidade.lat,
+        lng: coordenadasDaCidade.lng,
+      },
+      update: {},
+    });
   }
 
   const coordenadaPrecisa = await geocodificarEndereco(dados);
-
   const lat = coordenadaPrecisa?.lat ?? cidade.lat;
   const lng = coordenadaPrecisa?.lng ?? cidade.lng;
 
-  const novoCep = await prisma.cep.create({
-    data: { cep, cidadeId: cidade.id, lat, lng },
+  const novoCep = await prisma.cep.upsert({
+    where: { cep },
+    update: {},
+    create: { cep, cidadeId: cidade.id, lat, lng },
     include: { cidade: true },
   });
 
