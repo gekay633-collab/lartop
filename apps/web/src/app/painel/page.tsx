@@ -28,7 +28,7 @@ export default function PainelPage() {
         <div className="border-b border-areia-300 bg-sauge-100">
           <div className="mx-auto max-w-4xl px-4 py-4 sm:py-6 sm:px-6">
             <p className="text-sm text-pinho-700">Painel do profissional</p>
-            <h1 className="font-display text-xl font-semibold text-pinho-900 sm:text-2xl">Ola, {sessao.nome}</h1>
+            <h1 className="font-display text-xl font-semibold text-pinho-900 sm:text-2xl">Olá, {sessao.nome}</h1>
           </div>
         </div>
 

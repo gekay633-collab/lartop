@@ -112,7 +112,7 @@ async function consultarCepComAlternativas(cep: string): Promise<RespostaViaCep>
   } catch (erro) {
     const erros = erro instanceof AggregateError ? erro.errors as unknown[] : [erro];
     if (erros.length > 0 && erros.every((falha) => falha instanceof CepNaoEncontradoError)) {
-      throw new CepInvalidoError('CEP nao encontrado nas bases de enderecos', 404);
+      throw new CepInvalidoError('CEP não encontrado nas bases de endereços', 404);
     }
 
     // Nao expor dados do endereco nas mensagens de log ou para o usuario.
@@ -123,7 +123,7 @@ async function consultarCepComAlternativas(cep: string): Promise<RespostaViaCep>
       })),
     );
     throw new CepInvalidoError(
-      'Servicos de consulta de CEP temporariamente indisponiveis. Tente novamente.',
+      'Serviços de consulta de CEP temporariamente indisponíveis. Tente novamente.',
       503,
     );
   }
@@ -270,7 +270,7 @@ async function geocodificarEndereco(dados: RespostaViaCep): Promise<{ lat: numbe
 export async function resolverCep(cepBruto: string) {
   const cep = cepBruto.replace(/\D/g, '');
   if (cep.length !== 8) {
-    throw new CepInvalidoError('CEP deve ter 8 digitos');
+    throw new CepInvalidoError('O CEP deve ter 8 dígitos');
   }
 
   const cepExistente = await prisma.cep.findUnique({
@@ -284,7 +284,7 @@ export async function resolverCep(cepBruto: string) {
   const dados = await consultarCepComAlternativas(cep);
 
   if (!dados.localidade || !dados.uf) {
-    throw new CepInvalidoError('Nao foi possivel identificar a cidade deste CEP');
+    throw new CepInvalidoError('Não foi possível identificar a cidade deste CEP');
   }
 
   const nomeNormalizado = normalizarNomeCidade(dados.localidade);
@@ -301,7 +301,7 @@ export async function resolverCep(cepBruto: string) {
 
     if (!coordenadasDaCidade) {
       throw new CepInvalidoError(
-        'Nao foi possivel localizar este municipio no momento. Tente novamente.'
+        'Não foi possível localizar este município no momento. Tente novamente.'
       );
     }
 

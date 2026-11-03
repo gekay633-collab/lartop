@@ -51,7 +51,7 @@ export async function perfilRoutes(app: FastifyInstance) {
   app.patch('/perfil/mim', { preHandler: somenteProfissional }, async (request, reply) => {
     const parse = atualizarPerfilSchema.safeParse(request.body);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Dados invalidos', detalhes: parse.error.flatten() });
+      return reply.status(400).send({ erro: 'Dados inválidos', detalhes: parse.error.flatten() });
     }
 
     try {
@@ -70,7 +70,7 @@ export async function perfilRoutes(app: FastifyInstance) {
     const parse = atualizarTelefoneSchema.safeParse(request.body);
     if (!parse.success) {
       return reply.status(400).send({
-        erro: 'Informe um celular valido com DDD (11 digitos)',
+        erro: 'Informe um celular válido com DDD (11 dígitos)',
         detalhes: parse.error.flatten(),
       });
     }
@@ -90,7 +90,7 @@ export async function perfilRoutes(app: FastifyInstance) {
   app.put('/perfil/mim/categorias', { preHandler: somenteProfissional }, async (request, reply) => {
     const parse = definirCategoriasSchema.safeParse(request.body);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Dados invalidos', detalhes: parse.error.flatten() });
+      return reply.status(400).send({ erro: 'Dados inválidos', detalhes: parse.error.flatten() });
     }
 
     try {
@@ -108,7 +108,7 @@ export async function perfilRoutes(app: FastifyInstance) {
   app.post('/perfil/mim/fotos', { preHandler: somenteProfissional }, async (request, reply) => {
     const parse = adicionarFotoPortfolioSchema.safeParse(request.body);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Dados invalidos', detalhes: parse.error.flatten() });
+      return reply.status(400).send({ erro: 'Dados inválidos', detalhes: parse.error.flatten() });
     }
 
     try {

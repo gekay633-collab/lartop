@@ -6,7 +6,7 @@ export async function buscaRoutes(app: FastifyInstance) {
   app.get('/profissionais/buscar', async (request, reply) => {
     const parse = buscarProfissionaisSchema.safeParse(request.query);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Parametros invalidos', detalhes: parse.error.flatten() });
+      return reply.status(400).send({ erro: 'Parâmetros inválidos', detalhes: parse.error.flatten() });
     }
 
     try {

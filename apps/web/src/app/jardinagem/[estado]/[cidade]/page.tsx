@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   return {
     title: `Jardineiros e cortadores de grama em ${nomeCidade}, ${uf} | Lartop`,
-    description: `Encontre profissionais de corte de grama, poda e paisagismo em ${nomeCidade}/${uf}. Compare avaliacoes e fale direto pelo WhatsApp.`,
+    description: `Encontre profissionais de corte de grama, poda e paisagismo em ${nomeCidade}/${uf}. Compare avaliações e fale direto pelo WhatsApp.`,
   };
 }
 
@@ -44,7 +44,7 @@ export default async function CidadePage({ params }: PageProps) {
               Corte de grama e jardinagem em {nomeCidade}, {uf}
             </h1>
             <p className="mt-2 text-pinho-700">
-              Compare profissionais avaliados na sua regiao e combine tudo direto pelo WhatsApp.
+              Compare profissionais avaliados na sua região e combine tudo direto pelo WhatsApp.
             </p>
           </div>
         </div>
@@ -52,15 +52,15 @@ export default async function CidadePage({ params }: PageProps) {
         <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
           {ehErroApi(resultado) ? (
             <div className="rounded-2xl border border-areia-300 bg-white/60 p-8 text-center">
-              <p className="font-display text-lg text-pinho-900">Ainda nao temos profissionais em {nomeCidade}.</p>
-              <p className="mt-2 text-pinho-700">Digite seu CEP para buscar em uma area maior.</p>
+              <p className="font-display text-lg text-pinho-900">Ainda não temos profissionais em {nomeCidade}.</p>
+              <p className="mt-2 text-pinho-700">Digite seu CEP para buscar em uma área maior.</p>
               <div className="mx-auto mt-6 max-w-xl">
                 <BuscaHero />
               </div>
             </div>
           ) : resultado.resultados.length === 0 ? (
             <div className="rounded-2xl border border-areia-300 bg-white/60 p-8 text-center">
-              <p className="font-display text-lg text-pinho-900">Ainda nao encontramos profissionais em {nomeCidade}.</p>
+              <p className="font-display text-lg text-pinho-900">Ainda não encontramos profissionais em {nomeCidade}.</p>
               <p className="mt-2 text-pinho-700">Estamos crescendo! Volte em breve.</p>
             </div>
           ) : (

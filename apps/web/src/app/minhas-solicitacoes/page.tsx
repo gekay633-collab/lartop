@@ -62,8 +62,8 @@ export default function MinhasSolicitacoesPage() {
       <Cabecalho />
       <main className="flex-1">
         <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
-          <h1 className="font-display text-2xl font-semibold text-pinho-900">Minhas solicitacoes</h1>
-          <p className="mt-2 text-pinho-700">Acompanhe seus pedidos de orcamento e avalie apos o servico concluido.</p>
+          <h1 className="font-display text-2xl font-semibold text-pinho-900">Minhas solicitações</h1>
+          <p className="mt-2 text-pinho-700">Acompanhe seus pedidos de orçamento e avalie após a conclusão do serviço.</p>
 
           <div className="mt-6 flex flex-col gap-4">
             {erro && <p className="text-terra-600">{erro}</p>}
@@ -71,7 +71,7 @@ export default function MinhasSolicitacoesPage() {
               <p className="text-pinho-700">Carregando...</p>
             ) : erro ? null : solicitacoes.length === 0 ? (
               <div className="rounded-2xl border border-areia-300 bg-white/60 p-8 text-center">
-                <p className="font-display text-lg text-pinho-900">Voce ainda nao pediu nenhum orcamento.</p>
+                <p className="font-display text-lg text-pinho-900">Você ainda não pediu nenhum orçamento.</p>
                 <a href="/" className="mt-4 inline-block text-sm font-medium text-relva-600 hover:underline">Buscar profissionais</a>
               </div>
             ) : (

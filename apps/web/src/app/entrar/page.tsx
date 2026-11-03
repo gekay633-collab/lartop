@@ -27,7 +27,7 @@ export default function EntrarPage() {
         router.push("/");
       }
     } catch (err) {
-      setErro(err instanceof Error ? err.message : "Nao foi possivel entrar");
+      setErro(err instanceof Error ? err.message : "Não foi possível entrar");
     } finally {
       setCarregando(false);
     }
@@ -62,7 +62,7 @@ export default function EntrarPage() {
           </p>
 
           <p className="mt-6 text-sm text-pinho-700">
-            E profissional e ainda nao tem conta?{" "}
+            É profissional e ainda não tem conta?{" "}
             <a href="/para-profissionais" className="font-medium text-relva-600 hover:underline">Cadastre-se aqui</a>
           </p>
         </div>

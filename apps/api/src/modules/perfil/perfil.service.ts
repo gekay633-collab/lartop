@@ -26,7 +26,7 @@ export async function obterPerfilProprio(usuarioId: string) {
   });
 
   if (!perfil) {
-    throw new PerfilError('Perfil profissional nao encontrado');
+    throw new PerfilError('Perfil profissional não encontrado');
   }
 
   return perfil;
@@ -35,7 +35,7 @@ export async function obterPerfilProprio(usuarioId: string) {
 export async function atualizarPerfil(usuarioId: string, input: AtualizarPerfilInput) {
   const perfilExistente = await prisma.perfilProfissional.findUnique({ where: { usuarioId } });
   if (!perfilExistente) {
-    throw new PerfilError('Perfil profissional nao encontrado');
+    throw new PerfilError('Perfil profissional não encontrado');
   }
 
   const perfilAtualizado = await prisma.perfilProfissional.update({
@@ -54,7 +54,7 @@ export async function atualizarTelefoneProfissional(usuarioId: string, telefone:
     select: { telefone: true, telefoneVerificado: true, tipo: true },
   });
   if (!usuario || usuario.tipo !== 'PROFISSIONAL') {
-    throw new PerfilError('Conta profissional nao encontrada', 404);
+    throw new PerfilError('Conta profissional não encontrada', 404);
   }
 
   // Uma edição sem mudança de número não revoga a verificação existente.
@@ -74,7 +74,7 @@ export async function atualizarTelefoneProfissional(usuarioId: string, telefone:
 export async function definirCategorias(usuarioId: string, input: DefinirCategoriasInput) {
   const perfilExistente = await prisma.perfilProfissional.findUnique({ where: { usuarioId } });
   if (!perfilExistente) {
-    throw new PerfilError('Perfil profissional nao encontrado');
+    throw new PerfilError('Perfil profissional não encontrado');
   }
 
   // Apenas categorias existentes e ativas podem ser associadas ao prestador.
@@ -83,7 +83,7 @@ export async function definirCategorias(usuarioId: string, input: DefinirCategor
     where: { id: { in: ids }, ativo: true },
   });
   if (categoriasAtivas !== ids.length) {
-    throw new PerfilError('Escolha apenas servicos ativos cadastrados pela Lartop', 400);
+    throw new PerfilError('Escolha apenas serviços ativos cadastrados pela Lartop', 400);
   }
 
   await prisma.$transaction(async (tx: any) => {
@@ -105,7 +105,7 @@ export async function definirCategorias(usuarioId: string, input: DefinirCategor
 export async function adicionarFotoPortfolio(usuarioId: string, input: AdicionarFotoPortfolioInput) {
   const perfilExistente = await prisma.perfilProfissional.findUnique({ where: { usuarioId } });
   if (!perfilExistente) {
-    throw new PerfilError('Perfil profissional nao encontrado');
+    throw new PerfilError('Perfil profissional não encontrado');
   }
 
   const foto = await prisma.fotoPortfolio.create({
@@ -127,7 +127,7 @@ export async function publicarPerfil(usuarioId: string) {
   });
 
   if (!perfil) {
-    throw new PerfilError('Perfil profissional nao encontrado');
+    throw new PerfilError('Perfil profissional não encontrado');
   }
 
   if (!perfil.bio || perfil.categorias.length === 0) {
@@ -175,7 +175,7 @@ export async function obterPerfilPublico(usuarioId: string) {
   });
 
   if (!perfil) {
-    throw new PerfilError('Perfil nao encontrado');
+    throw new PerfilError('Perfil não encontrado');
   }
 
   return perfil;

@@ -14,7 +14,7 @@ export async function avaliacaoRoutes(app: FastifyInstance) {
   app.post('/avaliacoes/cliente', { preHandler: somenteCliente }, async (request, reply) => {
     const parse = criarAvaliacaoSchema.safeParse(request.body);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Dados invalidos', detalhes: parse.error.flatten() });
+      return reply.status(400).send({ erro: 'Dados inválidos', detalhes: parse.error.flatten() });
     }
 
     try {
@@ -32,7 +32,7 @@ export async function avaliacaoRoutes(app: FastifyInstance) {
   app.post('/avaliacoes/profissional', { preHandler: somenteProfissional }, async (request, reply) => {
     const parse = criarAvaliacaoSchema.safeParse(request.body);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Dados invalidos', detalhes: parse.error.flatten() });
+      return reply.status(400).send({ erro: 'Dados inválidos', detalhes: parse.error.flatten() });
     }
 
     try {
@@ -55,7 +55,7 @@ export async function avaliacaoRoutes(app: FastifyInstance) {
       return reply.send(avaliacoes);
     } catch (err) {
       request.log.error(err);
-      return reply.status(500).send({ erro: 'Erro interno ao listar avaliacoes' });
+      return reply.status(500).send({ erro: 'Erro interno ao listar avaliações' });
     }
   });
 }

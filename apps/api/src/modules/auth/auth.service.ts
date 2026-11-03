@@ -17,7 +17,7 @@ export async function registrarCliente(input: {
 }) {
   const existente = await prisma.usuario.findUnique({ where: { email: input.email } });
   if (existente) {
-    throw new AuthError('E-mail ja cadastrado');
+    throw new AuthError('E-mail já cadastrado');
   }
 
   const senhaHash = await gerarHashSenha(input.senha);
@@ -44,7 +44,7 @@ export async function registrarProfissional(input: {
 }) {
   const existente = await prisma.usuario.findUnique({ where: { email: input.email } });
   if (existente) {
-    throw new AuthError('E-mail ja cadastrado');
+    throw new AuthError('E-mail já cadastrado');
   }
 
   let cep;
@@ -90,12 +90,12 @@ export async function registrarProfissional(input: {
 export async function autenticar(email: string, senha: string) {
   const usuario = await prisma.usuario.findUnique({ where: { email } });
   if (!usuario || !usuario.ativo) {
-    throw new AuthError('Credenciais invalidas');
+    throw new AuthError('Credenciais inválidas');
   }
 
   const senhaValida = await verificarSenha(usuario.senhaHash, senha);
   if (!senhaValida) {
-    throw new AuthError('Credenciais invalidas');
+    throw new AuthError('Credenciais inválidas');
   }
 
   return emitirTokens(usuario.id, usuario.tipo);
@@ -121,12 +121,12 @@ export async function renovarTokens(refreshToken: string) {
   try {
     payload = verificarRefreshToken(refreshToken);
   } catch {
-    throw new AuthError('Refresh token invalido');
+    throw new AuthError('Token de renovação inválido');
   }
 
   const usuario = await prisma.usuario.findUnique({ where: { id: payload.sub } });
   if (!usuario || !usuario.ativo) {
-    throw new AuthError('Usuario invalido');
+    throw new AuthError('Usuário inválido');
   }
 
   return emitirTokens(usuario.id, usuario.tipo);
@@ -181,7 +181,7 @@ export async function redefinirSenha(usuarioId: string, tokenBruto: string, nova
   }
 
   if (!tokenValido) {
-    throw new AuthError('Link invalido ou expirado');
+    throw new AuthError('Link inválido ou expirado');
   }
 
   const novaSenhaHash = await gerarHashSenha(novaSenha);

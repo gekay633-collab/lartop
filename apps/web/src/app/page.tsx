@@ -5,9 +5,9 @@ import { CategoriasHome } from "@/components/CategoriasHome";
 import { Faq } from "@/components/Faq";
 
 const PASSOS = [
-  { numero: "01", titulo: "Digite seu CEP", texto: "Mostramos os profissionais mais proximos de voce." },
-  { numero: "02", titulo: "Compare perfis", texto: "Veja avaliacoes, fotos de antes e depois e valores de referencia." },
-  { numero: "03", titulo: "Fale no WhatsApp", texto: "O contato e a negociacao acontecem direto com o profissional, sem intermediario." },
+  { numero: "01", titulo: "Digite seu CEP", texto: "Mostramos os profissionais mais próximos de você." },
+  { numero: "02", titulo: "Compare perfis", texto: "Veja avaliações, fotos de antes e depois e valores de referência." },
+  { numero: "03", titulo: "Fale no WhatsApp", texto: "O contato e a negociação acontecem diretamente com o profissional, sem intermediários." },
 ];
 
 export default function HomePage() {
@@ -20,7 +20,7 @@ export default function HomePage() {
           <div className="relative mx-auto flex max-w-6xl flex-col gap-10 px-4 py-14 sm:px-6 sm:py-20 md:py-28">
             <div className="max-w-2xl">
               <h1 className="font-display text-3xl font-semibold leading-tight text-sauge-50 sm:text-4xl md:text-5xl">Seu LAR nas maos de quem entende do assunto.</h1>
-              <p className="mt-4 text-lg text-sauge-100">Encontre profissionais de jardinagem, piscina e cuidados com sua casa perto de voce. Compare avaliacoes e combine tudo direto pelo WhatsApp.</p>
+              <p className="mt-4 text-lg text-sauge-100">Encontre profissionais de jardinagem, piscina e cuidados com sua casa perto de você. Compare avaliações e combine tudo direto pelo WhatsApp.</p>
             </div>
             <div className="max-w-3xl">
               <BuscaHero />
@@ -29,7 +29,7 @@ export default function HomePage() {
         </section>
 
         <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          <h2 className="font-display text-2xl font-semibold text-pinho-900">O que voce precisa cuidar em casa?</h2>
+          <h2 className="font-display text-2xl font-semibold text-pinho-900">De qual serviço sua casa precisa?</h2>
           <CategoriasHome />
         </section>
 
@@ -57,7 +57,7 @@ export default function HomePage() {
 
         <section className="mx-auto max-w-6xl px-4 py-16 text-center sm:px-6">
           <h2 className="font-display text-2xl font-semibold text-pinho-900">E profissional de jardinagem ou piscina?</h2>
-          <p className="mx-auto mt-3 max-w-xl text-pinho-700">Publique seu perfil na Lartop de graca e receba pedidos de orcamento de clientes da sua regiao.</p>
+          <p className="mx-auto mt-3 max-w-xl text-pinho-700">Publique seu perfil na Lartop de graça e receba pedidos de orçamento de clientes da sua região.</p>
           <a href="/para-profissionais" className="mt-6 inline-block rounded-xl bg-terra-500 px-6 py-3 font-semibold text-sauge-50 transition hover:bg-terra-600">Cadastrar meu perfil</a>
         </section>
       </main>

@@ -9,7 +9,7 @@ export async function usuarioRoutes(app: FastifyInstance) {
     });
 
     if (!usuario) {
-      return reply.status(404).send({ erro: 'Usuario nao encontrado' });
+      return reply.status(404).send({ erro: 'Usuário não encontrado' });
     }
 
     return reply.send(usuario);

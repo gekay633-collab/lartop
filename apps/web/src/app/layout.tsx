@@ -7,8 +7,8 @@ import "@fontsource/ibm-plex-mono/600.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Lartop | Corte de grama e jardinagem perto de voce",
-  description: "Encontre profissionais de corte de grama, poda e paisagismo na sua cidade. Compare avaliacoes e fale direto pelo WhatsApp.",
+  title: "Lartop | Corte de grama e jardinagem perto de você",
+  description: "Encontre profissionais de corte de grama, poda e paisagismo na sua cidade. Compare avaliações e fale direto pelo WhatsApp.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,

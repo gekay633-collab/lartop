@@ -24,7 +24,7 @@ function FormularioRedefinirSenha() {
     setErro("");
 
     if (novaSenha !== confirmarSenha) {
-      setErro("As senhas nao coincidem.");
+      setErro("As senhas não coincidem.");
       return;
     }
 
@@ -36,7 +36,7 @@ function FormularioRedefinirSenha() {
         body: JSON.stringify({ usuarioId, token, novaSenha }),
       });
       const dados = await resposta.json();
-      if (!resposta.ok) throw new Error(dados.erro ?? "Nao foi possivel redefinir a senha");
+      if (!resposta.ok) throw new Error(dados.erro ?? "Não foi possível redefinir a senha");
 
       setSucesso(true);
       setTimeout(() => router.push("/entrar"), 2000);

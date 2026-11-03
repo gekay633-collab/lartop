@@ -60,9 +60,9 @@ export default function AdminClientesPage() {
             <tr>
               <th className="px-4 py-3">Nome</th>
               <th className="px-4 py-3">Contato</th>
-              <th className="px-4 py-3">Solicitacoes feitas</th>
+              <th className="px-4 py-3">Solicitações feitas</th>
               <th className="px-4 py-3">Conta</th>
-              <th className="px-4 py-3">Acoes</th>
+              <th className="px-4 py-3">Ações</th>
             </tr>
           </thead>
           <tbody>

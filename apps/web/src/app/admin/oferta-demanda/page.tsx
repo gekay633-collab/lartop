@@ -33,7 +33,7 @@ export default function AdminOfertaDemandaPage() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl font-semibold text-pinho-900">Oferta e Demanda</h1>
+      <h1 className="font-display text-2xl font-semibold text-pinho-900">Oferta e demanda</h1>
       <p className="mt-2 text-pinho-700">Pesquisas, contatos gerados e prestadores ativos por cidade e serviço, nos últimos 30 dias.</p>
 
       <div className="mt-6 overflow-x-auto rounded-2xl border border-areia-300 bg-white/70">
@@ -41,18 +41,18 @@ export default function AdminOfertaDemandaPage() {
           <thead className="border-b border-areia-300 text-xs uppercase tracking-wide text-pinho-700">
             <tr>
               <th className="px-4 py-3">Cidade</th>
-              <th className="px-4 py-3">Servico</th>
+              <th className="px-4 py-3">Serviço</th>
               <th className="px-4 py-3">Pesquisas</th>
               <th className="px-4 py-3">Prestadores</th>
               <th className="px-4 py-3">Contatos gerados</th>
-              <th className="px-4 py-3">Situacao</th>
+              <th className="px-4 py-3">Situação</th>
             </tr>
           </thead>
           <tbody>
             {!linhas ? (
               <tr><td className="px-4 py-4 text-pinho-700" colSpan={6}>Carregando...</td></tr>
             ) : linhas.length === 0 ? (
-              <tr><td className="px-4 py-4 text-pinho-700" colSpan={6}>Ainda nao ha dados suficientes. Volte quando houver mais pesquisas e contatos registrados.</td></tr>
+              <tr><td className="px-4 py-4 text-pinho-700" colSpan={6}>Ainda não há dados suficientes. Volte quando houver mais pesquisas e contatos registrados.</td></tr>
             ) : (
               linhas.map((linha, i) => (
                 <tr key={i} className="border-b border-areia-200">

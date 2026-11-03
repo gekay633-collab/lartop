@@ -50,7 +50,7 @@ export async function adminRoutes(app: FastifyInstance) {
   app.get('/admin/prestadores', { preHandler: somenteAdmin }, async (request, reply) => {
     const parse = listarPrestadoresQuerySchema.safeParse(request.query);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Parametros invalidos' });
+      return reply.status(400).send({ erro: 'Parâmetros inválidos' });
     }
     try {
       const resultado = await listarPrestadores(parse.data);
@@ -65,7 +65,7 @@ export async function adminRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string };
     const parse = alternarPublicacaoSchema.safeParse(request.body);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Dados invalidos' });
+      return reply.status(400).send({ erro: 'Dados inválidos' });
     }
     try {
       const perfil = await alternarPublicacaoPrestador(id, parse.data.publicado);
@@ -75,14 +75,14 @@ export async function adminRoutes(app: FastifyInstance) {
         return reply.status(err.status).send({ erro: err.message });
       }
       request.log.error(err);
-      return reply.status(500).send({ erro: 'Erro interno ao atualizar publicacao' });
+      return reply.status(500).send({ erro: 'Erro interno ao atualizar publicação' });
     }
   });
 
   app.get('/admin/clientes', { preHandler: somenteAdmin }, async (request, reply) => {
     const parse = listarClientesQuerySchema.safeParse(request.query);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Parametros invalidos' });
+      return reply.status(400).send({ erro: 'Parâmetros inválidos' });
     }
     try {
       const resultado = await listarClientes(parse.data);
@@ -97,7 +97,7 @@ export async function adminRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string };
     const parse = alternarBloqueioSchema.safeParse(request.body);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Dados invalidos' });
+      return reply.status(400).send({ erro: 'Dados inválidos' });
     }
     try {
       const usuario = await alternarBloqueioUsuario(id, parse.data.ativo);
@@ -128,14 +128,14 @@ export async function adminRoutes(app: FastifyInstance) {
       return reply.send(resultado);
     } catch (err) {
       request.log.error(err);
-      return reply.status(500).send({ erro: 'Erro interno ao cadastrar servicos iniciais' });
+      return reply.status(500).send({ erro: 'Erro interno ao cadastrar serviços iniciais' });
     }
   });
 
   app.post('/admin/categorias', { preHandler: somenteAdmin }, async (request, reply) => {
     const parse = criarCategoriaSchema.safeParse(request.body);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Dados invalidos' });
+      return reply.status(400).send({ erro: 'Dados inválidos' });
     }
     try {
       const categoria = await criarCategoria(parse.data);
@@ -152,7 +152,7 @@ export async function adminRoutes(app: FastifyInstance) {
   app.delete('/admin/categorias/:id', { preHandler: somenteAdmin }, async (request, reply) => {
     const params = z.object({ id: z.string().uuid() }).safeParse(request.params);
     if (!params.success) {
-      return reply.status(400).send({ erro: 'Identificador de servico invalido' });
+      return reply.status(400).send({ erro: 'Identificador de serviço inválido' });
     }
 
     try {
@@ -163,7 +163,7 @@ export async function adminRoutes(app: FastifyInstance) {
         return reply.status(err.status).send({ erro: err.message });
       }
       request.log.error(err);
-      return reply.status(500).send({ erro: 'Erro interno ao excluir servico' });
+      return reply.status(500).send({ erro: 'Erro interno ao excluir serviço' });
     }
   });
 
@@ -171,7 +171,7 @@ export async function adminRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string };
     const parse = atualizarCategoriaSchema.safeParse(request.body);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Dados invalidos' });
+      return reply.status(400).send({ erro: 'Dados inválidos' });
     }
     try {
       const categoria = await atualizarCategoria(id, parse.data);

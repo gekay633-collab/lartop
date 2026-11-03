@@ -20,7 +20,7 @@ const ROTULOS_STATUS: Record<string, string> = {
   RESPONDIDA: "Respondido",
   ACEITA: "Aceito",
   RECUSADA: "Recusado",
-  CONCLUIDA: "Concluido",
+  CONCLUIDA: "Concluído",
   CANCELADA: "Cancelado",
 };
 
@@ -62,7 +62,7 @@ export function AbaLeads({ accessToken }: { accessToken: string }) {
 
   if (erro) return <p className="text-terra-600">{erro}</p>;
   if (!leads) return <p className="text-pinho-700">Carregando...</p>;
-  if (leads.length === 0) return <p className="text-pinho-700">Voce ainda nao recebeu nenhum pedido de orcamento.</p>;
+  if (leads.length === 0) return <p className="text-pinho-700">Você ainda não recebeu nenhum pedido de orçamento.</p>;
 
   return (
     <div className="flex flex-col gap-4">

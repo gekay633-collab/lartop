@@ -17,9 +17,9 @@ interface Solicitacao {
 const ROTULOS_STATUS: Record<string, string> = {
   PENDENTE: "Aguardando resposta",
   RESPONDIDA: "Respondido pelo profissional",
-  ACEITA: "Aceito, servico agendado",
+  ACEITA: "Aceito, serviço agendado",
   RECUSADA: "Recusado",
-  CONCLUIDA: "Concluido",
+  CONCLUIDA: "Concluído",
   CANCELADA: "Cancelado",
 };
 
@@ -66,14 +66,14 @@ export function CardMinhaSolicitacao({ solicitacao, accessToken }: { solicitacao
       <p className="mt-1 font-data text-sm text-terra-600">{solicitacao.tamanhoM2} m2</p>
 
       {solicitacao.status === "CONCLUIDA" && avaliado && (
-        <p className="mt-3 text-sm text-relva-600">Avaliacao enviada, obrigado!</p>
+        <p className="mt-3 text-sm text-relva-600">Avaliação enviada, obrigado!</p>
       )}
 
       {solicitacao.status === "CONCLUIDA" && !avaliado && (
         <div className="mt-3">
           {!mostrarForm ? (
             <button onClick={() => setMostrarForm(true)} className="rounded-lg bg-relva-500 px-4 py-2 text-sm font-medium text-sauge-50 hover:bg-relva-600">
-              Avaliar servico
+              Avaliar serviço
             </button>
           ) : (
             <div className="rounded-xl border border-areia-300 bg-sauge-50 p-4">
@@ -85,10 +85,10 @@ export function CardMinhaSolicitacao({ solicitacao, accessToken }: { solicitacao
                   </button>
                 ))}
               </div>
-              <textarea value={comentario} onChange={(e) => setComentario(e.target.value)} placeholder="Como foi o servico? (opcional)" rows={2} className="mt-2 w-full rounded-lg border border-areia-300 bg-white px-3 py-2 text-sm text-pinho-900 outline-none focus:border-relva-500" />
+              <textarea value={comentario} onChange={(e) => setComentario(e.target.value)} placeholder="Como foi o serviço? (opcional)" rows={2} className="mt-2 w-full rounded-lg border border-areia-300 bg-white px-3 py-2 text-sm text-pinho-900 outline-none focus:border-relva-500" />
               {erro && <p className="mt-1 text-sm text-terra-600">{erro}</p>}
               <button onClick={enviarAvaliacao} disabled={enviando} className="mt-2 rounded-lg bg-relva-500 px-4 py-2 text-sm font-medium text-sauge-50 hover:bg-relva-600 disabled:opacity-60">
-                {enviando ? "Enviando..." : "Enviar avaliacao"}
+                {enviando ? "Enviando..." : "Enviar avaliação"}
               </button>
             </div>
           )}

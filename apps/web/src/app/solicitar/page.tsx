@@ -17,7 +17,7 @@ export default async function SolicitarPage({ searchParams }: PageProps) {
         <main className="flex-1">
           <div className="mx-auto max-w-2xl px-4 py-20 text-center sm:px-6">
             <h1 className="font-display text-2xl font-semibold text-pinho-900">Nenhum profissional selecionado</h1>
-            <p className="mt-3 text-pinho-700">Volte para a busca e escolha um profissional para pedir orcamento.</p>
+            <p className="mt-3 text-pinho-700">Volte para a busca e escolha um profissional para pedir orçamento.</p>
             <a href="/" className="mt-6 inline-block rounded-xl bg-relva-500 px-6 py-3 font-semibold text-sauge-50 transition hover:bg-relva-600">Voltar para a busca</a>
           </div>
         </main>
@@ -34,7 +34,7 @@ export default async function SolicitarPage({ searchParams }: PageProps) {
         <Cabecalho />
         <main className="flex-1">
           <div className="mx-auto max-w-2xl px-4 py-20 text-center sm:px-6">
-            <h1 className="font-display text-2xl font-semibold text-pinho-900">Profissional nao encontrado</h1>
+            <h1 className="font-display text-2xl font-semibold text-pinho-900">Profissional não encontrado</h1>
             <p className="mt-3 text-pinho-700">{perfil.erro}</p>
             <a href="/" className="mt-6 inline-block rounded-xl bg-relva-500 px-6 py-3 font-semibold text-sauge-50 transition hover:bg-relva-600">Voltar para a busca</a>
           </div>
@@ -53,10 +53,10 @@ export default async function SolicitarPage({ searchParams }: PageProps) {
             &larr; Voltar para o perfil
           </a>
           <h1 className="mt-3 font-display text-2xl font-semibold text-pinho-900">
-            Pedir orcamento para {perfil.nomeExibicao}
+            Pedir orçamento para {perfil.nomeExibicao}
           </h1>
           <p className="mt-2 text-pinho-700">
-            Preencha os dados do servico. Ao enviar, geramos um link para voce falar direto no WhatsApp.
+            Preencha os dados do serviço. Ao enviar, geramos um link para você falar diretamente pelo WhatsApp.
           </p>
 
           <div className="mt-6">

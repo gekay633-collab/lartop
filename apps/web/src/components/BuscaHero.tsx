@@ -36,7 +36,7 @@ export function BuscaHero() {
     const cepLimpo = cep.replace(/\D/g, "");
 
     if (cepLimpo.length !== 8) {
-      setErro("Digite um CEP valido, com 8 numeros.");
+      setErro("Digite um CEP válido, com 8 números.");
       return;
     }
 
@@ -56,7 +56,7 @@ export function BuscaHero() {
       <div className="hidden w-px bg-areia-300 sm:block" />
 
       <div className="flex flex-1 flex-col gap-1 px-2 py-1 sm:py-2">
-        <label htmlFor="categoria" className="text-xs font-medium uppercase tracking-wide text-pinho-700">Servico</label>
+        <label htmlFor="categoria" className="text-xs font-medium uppercase tracking-wide text-pinho-700">Serviço</label>
         <select id="categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)} className="bg-transparent text-base text-pinho-900 outline-none">
           <option value="">Todos os serviços</option>
           {categorias.map((c) => (

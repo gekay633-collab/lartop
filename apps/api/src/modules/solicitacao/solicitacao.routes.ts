@@ -20,7 +20,7 @@ export async function solicitacaoRoutes(app: FastifyInstance) {
   app.post('/solicitacoes', { preHandler: somenteCliente }, async (request, reply) => {
     const parse = criarSolicitacaoSchema.safeParse(request.body);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Dados invalidos', detalhes: parse.error.flatten() });
+      return reply.status(400).send({ erro: 'Dados inválidos', detalhes: parse.error.flatten() });
     }
 
     try {
@@ -31,14 +31,14 @@ export async function solicitacaoRoutes(app: FastifyInstance) {
         return reply.status(err.status).send({ erro: err.message });
       }
       request.log.error(err);
-      return reply.status(500).send({ erro: 'Erro interno ao criar solicitacao' });
+      return reply.status(500).send({ erro: 'Erro interno ao criar solicitação' });
     }
   });
 
   app.get('/solicitacoes/recebidas', { preHandler: somenteProfissional }, async (request, reply) => {
     const parse = listarSolicitacoesQuerySchema.safeParse(request.query);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Parametros invalidos' });
+      return reply.status(400).send({ erro: 'Parâmetros inválidos' });
     }
 
     try {
@@ -46,14 +46,14 @@ export async function solicitacaoRoutes(app: FastifyInstance) {
       return reply.send(resultado);
     } catch (err) {
       request.log.error(err);
-      return reply.status(500).send({ erro: 'Erro interno ao listar solicitacoes' });
+      return reply.status(500).send({ erro: 'Erro interno ao listar solicitações' });
     }
   });
 
   app.get('/solicitacoes/minhas', { preHandler: somenteCliente }, async (request, reply) => {
     const parse = listarSolicitacoesQuerySchema.safeParse(request.query);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Parametros invalidos' });
+      return reply.status(400).send({ erro: 'Parâmetros inválidos' });
     }
 
     try {
@@ -61,7 +61,7 @@ export async function solicitacaoRoutes(app: FastifyInstance) {
       return reply.send(resultado);
     } catch (err) {
       request.log.error(err);
-      return reply.status(500).send({ erro: 'Erro interno ao listar solicitacoes' });
+      return reply.status(500).send({ erro: 'Erro interno ao listar solicitações' });
     }
   });
 
@@ -72,7 +72,7 @@ export async function solicitacaoRoutes(app: FastifyInstance) {
       const { id } = request.params as { id: string };
       const parse = atualizarStatusSchema.safeParse(request.body);
       if (!parse.success) {
-        return reply.status(400).send({ erro: 'Dados invalidos', detalhes: parse.error.flatten() });
+        return reply.status(400).send({ erro: 'Dados inválidos', detalhes: parse.error.flatten() });
       }
 
       try {
@@ -102,7 +102,7 @@ export async function solicitacaoRoutes(app: FastifyInstance) {
           return reply.status(err.status).send({ erro: err.message });
         }
         request.log.error(err);
-        return reply.status(500).send({ erro: 'Erro interno ao cancelar solicitacao' });
+        return reply.status(500).send({ erro: 'Erro interno ao cancelar solicitação' });
       }
     }
   );

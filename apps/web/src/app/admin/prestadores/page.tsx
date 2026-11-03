@@ -70,10 +70,10 @@ export default function AdminPrestadoresPage() {
             <tr>
               <th className="px-4 py-3">Nome</th>
               <th className="px-4 py-3">Cidade</th>
-              <th className="px-4 py-3">Servicos</th>
+              <th className="px-4 py-3">Serviços</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Conta</th>
-              <th className="px-4 py-3">Acoes</th>
+              <th className="px-4 py-3">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -92,7 +92,7 @@ export default function AdminPrestadoresPage() {
                   <td className="px-4 py-3 text-pinho-900">{p._count.categorias}</td>
                   <td className="px-4 py-3">
                     <span className={p.perfilPublicado ? "rounded-full bg-relva-500/15 px-2 py-0.5 text-xs font-medium text-relva-600" : "rounded-full bg-areia-200 px-2 py-0.5 text-xs font-medium text-pinho-700"}>
-                      {p.perfilPublicado ? "Publicado" : "Nao publicado"}
+                      {p.perfilPublicado ? "Publicado" : "Não publicado"}
                     </span>
                   </td>
                   <td className="px-4 py-3">

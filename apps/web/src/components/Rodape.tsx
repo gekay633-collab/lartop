@@ -2,11 +2,11 @@ import Link from "next/link";
 
 const SERVICOS = [
   { slug: "corte-de-grama", nome: "Corte de grama" },
-  { slug: "poda", nome: "Poda de arvores e arbustos" },
+  { slug: "poda", nome: "Poda de árvores e arbustos" },
   { slug: "paisagismo", nome: "Paisagismo" },
-  { slug: "manutencao-jardim", nome: "Manutencao de jardim" },
+  { slug: "manutencao-jardim", nome: "Manutenção de jardim" },
   { slug: "limpeza-terreno", nome: "Limpeza de terreno" },
-  { slug: "instalacao", nome: "Instalacao de grama/jardim" },
+  { slug: "instalacao", nome: "Instalação de grama/jardim" },
   { slug: "piscineiro", nome: "Piscineiro" },
 ];
 
@@ -17,7 +17,7 @@ export function Rodape() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <p className="font-display text-lg text-pinho-900">Lartop</p>
-            <p className="mt-2 max-w-xs text-sm text-pinho-700">Conectamos quem precisa cuidar da casa com profissionais de jardinagem, piscina e muito mais perto de voce.</p>
+            <p className="mt-2 max-w-xs text-sm text-pinho-700">Conectamos quem precisa cuidar da casa com profissionais de jardinagem, piscina e muito mais perto de você.</p>
             <a href="https://www.instagram.com/lartopoficial/" target="_blank" rel="noopener noreferrer" className="mt-4 inline-block text-sm font-medium text-relva-600 hover:underline">Instagram @lartopoficial</a>
           </div>
 
@@ -29,12 +29,12 @@ export function Rodape() {
               <li><Link href="/#faq" className="hover:text-pinho-900">Perguntas frequentes</Link></li>
               <li><Link href="/entrar" className="hover:text-pinho-900">Entrar na minha conta</Link></li>
               <li><Link href="/termos-de-uso" className="hover:text-pinho-900">Termos de uso</Link></li>
-              <li><Link href="/politica-de-privacidade" className="hover:text-pinho-900">Politica de privacidade</Link></li>
+              <li><Link href="/politica-de-privacidade" className="hover:text-pinho-900">Política de privacidade</Link></li>
             </ul>
           </div>
 
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-pinho-900">Tipos de servico</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-pinho-900">Tipos de serviço</p>
             <ul className="mt-3 flex flex-col gap-2 text-sm text-pinho-700">
               {SERVICOS.map((s) => (
                 <li key={s.slug}><Link href={`/buscar?categoria=${s.slug}`} className="hover:text-pinho-900">{s.nome}</Link></li>

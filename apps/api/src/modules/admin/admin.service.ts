@@ -126,11 +126,11 @@ export async function listarClientes(query: ListarClientesQuery) {
 export async function alternarBloqueioUsuario(usuarioId: string, ativo: boolean) {
   const usuario = await prisma.usuario.findUnique({ where: { id: usuarioId } });
   if (!usuario) {
-    throw new AdminError('Usuario nao encontrado', 404);
+    throw new AdminError('Usuário não encontrado', 404);
   }
 
   if (usuario.tipo === 'ADMIN') {
-    throw new AdminError('Nao e possivel bloquear uma conta de administrador', 400);
+    throw new AdminError('Não é possível bloquear uma conta de administrador', 400);
   }
 
   return prisma.usuario.update({
@@ -170,7 +170,7 @@ export async function cadastrarServicosIniciais() {
 export async function criarCategoria(input: CriarCategoriaInput) {
   const existente = await prisma.categoria.findUnique({ where: { slug: input.slug } });
   if (existente) {
-    throw new AdminError('Ja existe uma categoria com esse slug', 409);
+    throw new AdminError('Já existe uma categoria com esse identificador', 409);
   }
 
   return prisma.categoria.create({ data: input });
@@ -179,7 +179,7 @@ export async function criarCategoria(input: CriarCategoriaInput) {
 export async function atualizarCategoria(id: string, input: AtualizarCategoriaInput) {
   const existente = await prisma.categoria.findUnique({ where: { id } });
   if (!existente) {
-    throw new AdminError('Categoria nao encontrada', 404);
+    throw new AdminError('Categoria não encontrada', 404);
   }
 
   return prisma.categoria.update({ where: { id }, data: input });
@@ -193,14 +193,14 @@ export async function excluirCategoria(id: string) {
     },
   });
   if (!categoria) {
-    throw new AdminError('Servico nao encontrado', 404);
+    throw new AdminError('Serviço não encontrado', 404);
   }
 
   // Historico e associacoes existentes nao podem ser apagados junto ao servico.
   const eventos = await prisma.eventoAnalytics.count({ where: { categoriaId: id } });
   if (categoria._count.profissionais > 0 || categoria._count.solicitacoes > 0 || eventos > 0) {
     throw new AdminError(
-      'Este servico esta em uso por prestadores, solicitacoes ou historico de buscas. Desative-o para preservar os dados.',
+      'Este serviço está em uso por prestadores, solicitações ou histórico de buscas. Desative-o para preservar os dados.',
       409,
     );
   }
@@ -211,10 +211,10 @@ export async function excluirCategoria(id: string) {
     // Uma associacao pode ser criada entre a verificacao e a exclusao.
     // A restricao do banco continua protegendo os registros relacionados.
     if (err && typeof err === 'object' && 'code' in err && err.code === 'P2003') {
-      throw new AdminError('Este servico esta em uso. Desative-o em vez de excluir.', 409);
+      throw new AdminError('Este serviço está em uso. Desative-o em vez de excluir.', 409);
     }
     if (err && typeof err === 'object' && 'code' in err && err.code === 'P2025') {
-      throw new AdminError('Servico nao encontrado', 404);
+      throw new AdminError('Serviço não encontrado', 404);
     }
     throw err;
   }
@@ -227,7 +227,7 @@ export { AdminError };
 export async function alternarPublicacaoPrestador(usuarioId: string, publicado: boolean) {
   const perfil = await prisma.perfilProfissional.findUnique({ where: { usuarioId } });
   if (!perfil) {
-    throw new AdminError('Prestador nao encontrado', 404);
+    throw new AdminError('Prestador não encontrado', 404);
   }
 
   return prisma.perfilProfissional.update({

@@ -48,7 +48,7 @@ export default function AdminDashboardPage() {
       <div className="mt-2 grid grid-cols-3 gap-4">
         <Cartao titulo="Novos clientes" valor={dados.hoje.novosClientes} />
         <Cartao titulo="Novos prestadores" valor={dados.hoje.novosPrestadores} />
-        <Cartao titulo="Solicitacoes" valor={dados.hoje.solicitacoes} />
+        <Cartao titulo="Solicitações" valor={dados.hoje.solicitacoes} />
       </div>
 
       <p className="mt-8 text-xs font-medium uppercase tracking-wide text-pinho-700">Geral</p>
@@ -56,15 +56,15 @@ export default function AdminDashboardPage() {
         <Cartao titulo="Total de clientes" valor={dados.geral.totalClientes} />
         <Cartao titulo="Total de prestadores" valor={dados.geral.totalPrestadores} />
         <Cartao titulo="Prestadores publicados" valor={dados.geral.prestadoresPublicados} />
-        <Cartao titulo="Aguardando publicacao" valor={dados.geral.prestadoresNaoPublicados} />
-        <Cartao titulo="Solicitacoes totais" valor={dados.geral.solicitacoesTotal} />
-        <Cartao titulo="Avaliacoes totais" valor={dados.geral.avaliacoesTotal} />
+        <Cartao titulo="Aguardando publicação" valor={dados.geral.prestadoresNaoPublicados} />
+        <Cartao titulo="Solicitações totais" valor={dados.geral.solicitacoesTotal} />
+        <Cartao titulo="Avaliações totais" valor={dados.geral.avaliacoesTotal} />
       </div>
 
       {dados.geral.usuariosBloqueados > 0 && (
         <div className="mt-8 rounded-2xl border border-terra-500/30 bg-terra-500/10 p-5">
           <p className="font-medium text-terra-600">
-            {dados.geral.usuariosBloqueados} usuario{dados.geral.usuariosBloqueados > 1 ? "s" : ""} bloqueado{dados.geral.usuariosBloqueados > 1 ? "s" : ""}
+            {dados.geral.usuariosBloqueados} usuário{dados.geral.usuariosBloqueados > 1 ? "s" : ""} bloqueado{dados.geral.usuariosBloqueados > 1 ? "s" : ""}
           </p>
         </div>
       )}

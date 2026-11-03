@@ -15,18 +15,18 @@ export async function avaliarComoCliente(clienteId: string, input: CriarAvaliaca
   });
 
   if (!solicitacao || solicitacao.clienteId !== clienteId) {
-    throw new AvaliacaoError('Solicitacao nao encontrada', 404);
+    throw new AvaliacaoError('Solicitação não encontrada', 404);
   }
 
   if (solicitacao.status !== 'CONCLUIDA') {
-    throw new AvaliacaoError('So e possivel avaliar solicitacoes concluidas', 400);
+    throw new AvaliacaoError('Só é possível avaliar solicitações concluídas', 400);
   }
 
   const jaAvaliou = await prisma.avaliacao.findUnique({
     where: { solicitacaoId_avaliadorId: { solicitacaoId: input.solicitacaoId, avaliadorId: clienteId } },
   });
   if (jaAvaliou) {
-    throw new AvaliacaoError('Voce ja avaliou essa solicitacao', 409);
+    throw new AvaliacaoError('Você já avaliou essa solicitação', 409);
   }
 
   const avaliacao = await prisma.$transaction(async (tx: any) => {
@@ -55,11 +55,11 @@ export async function avaliarComoProfissional(profissionalId: string, input: Cri
   });
 
   if (!solicitacao || solicitacao.profissionalId !== profissionalId) {
-    throw new AvaliacaoError('Solicitacao nao encontrada', 404);
+    throw new AvaliacaoError('Solicitação não encontrada', 404);
   }
 
   if (solicitacao.status !== 'CONCLUIDA') {
-    throw new AvaliacaoError('So e possivel avaliar solicitacoes concluidas', 400);
+    throw new AvaliacaoError('Só é possível avaliar solicitações concluídas', 400);
   }
 
   const jaAvaliou = await prisma.avaliacao.findUnique({
@@ -68,7 +68,7 @@ export async function avaliarComoProfissional(profissionalId: string, input: Cri
     },
   });
   if (jaAvaliou) {
-    throw new AvaliacaoError('Voce ja avaliou essa solicitacao', 409);
+    throw new AvaliacaoError('Você já avaliou essa solicitação', 409);
   }
 
   const avaliacao = await prisma.avaliacao.create({

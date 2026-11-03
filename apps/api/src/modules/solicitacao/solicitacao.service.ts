@@ -33,7 +33,7 @@ export async function criarSolicitacao(clienteId: string, input: CriarSolicitaca
   });
 
   if (!profissional || !profissional.perfilPublicado) {
-    throw new SolicitacaoError('Profissional nao encontrado ou perfil nao publicado', 404);
+    throw new SolicitacaoError('Profissional não encontrado ou perfil não publicado', 404);
   }
 
   if (!profissional.usuario.telefone) {
@@ -46,7 +46,7 @@ export async function criarSolicitacao(clienteId: string, input: CriarSolicitaca
   });
 
   if (!categoriaValida) {
-    throw new SolicitacaoError('Esse profissional nao atende essa categoria', 400);
+    throw new SolicitacaoError('Esse profissional não atende essa categoria', 400);
   }
 
   const solicitacao = await prisma.solicitacaoOrcamento.create({
@@ -144,7 +144,7 @@ export async function atualizarStatusComoProfissional(
   const solicitacao = await prisma.solicitacaoOrcamento.findUnique({ where: { id: solicitacaoId } });
 
   if (!solicitacao || solicitacao.profissionalId !== profissionalId) {
-    throw new SolicitacaoError('Solicitacao nao encontrada', 404);
+    throw new SolicitacaoError('Solicitação não encontrada', 404);
   }
 
   const permitidas = TRANSICOES_PROFISSIONAL[solicitacao.status] ?? [];
@@ -165,12 +165,12 @@ export async function cancelarComoCliente(clienteId: string, solicitacaoId: stri
   const solicitacao = await prisma.solicitacaoOrcamento.findUnique({ where: { id: solicitacaoId } });
 
   if (!solicitacao || solicitacao.clienteId !== clienteId) {
-    throw new SolicitacaoError('Solicitacao nao encontrada', 404);
+    throw new SolicitacaoError('Solicitação não encontrada', 404);
   }
 
   const permitidas = TRANSICOES_CLIENTE[solicitacao.status] ?? [];
   if (!permitidas.includes('CANCELADA')) {
-    throw new SolicitacaoError(`Nao e possivel cancelar uma solicitacao ${solicitacao.status}`, 400);
+    throw new SolicitacaoError(`Não é possível cancelar uma solicitação ${solicitacao.status}`, 400);
   }
 
   return prisma.solicitacaoOrcamento.update({

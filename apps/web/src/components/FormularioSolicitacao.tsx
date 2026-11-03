@@ -30,7 +30,7 @@ export function FormularioSolicitacao({ profissionalId, profissionalNome, catego
   if (sessao.tipo !== "CLIENTE") {
     return (
       <div className="rounded-2xl border border-terra-500/30 bg-terra-500/10 p-6">
-        <p className="font-medium text-terra-600">Essa conta e de profissional. Para pedir um orcamento, entre com uma conta de cliente.</p>
+        <p className="font-medium text-terra-600">Esta conta é de profissional. Para pedir um orçamento, entre com uma conta de cliente.</p>
       </div>
     );
   }
@@ -64,7 +64,7 @@ function AcessoRapido({ onEntrou }: { onEntrou: (s: SessaoLocal) => void }) {
   return (
     <div className="rounded-2xl border border-areia-300 bg-white/70 p-6">
       <div className="mb-4 flex gap-4 border-b border-areia-300">
-        <button type="button" onClick={() => setModo("entrar")} className={modo === "entrar" ? "pb-3 text-sm font-medium border-b-2 border-relva-500 text-pinho-900" : "pb-3 text-sm font-medium text-pinho-700"}>Ja tenho conta</button>
+        <button type="button" onClick={() => setModo("entrar")} className={modo === "entrar" ? "pb-3 text-sm font-medium border-b-2 border-relva-500 text-pinho-900" : "pb-3 text-sm font-medium text-pinho-700"}>Já tenho conta</button>
         <button type="button" onClick={() => setModo("cadastrar")} className={modo === "cadastrar" ? "pb-3 text-sm font-medium border-b-2 border-relva-500 text-pinho-900" : "pb-3 text-sm font-medium text-pinho-700"}>Criar conta</button>
       </div>
 
@@ -110,7 +110,7 @@ function FormularioPedido({ profissionalId, profissionalNome, categorias, access
       });
       const dados = await resposta.json();
       if (!resposta.ok) {
-        throw new Error(dados.erro ?? "Nao foi possivel enviar a solicitacao");
+        throw new Error(dados.erro ?? "Não foi possível enviar a solicitação");
       }
       setLinkWhatsapp(dados.linkWhatsapp);
     } catch (err) {
@@ -123,8 +123,8 @@ function FormularioPedido({ profissionalId, profissionalNome, categorias, access
   if (linkWhatsapp) {
     return (
       <div className="rounded-2xl border border-relva-500/40 bg-relva-500/10 p-6 text-center">
-        <p className="font-display text-lg font-semibold text-pinho-900">Solicitacao enviada!</p>
-        <p className="mt-2 text-pinho-700">Agora e so falar com {profissionalNome} pelo WhatsApp para combinar os detalhes.</p>
+        <p className="font-display text-lg font-semibold text-pinho-900">Solicitação enviada!</p>
+        <p className="mt-2 text-pinho-700">Agora é só falar com {profissionalNome} pelo WhatsApp para combinar os detalhes.</p>
         <a href={linkWhatsapp} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block rounded-xl bg-relva-500 px-6 py-3 font-semibold text-sauge-50 transition hover:bg-relva-600">Abrir WhatsApp</a>
       </div>
     );
@@ -133,7 +133,7 @@ function FormularioPedido({ profissionalId, profissionalNome, categorias, access
   return (
     <form onSubmit={aoSubmeter} className="flex flex-col gap-3 rounded-2xl border border-areia-300 bg-white/70 p-6">
       <div>
-        <label className="text-xs font-medium uppercase tracking-wide text-pinho-700">Servico</label>
+        <label className="text-xs font-medium uppercase tracking-wide text-pinho-700">Serviço</label>
         <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} required className="mt-1 w-full rounded-lg border border-areia-300 bg-white px-3 py-2 text-pinho-900 outline-none focus:border-relva-500">
           {categorias.map((c) => (
             <option key={c.categoria.id} value={c.categoria.id}>{c.categoria.nome}</option>
@@ -147,8 +147,8 @@ function FormularioPedido({ profissionalId, profissionalNome, categorias, access
       </div>
 
       <div>
-        <label className="text-xs font-medium uppercase tracking-wide text-pinho-700">Endereco completo</label>
-        <input type="text" value={endereco} onChange={(e) => setEndereco(e.target.value)} required placeholder="Rua, numero, bairro" className="mt-1 w-full rounded-lg border border-areia-300 bg-white px-3 py-2 text-pinho-900 outline-none focus:border-relva-500" />
+        <label className="text-xs font-medium uppercase tracking-wide text-pinho-700">Endereço completo</label>
+        <input type="text" value={endereco} onChange={(e) => setEndereco(e.target.value)} required placeholder="Rua, número, bairro" className="mt-1 w-full rounded-lg border border-areia-300 bg-white px-3 py-2 text-pinho-900 outline-none focus:border-relva-500" />
       </div>
 
       <div>
@@ -158,7 +158,7 @@ function FormularioPedido({ profissionalId, profissionalNome, categorias, access
 
       <div>
         <label className="text-xs font-medium uppercase tracking-wide text-pinho-700">Detalhes (opcional)</label>
-        <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} placeholder="Conte mais sobre o servico que precisa" className="mt-1 w-full rounded-lg border border-areia-300 bg-white px-3 py-2 text-pinho-900 outline-none focus:border-relva-500" />
+        <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} placeholder="Conte mais sobre o serviço de que precisa" className="mt-1 w-full rounded-lg border border-areia-300 bg-white px-3 py-2 text-pinho-900 outline-none focus:border-relva-500" />
       </div>
 
       {erro && <p className="text-sm text-terra-600">{erro}</p>}

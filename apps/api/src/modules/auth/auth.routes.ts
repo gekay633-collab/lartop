@@ -41,7 +41,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.post('/auth/registrar/cliente', limiteAutenticacao, async (request, reply) => {
     const parse = registrarClienteSchema.safeParse(request.body);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Dados invalidos', detalhes: parse.error.flatten() });
+      return reply.status(400).send({ erro: 'Dados inválidos', detalhes: parse.error.flatten() });
     }
 
     try {
@@ -64,7 +64,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.post('/auth/registrar/profissional', limiteAutenticacao, async (request, reply) => {
     const parse = registrarProfissionalSchema.safeParse(request.body);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Dados invalidos', detalhes: parse.error.flatten() });
+      return reply.status(400).send({ erro: 'Dados inválidos', detalhes: parse.error.flatten() });
     }
 
     try {
@@ -87,7 +87,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.post('/auth/login', limiteAutenticacao, async (request, reply) => {
     const parse = loginSchema.safeParse(request.body);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Dados invalidos' });
+      return reply.status(400).send({ erro: 'Dados inválidos' });
     }
 
     try {
@@ -95,7 +95,7 @@ export async function authRoutes(app: FastifyInstance) {
       if (bloqueio !== null) {
         reply.header('Retry-After', String(bloqueio));
         return reply.status(429).send({
-          erro: 'Muitas tentativas incorretas. Tente novamente em ate 15 minutos ou use a recuperacao de senha.',
+          erro: 'Muitas tentativas incorretas. Tente novamente em até 15 minutos ou use a recuperação de senha.',
           aguardarSegundos: bloqueio,
         });
       }
@@ -111,20 +111,20 @@ export async function authRoutes(app: FastifyInstance) {
           if (tentativa.bloqueado) {
             reply.header('Retry-After', String(tentativa.aguardarSegundos));
             return reply.status(429).send({
-              erro: 'Limite de 5 tentativas incorretas atingido. Aguarde ate 15 minutos e tente novamente.',
+              erro: 'Limite de 5 tentativas incorretas atingido. Aguarde até 15 minutos e tente novamente.',
               aguardarSegundos: tentativa.aguardarSegundos,
             });
           }
 
           const restantes = tentativa.restantes;
           return reply.status(401).send({
-            erro: `E-mail ou senha invalidos. Restam ${restantes} tentativa${restantes === 1 ? '' : 's'} antes do bloqueio temporario.`,
+            erro: `E-mail ou senha inválidos. Restam ${restantes} tentativa${restantes === 1 ? '' : 's'} antes do bloqueio temporário.`,
             tentativasRestantes: restantes,
           });
         } catch (erroContador) {
           request.log.error(erroContador);
           return reply.status(503).send({
-            erro: 'Nao foi possivel validar o limite de tentativas no momento. Tente novamente mais tarde.',
+            erro: 'Não foi possível validar o limite de tentativas no momento. Tente novamente mais tarde.',
           });
         }
       }
@@ -144,7 +144,7 @@ export async function authRoutes(app: FastifyInstance) {
       definirCookieRefresh(reply, refreshToken);
       return reply.send({ accessToken });
     } catch (err) {
-      return reply.status(401).send({ erro: 'Sessao invalida, faca login novamente' });
+      return reply.status(401).send({ erro: 'Sessão inválida, faça login novamente' });
     }
   });
 
@@ -165,7 +165,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.post('/auth/esqueci-senha', limiteAutenticacao, async (request, reply) => {
     const parse = solicitarRecuperacaoSchema.safeParse(request.body);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Dados invalidos' });
+      return reply.status(400).send({ erro: 'Dados inválidos' });
     }
 
     try {
@@ -174,13 +174,13 @@ export async function authRoutes(app: FastifyInstance) {
       request.log.error(err);
     }
 
-    return reply.send({ ok: true, mensagem: 'Se o e-mail existir, enviamos um link de recuperacao.' });
+    return reply.send({ ok: true, mensagem: 'Se o e-mail existir, enviamos um link de recuperação.' });
   });
 
   app.post('/auth/redefinir-senha', limiteAutenticacao, async (request, reply) => {
     const parse = redefinirSenhaSchema.safeParse(request.body);
     if (!parse.success) {
-      return reply.status(400).send({ erro: 'Dados invalidos' });
+      return reply.status(400).send({ erro: 'Dados inválidos' });
     }
 
     try {

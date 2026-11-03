@@ -107,7 +107,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ bio }),
       });
-      if (!resposta.ok) throw new Error("Nao foi possivel salvar");
+      if (!resposta.ok) throw new Error("Não foi possível salvar");
       setMensagem("Bio atualizada!");
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Erro ao salvar");
@@ -246,7 +246,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ fotoPerfilUrl: url }),
       });
-      if (!resposta.ok) throw new Error("Nao foi possivel salvar a foto");
+      if (!resposta.ok) throw new Error("Não foi possível salvar a foto");
       setMensagem("Foto de perfil atualizada!");
       await carregar();
     } catch (err) {
@@ -272,7 +272,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
         body: JSON.stringify({ urlDepois: url }),
       });
       if (!resposta.ok) throw new Error("Nao foi possivel salvar a foto");
-      setMensagem("Foto adicionada ao portfolio!");
+      setMensagem("Foto adicionada ao portfólio!");
       await carregar();
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Erro ao enviar foto");
@@ -292,7 +292,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
     <div className="flex flex-col gap-6">
       <div className="rounded-2xl border border-areia-300 bg-white/70 p-5">
         <p className="font-medium text-pinho-900">
-          Status do perfil: {perfil.perfilPublicado ? "Publicado (visivel para clientes)" : "Nao publicado"}
+          Status do perfil: {perfil.perfilPublicado ? "Publicado (visível para clientes)" : "Não publicado"}
         </p>
         <button
           onClick={alternarPublicacao}
@@ -351,7 +351,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
       </div>
 
       <div className="rounded-2xl border border-areia-300 bg-white/70 p-5">
-        <label className="text-xs font-medium uppercase tracking-wide text-pinho-700">Sobre voce</label>
+        <label className="text-xs font-medium uppercase tracking-wide text-pinho-700">Sobre você</label>
         <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={4} className="mt-1 w-full rounded-lg border border-areia-300 bg-white px-3 py-2 text-pinho-900 outline-none focus:border-relva-500" />
         <button onClick={salvarBio} disabled={salvando} className="mt-3 rounded-lg bg-pinho-900 px-4 py-2 text-sm font-medium text-sauge-50 hover:bg-pinho-700">
           Salvar bio
@@ -359,7 +359,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
       </div>
 
       <div className="rounded-2xl border border-areia-300 bg-white/70 p-5">
-        <p className="text-xs font-medium uppercase tracking-wide text-pinho-700">Servicos que voce oferece</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-pinho-700">Serviços que você oferece</p>
         <div className="mt-2 flex flex-col gap-2">
           {carregandoCategorias ? (
             <p className="text-sm text-pinho-700">Carregando serviços disponíveis...</p>
@@ -398,7 +398,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
           )}
         </div>
         <button onClick={salvarCategorias} disabled={salvando || carregandoCategorias || Boolean(erroCategorias) || categoriasDisponiveis.length === 0 || categoriasSelecionadas.length === 0} className="mt-3 rounded-lg bg-pinho-900 px-4 py-2 text-sm font-medium text-sauge-50 hover:bg-pinho-700 disabled:cursor-not-allowed disabled:opacity-50">
-          Salvar servicos
+          Salvar serviços
         </button>
       </div>
 

@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Lartop - Corte de grama e jardinagem",
     short_name: "Lartop",
-    description: "Encontre profissionais de corte de grama, poda e paisagismo perto de voce.",
+    description: "Encontre profissionais de corte de grama, poda e paisagismo perto de você.",
     start_url: "/",
     display: "standalone",
     background_color: "#F7F9F1",
