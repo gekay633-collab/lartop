@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import {
   atualizarPerfilSchema,
+  atualizarTelefoneSchema,
   definirCategoriasSchema,
   adicionarFotoPortfolioSchema,
 } from './perfil.schemas.js';
@@ -8,6 +9,7 @@ import {
   obterPerfilProprio,
   obterPerfilPublico,
   atualizarPerfil,
+  atualizarTelefoneProfissional,
   definirCategorias,
   adicionarFotoPortfolio,
   publicarPerfil,
@@ -61,6 +63,27 @@ export async function perfilRoutes(app: FastifyInstance) {
       }
       request.log.error(err);
       return reply.status(500).send({ erro: 'Erro interno ao atualizar perfil' });
+    }
+  });
+
+  app.patch('/perfil/mim/telefone', { preHandler: somenteProfissional }, async (request, reply) => {
+    const parse = atualizarTelefoneSchema.safeParse(request.body);
+    if (!parse.success) {
+      return reply.status(400).send({
+        erro: 'Informe um celular valido com DDD (11 digitos)',
+        detalhes: parse.error.flatten(),
+      });
+    }
+
+    try {
+      const resultado = await atualizarTelefoneProfissional(request.usuario!.id, parse.data.telefone);
+      return reply.send(resultado);
+    } catch (err) {
+      if (err instanceof PerfilError) {
+        return reply.status(err.status).send({ erro: err.message });
+      }
+      request.log.error(err);
+      return reply.status(500).send({ erro: 'Erro interno ao atualizar celular' });
     }
   });
 

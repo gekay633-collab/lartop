@@ -10,6 +10,7 @@ interface PerfilProprio {
   bio: string | null;
   fotoPerfilUrl: string | null;
   perfilPublicado: boolean;
+  usuario: { telefone: string | null; telefoneVerificado: boolean };
   categorias: { categoria: { id: string; nome: string } }[];
   fotos: { id: string; urlDepois: string; descricao: string | null }[];
 }
@@ -23,6 +24,10 @@ interface CategoriaDisponivel {
 export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
   const [perfil, setPerfil] = useState<PerfilProprio | null>(null);
   const [bio, setBio] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [salvandoTelefone, setSalvandoTelefone] = useState(false);
+  const [erroTelefone, setErroTelefone] = useState("");
+  const [mensagemTelefone, setMensagemTelefone] = useState("");
   const [mensagem, setMensagem] = useState("");
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -49,6 +54,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
       }
       setPerfil(dados);
       setBio(dados.bio ?? "");
+      setTelefone(dados.usuario?.telefone ?? "");
       setCategoriasSelecionadas(dados.categorias.map((c) => c.categoria.id));
       setErroPerfil("");
     } catch (err) {
@@ -107,6 +113,47 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
       setErro(err instanceof Error ? err.message : "Erro ao salvar");
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function salvarTelefone() {
+    setErroTelefone("");
+    setMensagemTelefone("");
+    const digitos = telefone.replace(/\D/g, "");
+    const numero = digitos.length === 13 && digitos.startsWith("55") ? digitos.slice(2) : digitos;
+    if (!/^[1-9]{2}9\d{8}$/.test(numero)) {
+      setErroTelefone("Informe um celular com DDD, usando 11 dígitos. Ex.: 21999998888.");
+      return;
+    }
+
+    setSalvandoTelefone(true);
+    try {
+      const resposta = await fetch("/api/perfil/mim/telefone", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ telefone: numero }),
+      });
+      const dados: unknown = await resposta.json().catch(() => null);
+      if (!resposta.ok) {
+        const mensagem = dados && typeof dados === "object" && "erro" in dados
+          && typeof dados.erro === "string"
+          ? dados.erro
+          : `Não foi possível atualizar o celular (HTTP ${resposta.status}).`;
+        throw new Error(mensagem);
+      }
+      if (!dados || typeof dados !== "object" || !("telefone" in dados)
+        || typeof dados.telefone !== "string") {
+        throw new Error("O servidor não confirmou o novo celular.");
+      }
+      setTelefone(dados.telefone);
+      setMensagemTelefone("Celular atualizado! Os próximos contatos pelo WhatsApp usarão este número.");
+    } catch (err) {
+      setErroTelefone(err instanceof Error ? err.message : "Falha ao atualizar o celular.");
+    } finally {
+      setSalvandoTelefone(false);
     }
   }
 
@@ -273,6 +320,34 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
             </label>
           </div>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-areia-300 bg-white/70 p-5">
+        <h2 className="text-xs font-medium uppercase tracking-wide text-pinho-700">Meu celular / WhatsApp</h2>
+        <p className="mt-2 text-sm text-pinho-700">
+          Use seu número atual com DDD. Os clientes serão direcionados para ele ao solicitar orçamentos.
+        </p>
+        <form onSubmit={(evento) => { evento.preventDefault(); void salvarTelefone(); }} className="mt-3 flex flex-col gap-3">
+          <label htmlFor="celular-profissional" className="text-sm text-pinho-900">Número para contato</label>
+          <input
+            id="celular-profissional"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="(21) 99999-8888"
+            value={telefone}
+            onChange={(evento) => { setTelefone(evento.target.value); setMensagemTelefone(""); }}
+            maxLength={20}
+            required
+            className="rounded-lg border border-areia-300 bg-white px-3 py-2 text-pinho-900 outline-none focus:border-relva-500"
+          />
+          <button type="submit" disabled={salvandoTelefone}
+            className="self-start rounded-lg bg-pinho-900 px-4 py-2 text-sm font-medium text-sauge-50 hover:bg-pinho-700 disabled:opacity-60">
+            {salvandoTelefone ? "Salvando..." : "Salvar celular"}
+          </button>
+          {erroTelefone && <p role="alert" className="text-sm text-terra-600">{erroTelefone}</p>}
+          {mensagemTelefone && <p role="status" className="text-sm text-relva-600">{mensagemTelefone}</p>}
+        </form>
       </div>
 
       <div className="rounded-2xl border border-areia-300 bg-white/70 p-5">

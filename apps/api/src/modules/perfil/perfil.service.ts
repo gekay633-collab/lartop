@@ -21,6 +21,7 @@ export async function obterPerfilProprio(usuarioId: string) {
       cidade: true,
       categorias: { include: { categoria: true } },
       fotos: true,
+      usuario: { select: { telefone: true, telefoneVerificado: true } },
     },
   });
 
@@ -45,6 +46,29 @@ export async function atualizarPerfil(usuarioId: string, input: AtualizarPerfilI
   await invalidarCachePerfil(usuarioId);
 
   return perfilAtualizado;
+}
+
+export async function atualizarTelefoneProfissional(usuarioId: string, telefone: string) {
+  const usuario = await prisma.usuario.findUnique({
+    where: { id: usuarioId },
+    select: { telefone: true, telefoneVerificado: true, tipo: true },
+  });
+  if (!usuario || usuario.tipo !== 'PROFISSIONAL') {
+    throw new PerfilError('Conta profissional nao encontrada', 404);
+  }
+
+  // Uma edição sem mudança de número não revoga a verificação existente.
+  if (usuario.telefone?.replace(/\D/g, '') === telefone) {
+    return { telefone: usuario.telefone, telefoneVerificado: usuario.telefoneVerificado };
+  }
+
+  // O novo número passa a ser usado nas próximas solicitações do WhatsApp.
+  // Ele não é considerado verificado até uma validação de posse separada.
+  return prisma.usuario.update({
+    where: { id: usuarioId },
+    data: { telefone, telefoneVerificado: false },
+    select: { telefone: true, telefoneVerificado: true },
+  });
 }
 
 export async function definirCategorias(usuarioId: string, input: DefinirCategoriasInput) {

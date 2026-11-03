@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
+import { lerRespostaAutenticacao } from "@/lib/auth-client";
 
 interface Solicitacao {
   id: string;
@@ -36,13 +35,12 @@ export function CardMinhaSolicitacao({ solicitacao, accessToken }: { solicitacao
     setEnviando(true);
     setErro("");
     try {
-      const resposta = await fetch(`${API_URL}/api/avaliacoes/cliente`, {
+      const resposta = await fetch("/api/avaliacoes/cliente", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ solicitacaoId: solicitacao.id, nota, comentario: comentario || undefined }),
       });
-      const dados = await resposta.json();
-      if (!resposta.ok) throw new Error(dados.erro ?? "Nao foi possivel enviar a avaliacao");
+      await lerRespostaAutenticacao<{ id: string }>(resposta, "Não foi possível enviar a avaliação");
       setAvaliado(true);
       setMostrarForm(false);
     } catch (err) {

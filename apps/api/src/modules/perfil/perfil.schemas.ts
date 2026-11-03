@@ -7,6 +7,18 @@ export const atualizarPerfilSchema = z.object({
   raioAtendimentoKm: z.number().min(1).max(100).optional(),
 });
 
+// O prestador pode alterar o número usado nos links do WhatsApp.
+// Aceita 11 dígitos com DDD, com ou sem prefixo internacional +55.
+export const atualizarTelefoneSchema = z.object({
+  telefone: z.string().trim().min(10).max(25)
+    .transform((valor) => valor.replace(/\D/g, ''))
+    .transform((digitos) => digitos.length === 13 && digitos.startsWith('55')
+      ? digitos.slice(2) : digitos)
+    .refine((digitos) => /^[1-9]{2}9\d{8}$/.test(digitos), {
+      message: 'Informe um celular com DDD, usando 11 dígitos.',
+    }),
+});
+
 export const definirCategoriasSchema = z.object({
   categorias: z
     .array(
@@ -28,5 +40,6 @@ export const adicionarFotoPortfolioSchema = z.object({
 });
 
 export type AtualizarPerfilInput = z.infer<typeof atualizarPerfilSchema>;
+export type AtualizarTelefoneInput = z.infer<typeof atualizarTelefoneSchema>;
 export type DefinirCategoriasInput = z.infer<typeof definirCategoriasSchema>;
 export type AdicionarFotoPortfolioInput = z.infer<typeof adicionarFotoPortfolioSchema>;

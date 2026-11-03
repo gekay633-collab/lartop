@@ -26,12 +26,25 @@ export default function MinhasSolicitacoesPage() {
   useEffect(() => {
     if (!sessao) return;
 
-    fetch(`/api/solicitacoes/minhas`, {
+    setErro("");
+    setSolicitacoes(null);
+    fetch("/api/solicitacoes/minhas", {
       headers: { Authorization: `Bearer ${sessao.accessToken}` },
+      cache: "no-store",
     })
-      .then((r) => r.json())
-      .then((dados) => setSolicitacoes(dados.itens))
-      .catch(() => setErro("Nao foi possivel carregar suas solicitacoes"));
+      .then(async (resposta) => {
+        if (!resposta.ok) throw new Error(`Falha ao carregar solicitações (HTTP ${resposta.status}).`);
+        const dados: unknown = await resposta.json();
+        if (!dados || typeof dados !== "object" || !("itens" in dados) || !Array.isArray(dados.itens)) {
+          throw new Error("O servidor retornou uma lista de solicitações inválida.");
+        }
+        return dados.itens as Solicitacao[];
+      })
+      .then((itens) => setSolicitacoes(itens))
+      .catch((falha) => {
+        setErro(falha instanceof Error ? falha.message : "Não foi possível carregar suas solicitações.");
+        setSolicitacoes([]);
+      });
   }, [sessao]);
 
   if (carregando || !sessao) {
@@ -56,7 +69,7 @@ export default function MinhasSolicitacoesPage() {
             {erro && <p className="text-terra-600">{erro}</p>}
             {!solicitacoes ? (
               <p className="text-pinho-700">Carregando...</p>
-            ) : solicitacoes.length === 0 ? (
+            ) : erro ? null : solicitacoes.length === 0 ? (
               <div className="rounded-2xl border border-areia-300 bg-white/60 p-8 text-center">
                 <p className="font-display text-lg text-pinho-900">Voce ainda nao pediu nenhum orcamento.</p>
                 <a href="/" className="mt-4 inline-block text-sm font-medium text-relva-600 hover:underline">Buscar profissionais</a>
