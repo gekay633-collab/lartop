@@ -39,7 +39,7 @@ async function executarBuscaPorCoordenadas(params: {
     ? `AND EXISTS (
         SELECT 1 FROM profissional_categorias pc
         JOIN categorias c ON c.id = pc.categoria_id
-        WHERE pc.profissional_id = pp.usuario_id AND c.slug = $4
+        WHERE pc.profissional_id = pp.usuario_id AND c.slug = $4 AND c.ativo = true
       )`
     : '';
 
@@ -60,6 +60,7 @@ async function executarBuscaPorCoordenadas(params: {
         pp.nota_media AS "notaMedia",
         pp.total_avaliacoes AS "totalAvaliacoes",
         pp.selo_verificado AS "seloVerificado",
+        pp.raio_atendimento_km AS "raioAtendimentoKm",
         cid.id AS "cidadeId",
         cid.nome AS "cidadeNome",
         cid.estado AS "cidadeEstado",
@@ -73,11 +74,13 @@ async function executarBuscaPorCoordenadas(params: {
         ) AS "distanciaKm"
       FROM perfis_profissionais pp
       JOIN cidades cid ON cid.id = pp.cidade_id
-      WHERE pp.perfil_publicado = true
+      JOIN usuarios us ON us.id = pp.usuario_id
+      WHERE pp.perfil_publicado = true AND us.ativo = true
       ${filtroCategoria}
     )
     SELECT * FROM base
     WHERE "distanciaKm" <= $3
+      AND "distanciaKm" <= "raioAtendimentoKm"
     ORDER BY "distanciaKm" ASC
     LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
   `;
@@ -98,10 +101,21 @@ export async function buscarProfissionaisPorCep(input: BuscarProfissionaisInput)
     throw err;
   }
 
+  const categoriaSelecionada = input.categoria
+    ? await prisma.categoria.findUnique({
+        where: { slug: input.categoria },
+        select: { id: true, nome: true },
+      })
+    : null;
+
   const chaveCache = `busca:${input.cep}:${input.categoria ?? 'todas'}:${input.raioKm}:${input.pagina}:${input.porPagina}`;
   const cacheado = await redis.get(chaveCache);
   if (cacheado) {
-    return JSON.parse(cacheado);
+    return {
+      ...JSON.parse(cacheado),
+      categoriaId: categoriaSelecionada?.id ?? null,
+      categoriaNome: categoriaSelecionada?.nome ?? null,
+    };
   }
 
   const resultados = await executarBuscaPorCoordenadas({
@@ -116,6 +130,8 @@ export async function buscarProfissionaisPorCep(input: BuscarProfissionaisInput)
   const resposta = {
     cepBuscado: input.cep,
     cidadeId: cep.cidadeId,
+    categoriaId: categoriaSelecionada?.id ?? null,
+    categoriaNome: categoriaSelecionada?.nome ?? null,
     raioKm: input.raioKm,
     pagina: input.pagina,
     porPagina: input.porPagina,

@@ -29,10 +29,10 @@ const TRANSICOES_CLIENTE: Record<string, string[]> = {
 export async function criarSolicitacao(clienteId: string, input: CriarSolicitacaoInput) {
   const profissional = await prisma.perfilProfissional.findUnique({
     where: { usuarioId: input.profissionalId },
-    include: { usuario: { select: { telefone: true } } },
+    include: { usuario: { select: { telefone: true, ativo: true } } },
   });
 
-  if (!profissional || !profissional.perfilPublicado) {
+  if (!profissional || !profissional.perfilPublicado || !profissional.usuario.ativo) {
     throw new SolicitacaoError('Profissional não encontrado ou perfil não publicado', 404);
   }
 
@@ -150,7 +150,7 @@ export async function atualizarStatusComoProfissional(
   const permitidas = TRANSICOES_PROFISSIONAL[solicitacao.status] ?? [];
   if (!permitidas.includes(input.status)) {
     throw new SolicitacaoError(
-      `Nao e possivel mudar de ${solicitacao.status} para ${input.status}`,
+      `Não é possível mudar de ${solicitacao.status} para ${input.status}`,
       400
     );
   }

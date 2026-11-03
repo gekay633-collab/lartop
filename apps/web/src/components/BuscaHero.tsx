@@ -67,7 +67,7 @@ export function BuscaHero() {
 
       <button type="submit" className="rounded-xl bg-relva-500 px-6 py-3 font-semibold text-sauge-50 transition hover:bg-relva-600 sm:my-1">Buscar profissionais</button>
 
-      {erro && <p className="absolute mt-16 text-sm text-terra-600 sm:relative sm:mt-0">{erro}</p>}
+      {erro && <p role="alert" className="text-sm text-terra-600 sm:self-center">{erro}</p>}
     </form>
   );
 }

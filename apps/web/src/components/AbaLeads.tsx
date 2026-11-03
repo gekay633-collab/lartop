@@ -33,17 +33,28 @@ const PROXIMOS_STATUS: Record<string, string[]> = {
 export function AbaLeads({ accessToken }: { accessToken: string }) {
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [erro, setErro] = useState("");
+  const [atualizandoId, setAtualizandoId] = useState<string | null>(null);
 
   async function carregar() {
+    setErro("");
     try {
-      const resposta = await fetch(`/api/solicitacoes/recebidas`, {
+      const resposta = await fetch("/api/solicitacoes/recebidas", {
         headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store",
       });
-      const dados = await resposta.json();
-      if (!resposta.ok) throw new Error(dados.erro ?? "Erro ao carregar leads");
-      setLeads(dados.itens);
+      const dados: unknown = await resposta.json().catch(() => null);
+      if (!resposta.ok) {
+        const mensagem = dados && typeof dados === "object" && "erro" in dados
+          && typeof dados.erro === "string" ? dados.erro
+          : `Não foi possível carregar os pedidos (HTTP ${resposta.status}).`;
+        throw new Error(mensagem);
+      }
+      if (!dados || typeof dados !== "object" || !("itens" in dados) || !Array.isArray(dados.itens)) {
+        throw new Error("Resposta inválida ao consultar os pedidos.");
+      }
+      setLeads(dados.itens as Lead[]);
     } catch (err) {
-      setErro(err instanceof Error ? err.message : "Erro ao carregar leads");
+      setErro(err instanceof Error ? err.message : "Erro ao carregar os pedidos.");
     }
   }
 
@@ -52,15 +63,39 @@ export function AbaLeads({ accessToken }: { accessToken: string }) {
   }, []);
 
   async function mudarStatus(id: string, status: string) {
-    await fetch(`/api/solicitacoes/${id}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ status }),
-    });
-    carregar();
+    if (atualizandoId) return;
+    setErro("");
+    setAtualizandoId(id);
+    try {
+      const resposta = await fetch(`/api/solicitacoes/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ status }),
+      });
+      const dados: unknown = await resposta.json().catch(() => null);
+      if (!resposta.ok) {
+        const mensagem = dados && typeof dados === "object" && "erro" in dados
+          && typeof dados.erro === "string" ? dados.erro
+          : `Não foi possível atualizar o pedido (HTTP ${resposta.status}).`;
+        throw new Error(mensagem);
+      }
+      await carregar();
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Falha ao atualizar o pedido.");
+    } finally {
+      setAtualizandoId(null);
+    }
   }
 
-  if (erro) return <p className="text-terra-600">{erro}</p>;
+  if (erro) return (
+    <div className="flex flex-col items-start gap-3">
+      <p role="alert" className="text-terra-600">{erro}</p>
+      <button type="button" onClick={() => void carregar()}
+        className="rounded-lg border border-relva-500 px-3 py-2 text-sm font-medium text-relva-600">
+        Tentar novamente
+      </button>
+    </div>
+  );
   if (!leads) return <p className="text-pinho-700">Carregando...</p>;
   if (leads.length === 0) return <p className="text-pinho-700">Você ainda não recebeu nenhum pedido de orçamento.</p>;
 
@@ -86,10 +121,11 @@ export function AbaLeads({ accessToken }: { accessToken: string }) {
               {PROXIMOS_STATUS[lead.status].map((proximo) => (
                 <button
                   key={proximo}
-                  onClick={() => mudarStatus(lead.id, proximo)}
-                  className="rounded-lg border border-relva-500 px-3 py-1.5 text-sm font-medium text-relva-600 transition hover:bg-relva-500 hover:text-sauge-50"
+                  onClick={() => void mudarStatus(lead.id, proximo)}
+                  disabled={Boolean(atualizandoId)}
+                  className="rounded-lg border border-relva-500 px-3 py-1.5 text-sm font-medium text-relva-600 transition hover:bg-relva-500 hover:text-sauge-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Marcar como {ROTULOS_STATUS[proximo]}
+                  {atualizandoId === lead.id ? "Atualizando..." : `Marcar como ${ROTULOS_STATUS[proximo]}`}
                 </button>
               ))}
             </div>

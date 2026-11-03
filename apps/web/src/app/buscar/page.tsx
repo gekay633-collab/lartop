@@ -44,12 +44,14 @@ export default async function BuscarPage({ searchParams }: PageProps) {
     <>
       <Cabecalho />
       {!ehErroApi(resultado) && (
-        <RegistradorEvento tipo="PESQUISA" cidadeId={resultado.cidadeId} categoriaId={categoria || undefined} />
+        <RegistradorEvento tipo="PESQUISA" cidadeId={resultado.cidadeId} categoriaId={resultado.categoriaId ?? undefined} />
       )}
       <main className="flex-1">
         <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
           <h1 className="font-display text-2xl font-semibold text-pinho-900">
-            {categoria ? CATEGORIAS[categoria] ?? "Profissionais" : "Todos os profissionais"}
+            {categoria
+              ? (!ehErroApi(resultado) && resultado.categoriaNome) || CATEGORIAS[categoria] || "Profissionais"
+              : "Todos os profissionais"}
           </h1>
 
           {ehErroApi(resultado) ? (

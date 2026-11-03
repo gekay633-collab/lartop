@@ -30,7 +30,7 @@ export function CardProfissional({ profissional }: { profissional: ProfissionalR
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-1">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-display text-lg font-semibold text-pinho-900">
             {p.nomeExibicao}

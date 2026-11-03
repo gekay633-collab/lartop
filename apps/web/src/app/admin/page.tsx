@@ -45,7 +45,7 @@ export default function AdminDashboardPage() {
       <h1 className="font-display text-2xl font-semibold text-pinho-900">Dashboard</h1>
 
       <p className="mt-6 text-xs font-medium uppercase tracking-wide text-pinho-700">Hoje</p>
-      <div className="mt-2 grid grid-cols-3 gap-4">
+      <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Cartao titulo="Novos clientes" valor={dados.hoje.novosClientes} />
         <Cartao titulo="Novos prestadores" valor={dados.hoje.novosPrestadores} />
         <Cartao titulo="Solicitações" valor={dados.hoje.solicitacoes} />

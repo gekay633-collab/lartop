@@ -21,6 +21,8 @@ export interface ProfissionalResultado {
 export interface RespostaBusca {
   cepBuscado: string;
   cidadeId: string;
+  categoriaId?: string | null;
+  categoriaNome?: string | null;
   raioKm: number;
   pagina: number;
   porPagina: number;
