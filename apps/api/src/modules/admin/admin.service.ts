@@ -185,6 +185,43 @@ export async function atualizarCategoria(id: string, input: AtualizarCategoriaIn
   return prisma.categoria.update({ where: { id }, data: input });
 }
 
+export async function excluirCategoria(id: string) {
+  const categoria = await prisma.categoria.findUnique({
+    where: { id },
+    include: {
+      _count: { select: { profissionais: true, solicitacoes: true } },
+    },
+  });
+  if (!categoria) {
+    throw new AdminError('Servico nao encontrado', 404);
+  }
+
+  // Historico e associacoes existentes nao podem ser apagados junto ao servico.
+  const eventos = await prisma.eventoAnalytics.count({ where: { categoriaId: id } });
+  if (categoria._count.profissionais > 0 || categoria._count.solicitacoes > 0 || eventos > 0) {
+    throw new AdminError(
+      'Este servico esta em uso por prestadores, solicitacoes ou historico de buscas. Desative-o para preservar os dados.',
+      409,
+    );
+  }
+
+  try {
+    await prisma.categoria.delete({ where: { id } });
+  } catch (err) {
+    // Uma associacao pode ser criada entre a verificacao e a exclusao.
+    // A restricao do banco continua protegendo os registros relacionados.
+    if (err && typeof err === 'object' && 'code' in err && err.code === 'P2003') {
+      throw new AdminError('Este servico esta em uso. Desative-o em vez de excluir.', 409);
+    }
+    if (err && typeof err === 'object' && 'code' in err && err.code === 'P2025') {
+      throw new AdminError('Servico nao encontrado', 404);
+    }
+    throw err;
+  }
+
+  return { ok: true };
+}
+
 export { AdminError };
 
 export async function alternarPublicacaoPrestador(usuarioId: string, publicado: boolean) {

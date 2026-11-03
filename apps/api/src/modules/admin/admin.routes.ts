@@ -17,6 +17,7 @@ import {
   criarCategoria,
   cadastrarServicosIniciais,
   atualizarCategoria,
+  excluirCategoria,
   obterOfertaDemanda,
   AdminError,
 } from './admin.service.js';
@@ -145,6 +146,24 @@ export async function adminRoutes(app: FastifyInstance) {
       }
       request.log.error(err);
       return reply.status(500).send({ erro: 'Erro interno ao criar categoria' });
+    }
+  });
+
+  app.delete('/admin/categorias/:id', { preHandler: somenteAdmin }, async (request, reply) => {
+    const params = z.object({ id: z.string().uuid() }).safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({ erro: 'Identificador de servico invalido' });
+    }
+
+    try {
+      const resultado = await excluirCategoria(params.data.id);
+      return reply.send(resultado);
+    } catch (err) {
+      if (err instanceof AdminError) {
+        return reply.status(err.status).send({ erro: err.message });
+      }
+      request.log.error(err);
+      return reply.status(500).send({ erro: 'Erro interno ao excluir servico' });
     }
   });
 

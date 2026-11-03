@@ -113,6 +113,35 @@ export default function AdminServicosPage() {
     }
   }
 
+  async function excluir(servico: Servico) {
+    if (!sessao || salvando) return;
+
+    if (!window.confirm(
+      `Excluir definitivamente o serviço "${servico.nome}"? Esta ação não pode ser desfeita. ` +
+      "Se houver profissionais ou histórico vinculados, a exclusão será impedida."
+    )) {
+      return;
+    }
+
+    setErro("");
+    setMensagem("");
+    setSalvando(true);
+    try {
+      const resposta = await fetch(`/api/admin/categorias/${servico.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${sessao.accessToken}` },
+      });
+      if (!resposta.ok) throw new Error(await lerErro(resposta));
+      setMensagem(`Serviço "${servico.nome}" excluído com sucesso.`);
+      if (editandoId === servico.id) setEditandoId(null);
+      await carregar();
+    } catch (falha) {
+      setErro(falha instanceof Error ? falha.message : "Não foi possível excluir o serviço.");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
   async function atualizar(id: string, alteracoes: { ativo?: boolean; nome?: string }) {
     if (!sessao || salvando) return;
     setErro("");
@@ -227,6 +256,12 @@ export default function AdminServicosPage() {
                       onClick={() => void atualizar(servico.id, { ativo: !servico.ativo })}
                       className="text-relva-600 underline disabled:opacity-50">
                       {servico.ativo ? "Desativar" : "Ativar"}
+                    </button>
+                    <button type="button" disabled={salvando}
+                      onClick={() => void excluir(servico)}
+                      className="text-terra-600 underline disabled:opacity-50"
+                      aria-label={`Excluir serviço ${servico.nome}`}>
+                      Excluir
                     </button>
                   </div>
                 </td>
