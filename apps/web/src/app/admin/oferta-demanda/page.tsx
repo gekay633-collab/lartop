@@ -1,3 +1,4 @@
+import { fetchAutenticado } from "@/lib/auth-client";
 "use client";
 
 import { useEffect, useState } from "react";
@@ -26,7 +27,7 @@ export default function AdminOfertaDemandaPage() {
 
   useEffect(() => {
     if (!sessao) return;
-    fetch(`/api/admin/oferta-demanda`, { headers: { Authorization: `Bearer ${sessao.accessToken}` } })
+    fetchAutenticado(`/api/admin/oferta-demanda`, { headers: { Authorization: `Bearer ${sessao.accessToken}` } })
       .then((r) => r.json())
       .then(setLinhas);
   }, [sessao]);
