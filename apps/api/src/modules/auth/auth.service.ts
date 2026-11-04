@@ -103,8 +103,8 @@ export async function autenticar(email: string, senha: string) {
 
 export async function emitirTokens(usuarioId: string, tipo: 'CLIENTE' | 'PROFISSIONAL' | 'ADMIN') {
   const accessToken = gerarAccessToken({ sub: usuarioId, tipo });
-  const refreshToken = gerarRefreshToken({ sub: usuarioId });
   const jti = randomUUID();
+  const refreshToken = gerarRefreshToken({ sub: usuarioId, jti });
 
   await redis.set(
     `refresh:${jti}:${usuarioId}`,
@@ -117,7 +117,7 @@ export async function emitirTokens(usuarioId: string, tipo: 'CLIENTE' | 'PROFISS
 }
 
 export async function renovarTokens(refreshToken: string) {
-  let payload: { sub: string };
+  let payload: { sub: string; jti: string };
   try {
     payload = verificarRefreshToken(refreshToken);
   } catch {
@@ -127,6 +127,13 @@ export async function renovarTokens(refreshToken: string) {
   const usuario = await prisma.usuario.findUnique({ where: { id: payload.sub } });
   if (!usuario || !usuario.ativo) {
     throw new AuthError('Usuário inválido');
+  }
+
+  // Consome a sessão de forma atômica: tokens revogados ou reutilizados não renovam acesso.
+  const chaveSessao = `refresh:${payload.jti}:${payload.sub}`;
+  const tokenRegistrado = await redis.getdel(chaveSessao);
+  if (tokenRegistrado !== refreshToken) {
+    throw new AuthError('Sessão expirada ou revogada');
   }
 
   return emitirTokens(usuario.id, usuario.tipo);
@@ -190,4 +197,6 @@ export async function redefinirSenha(usuarioId: string, tokenBruto: string, nova
     prisma.usuario.update({ where: { id: usuarioId }, data: { senhaHash: novaSenhaHash } }),
     prisma.tokenRecuperacaoSenha.update({ where: { id: tokenValido.id }, data: { usado: true } }),
   ]);
+  // Não permite que sessões antigas continuem sendo renovadas após a troca da senha.
+  await revogarSessao(usuarioId);
 }
