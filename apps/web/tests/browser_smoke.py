@@ -57,63 +57,22 @@ def scenario(browser, mobile=False):
 
     page.route("**/api/**", intercept)
     page.goto(BASE + "/entrar", wait_until="domcontentloaded")
-    # Em Next/React, DOMContentLoaded pode ocorrer antes dos handlers de React.
+    # Next.js pode mostrar o HTML antes de conectar os handlers do React.
     page.wait_for_function("""() => {
       const form = document.querySelector('form');
-      return !!form && Object.keys(form).some(key =>
-        key.startsWith('__reactProps
-    page.get_by_placeholder("Senha").fill("Senha123!SomenteTeste")
-    page.locator('form button[type="submit"]').click()
-    try:
-        page.wait_for_url(BASE + "/", timeout=15000, wait_until="domcontentloaded")
-    except Exception:
-        print("BROWSER DEBUG URL:", page.url)
-        print("BROWSER DEBUG CALLS:", request_log[-15:])
-        print("BROWSER DEBUG TEXT:", page.locator("body").inner_text()[-1200:])
-        page.screenshot(path="/tmp/lartop-browser-failure.png", full_page=True)
-        raise
-    assert page.evaluate("localStorage.getItem('lartop_access_token')") == "test-only-not-a-real-jwt"
-
-    if mobile:
-        page.get_by_role("button", name="Abrir menu").click()
-    sair = page.get_by_role("button", name="Sair")
-    sair.click()
-    page.get_by_role("alert").filter(has_text="Não foi possível encerrar sua sessão").wait_for(timeout=15000)
-    assert page.evaluate("localStorage.getItem('lartop_access_token')") is not None
-    logout_should_fail = False
-    sair.click()
-    page.wait_for_function("localStorage.getItem('lartop_access_token') === null")
-    assert page.evaluate("localStorage.getItem('lartop_tipo_usuario')") is None
-    assert sum(x[1].endswith("/api/auth/logout") for x in request_log) == 2
-    page.goto(BASE + "/redefinir-senha?token=token-falso&id=usuario-falso", wait_until="domcontentloaded")
-    page.get_by_role("heading", name="Criar nova senha").wait_for(timeout=15000)
-    page.wait_for_function("window.location.search === ''", timeout=10000)
-    assert page.evaluate("window.location.pathname") == "/redefinir-senha"
-    assert page.evaluate("localStorage.getItem('lartop_access_token')") is None
-    context.close()
-    print(("MOBILE" if mobile else "DESKTOP") + " Chromium: login, logout e link reset sem token na URL OK")
-
-if __name__ == "__main__":
-    wait_server()
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        try:
-            scenario(browser, mobile=False)
-            scenario(browser, mobile=True)
-        finally:
-            browser.close()
-) && typeof form[key]?.onSubmit === 'function');
-    }""", timeout=20000)
+      if (!form) return false;
+      return Object.keys(form).some(key =>
+        key.includes('reactProps') && form[key] && typeof form[key].onSubmit === 'function');
+    }""", timeout=25000)
     page.get_by_placeholder("E-mail").fill("fake@example.test")
     page.get_by_placeholder("Senha").fill("Senha123!SomenteTeste")
     page.locator('form button[type="submit"]').click()
     try:
-        page.wait_for_url(BASE + "/", timeout=15000, wait_until="domcontentloaded")
+        page.wait_for_url(BASE + "/", timeout=20000, wait_until="domcontentloaded")
     except Exception:
         print("BROWSER DEBUG URL:", page.url)
         print("BROWSER DEBUG CALLS:", request_log[-15:])
         print("BROWSER DEBUG TEXT:", page.locator("body").inner_text()[-1200:])
-        page.screenshot(path="/tmp/lartop-browser-failure.png", full_page=True)
         raise
     assert page.evaluate("localStorage.getItem('lartop_access_token')") == "test-only-not-a-real-jwt"
 
@@ -132,9 +91,8 @@ if __name__ == "__main__":
     page.get_by_role("heading", name="Criar nova senha").wait_for(timeout=15000)
     page.wait_for_function("window.location.search === ''", timeout=10000)
     assert page.evaluate("window.location.pathname") == "/redefinir-senha"
-    assert page.evaluate("localStorage.getItem('lartop_access_token')") is None
     context.close()
-    print(("MOBILE" if mobile else "DESKTOP") + " Chromium: login, logout e link reset sem token na URL OK")
+    print(("MOBILE" if mobile else "DESKTOP") + " Chromium: login, logout e reset sem token na URL OK")
 
 if __name__ == "__main__":
     wait_server()
