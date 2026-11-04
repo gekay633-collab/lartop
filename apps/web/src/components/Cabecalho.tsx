@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { obterSessao, limparSessao, type SessaoLocal } from "@/lib/auth-client";
+import { obterSessao, encerrarSessao, type SessaoLocal } from "@/lib/auth-client";
 import { SinoNotificacoes } from "@/components/SinoNotificacoes";
 import { desativarPushNoDispositivo } from "@/lib/push-client";
 
@@ -26,18 +26,10 @@ export function Cabecalho() {
     setErroSaida("");
     const token = sessao?.accessToken;
     try {
-      const resposta = await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!resposta.ok) {
-        throw new Error("O servidor não confirmou o encerramento da sessão.");
-      }
+      await encerrarSessao(token);
       if (token) {
         await desativarPushNoDispositivo(token).catch(() => undefined);
       }
-      limparSessao();
       setSessao(null);
       setMenuAberto(false);
       router.push("/");
