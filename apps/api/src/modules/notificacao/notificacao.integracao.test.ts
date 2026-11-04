@@ -3,6 +3,7 @@ import { before, after, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 import { prisma } from '../../lib/prisma.js';
+import { redis } from '../../lib/redis.js';
 import autenticacaoPlugin from '../../plugins/autenticacao.js';
 import { gerarAccessToken } from '../../lib/jwt.js';
 import { notificacaoRoutes } from './notificacao.routes.js';
@@ -104,6 +105,7 @@ describe('central de notificações com banco de testes', () => {
     if (categoriaId) await prisma.categoria.deleteMany({ where: { id: categoriaId } });
     if (cidadeId) await prisma.cidade.deleteMany({ where: { id: cidadeId } });
     await prisma.$disconnect();
+    redis.disconnect();
   });
 
   it('bloqueia tokens de contas desativadas e papéis incompatíveis', async () => {
