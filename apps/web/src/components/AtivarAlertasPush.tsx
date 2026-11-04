@@ -238,7 +238,10 @@ export function AtivarAlertasPush({ accessToken }: { accessToken: string }) {
             !("worker" in dados) || typeof dados.worker !== "string") {
           throw new Error("Não foi possível consultar o teste.");
         }
-        if (ativo) setResultadoTeste({ provedor: dados.provedor, worker: dados.worker });
+        if (ativo) {
+          setResultadoTeste({ provedor: dados.provedor, worker: dados.worker });
+          setErroTeste("");
+        }
       } catch {
         if (ativo) setErroTeste("Não foi possível consultar o resultado. Abra o painel novamente.");
       }
