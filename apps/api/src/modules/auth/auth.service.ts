@@ -139,6 +139,18 @@ export async function renovarTokens(refreshToken: string) {
   return emitirTokens(usuario.id, usuario.tipo);
 }
 
+// Logout encerra apenas o dispositivo atual; bloqueio e troca de senha revogam todas as sessões.
+export async function revogarTokenRefresh(token: string): Promise<void> {
+  let payload: { sub: string; jti: string };
+  try {
+    payload = verificarRefreshToken(token);
+  } catch {
+    // Um cookie ausente/inválido não deve causar revogação de outras contas.
+    return;
+  }
+  await redis.del(`refresh:${payload.jti}:${payload.sub}`);
+}
+
 export async function revogarSessao(usuarioId: string) {
   const chaves = await redis.keys(`refresh:*:${usuarioId}`);
   if (chaves.length > 0) {
