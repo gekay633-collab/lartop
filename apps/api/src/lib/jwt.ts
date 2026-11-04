@@ -18,7 +18,7 @@ export function gerarAccessToken(payload: PayloadAccessToken): string {
   return jwt.sign(payload, ACCESS_SECRET, { expiresIn: ACCESS_EXPIRES_IN });
 }
 
-export function gerarRefreshToken(payload: { sub: string }): string {
+export function gerarRefreshToken(payload: { sub: string; jti: string }): string {
   return jwt.sign(payload, REFRESH_SECRET, { expiresIn: REFRESH_EXPIRES_IN });
 }
 
@@ -26,6 +26,10 @@ export function verificarAccessToken(token: string): PayloadAccessToken {
   return jwt.verify(token, ACCESS_SECRET) as PayloadAccessToken;
 }
 
-export function verificarRefreshToken(token: string): { sub: string } {
-  return jwt.verify(token, REFRESH_SECRET) as { sub: string };
+export function verificarRefreshToken(token: string): { sub: string; jti: string } {
+  const payload = jwt.verify(token, REFRESH_SECRET) as { sub?: unknown; jti?: unknown };
+  if (typeof payload.sub !== 'string' || typeof payload.jti !== 'string' || !payload.jti) {
+    throw new Error('Refresh token sem identificador de sessão');
+  }
+  return { sub: payload.sub, jti: payload.jti };
 }
