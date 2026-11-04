@@ -111,5 +111,5 @@ jobs:
         run: |
           pnpm --filter @lartop/web dev > /tmp/lartop-next.log 2>&1 &
           APP_PID=$!
-          trap 'kill $APP_PID 2>/dev/null || true' EXIT
+          trap 'STATUS=$?; if [ $STATUS -ne 0 ]; then echo ---NEXT SERVER LOG---; tail -n 80 /tmp/lartop-next.log; fi; kill $APP_PID 2>/dev/null || true; exit $STATUS' EXIT
           python3 apps/web/tests/browser_smoke.py
