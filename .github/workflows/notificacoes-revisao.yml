@@ -53,13 +53,7 @@ jobs:
           node-version: "22"
           cache: pnpm
       - name: Instalar dependencias sem alteracao de lockfile
-        run: pnpm install --no-frozen-lockfile
-      - name: Exibir lockfile para atualização da PR (temporário)
-        run: |
-          echo "__LARTOP_LOCK_START__"
-          base64 -w 0 pnpm-lock.yaml
-          echo
-          echo "__LARTOP_LOCK_END__"
+        run: pnpm install --frozen-lockfile
       - name: Validar Prisma e compilar API
         run: pnpm --filter @lartop/api build
       - name: Aplicar migracoes APENAS no Postgres temporario de CI
