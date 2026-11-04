@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fp from 'fastify-plugin';
-import { verificarAccessToken } from '../lib/jwt.js';
+import { verificarAccessToken, versaoCredenciais } from '../lib/jwt.js';
 import { prisma } from '../lib/prisma.js';
 import { tokenDeAcessoRevogado } from '../modules/auth/auth.service.js';
 
@@ -35,10 +35,12 @@ async function autenticacaoPlugin(app: FastifyInstance) {
         tokenDeAcessoRevogado(token),
         prisma.usuario.findUnique({
           where: { id: payload.sub },
-          select: { tipo: true, ativo: true },
+          select: { tipo: true, ativo: true, senhaHash: true },
         }),
       ]);
-      if (revogado || !usuario?.ativo || usuario.tipo !== payload.tipo) {
+      if (revogado || !usuario?.ativo || usuario.tipo !== payload.tipo ||
+          !payload.credenciaisVersao ||
+          payload.credenciaisVersao !== versaoCredenciais(usuario.senhaHash)) {
         return reply.status(401).send({ erro: 'Sessão inválida ou conta desativada' });
       }
       request.usuario = { id: payload.sub, tipo: usuario.tipo };
