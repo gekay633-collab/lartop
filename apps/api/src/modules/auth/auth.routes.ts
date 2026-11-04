@@ -12,6 +12,7 @@ import {
   autenticar,
   renovarTokens,
   revogarTokenRefresh,
+  revogarTokenDeAcesso,
   emitirTokens,
   solicitarRecuperacaoSenha,
   redefinirSenha,
@@ -152,6 +153,10 @@ export async function authRoutes(app: FastifyInstance) {
     try {
       if (tokenRefresh) {
         await revogarTokenRefresh(tokenRefresh);
+      }
+      const tokenAcesso = request.headers.authorization;
+      if (tokenAcesso?.startsWith('Bearer ')) {
+        await revogarTokenDeAcesso(tokenAcesso.slice(7));
       }
       reply.clearCookie(COOKIE_REFRESH_NOME, { path: '/' });
       return reply.send({ ok: true });
