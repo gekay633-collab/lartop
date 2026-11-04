@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { obterSessao, limparSessao, type SessaoLocal } from "@/lib/auth-client";
 import { SinoNotificacoes } from "@/components/SinoNotificacoes";
+import { desativarPushNoDispositivo } from "@/lib/push-client";
 
 export function Cabecalho() {
   const router = useRouter();
@@ -18,6 +19,8 @@ export function Cabecalho() {
   }, []);
 
   function sair() {
+    const token = sessao?.accessToken;
+    if (token) void desativarPushNoDispositivo(token).catch(() => undefined);
     limparSessao();
     setSessao(null);
     setMenuAberto(false);

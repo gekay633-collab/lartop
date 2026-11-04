@@ -5,6 +5,7 @@ import { Cabecalho } from "@/components/Cabecalho";
 import { Rodape } from "@/components/Rodape";
 import { AbaLeads } from "@/components/AbaLeads";
 import { AbaMeuPerfil } from "@/components/AbaMeuPerfil";
+import { AtivarAlertasPush } from "@/components/AtivarAlertasPush";
 import { useGuardaProfissional } from "@/components/GuardaProfissional";
 
 export default function PainelPage() {
@@ -29,6 +30,7 @@ export default function PainelPage() {
           <div className="mx-auto max-w-4xl px-4 py-4 sm:py-6 sm:px-6">
             <p className="text-sm text-pinho-700">Painel do profissional</p>
             <h1 className="font-display text-xl font-semibold text-pinho-900 sm:text-2xl">Olá, {sessao.nome}</h1>
+            <AtivarAlertasPush accessToken={sessao.accessToken} />
           </div>
         </div>
 

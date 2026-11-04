@@ -13,6 +13,7 @@ import { eventoRoutes } from './modules/evento/evento.routes.js';
 import { categoriaRoutes } from './modules/categoria/categoria.routes.js';
 import { uploadRoutes } from './modules/upload/upload.routes.js';
 import { notificacaoRoutes } from './modules/notificacao/notificacao.routes.js';
+import { pushRoutes } from './modules/push/push.routes.js';
 
 const app = Fastify({
   logger: {
@@ -41,6 +42,7 @@ async function bootstrap() {
   await app.register(categoriaRoutes, { prefix: '/api' });
   await app.register(uploadRoutes, { prefix: '/api' });
   await app.register(notificacaoRoutes, { prefix: '/api' });
+  await app.register(pushRoutes, { prefix: '/api' });
 
   const port = Number(process.env.PORT ?? 3333);
   await app.listen({ port, host: '0.0.0.0' });
