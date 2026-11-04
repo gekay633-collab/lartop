@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'node:crypto';
 
 interface PayloadAccessToken {
   sub: string;
@@ -15,7 +16,7 @@ if (!ACCESS_SECRET || !REFRESH_SECRET) {
 }
 
 export function gerarAccessToken(payload: PayloadAccessToken): string {
-  return jwt.sign(payload, ACCESS_SECRET, { expiresIn: ACCESS_EXPIRES_IN });
+  return jwt.sign(payload, ACCESS_SECRET, { expiresIn: ACCESS_EXPIRES_IN, jwtid: randomUUID() });
 }
 
 export function gerarRefreshToken(payload: { sub: string; jti: string }): string {
