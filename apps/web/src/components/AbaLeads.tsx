@@ -1,3 +1,4 @@
+import { fetchAutenticado } from "@/lib/auth-client";
 "use client";
 
 import { useEffect, useState } from "react";
@@ -38,7 +39,7 @@ export function AbaLeads({ accessToken }: { accessToken: string }) {
   async function carregar() {
     setErro("");
     try {
-      const resposta = await fetch("/api/solicitacoes/recebidas", {
+      const resposta = await fetchAutenticado("/api/solicitacoes/recebidas", {
         headers: { Authorization: `Bearer ${accessToken}` },
         cache: "no-store",
       });
@@ -67,7 +68,7 @@ export function AbaLeads({ accessToken }: { accessToken: string }) {
     setErro("");
     setAtualizandoId(id);
     try {
-      const resposta = await fetch(`/api/solicitacoes/${id}/status`, {
+      const resposta = await fetchAutenticado(`/api/solicitacoes/${id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ status }),
