@@ -1,5 +1,6 @@
-import { fetchAutenticado } from "@/lib/auth-client";
 "use client";
+
+import { fetchAutenticado } from "@/lib/auth-client";
 
 import { useState } from "react";
 import { lerRespostaAutenticacao } from "@/lib/auth-client";
