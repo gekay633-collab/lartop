@@ -1,3 +1,4 @@
+import { fetchAutenticado } from "@/lib/auth-client";
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
@@ -43,7 +44,7 @@ export default function AdminServicosPage() {
 
   async function carregar() {
     if (!sessao) return;
-    const resposta = await fetch("/api/admin/categorias", {
+    const resposta = await fetchAutenticado("/api/admin/categorias", {
       headers: { Authorization: `Bearer ${sessao.accessToken}` },
       cache: "no-store",
     });
@@ -74,7 +75,7 @@ export default function AdminServicosPage() {
     setMensagem("");
     setSalvando(true);
     try {
-      const resposta = await fetch("/api/admin/categorias", {
+      const resposta = await fetchAutenticado("/api/admin/categorias", {
         method: "POST",
         headers: cabecalhos,
         body: JSON.stringify({ nome, slug }),
@@ -96,7 +97,7 @@ export default function AdminServicosPage() {
     setMensagem("");
     setSalvando(true);
     try {
-      const resposta = await fetch("/api/admin/categorias/iniciais", {
+      const resposta = await fetchAutenticado("/api/admin/categorias/iniciais", {
         method: "POST",
         // Esta operacao nao envia JSON. Fastify rejeita um body vazio com
         // Content-Type: application/json (HTTP 400).
@@ -127,7 +128,7 @@ export default function AdminServicosPage() {
     setMensagem("");
     setSalvando(true);
     try {
-      const resposta = await fetch(`/api/admin/categorias/${servico.id}`, {
+      const resposta = await fetchAutenticado(`/api/admin/categorias/${servico.id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${sessao.accessToken}` },
       });
@@ -148,7 +149,7 @@ export default function AdminServicosPage() {
     setMensagem("");
     setSalvando(true);
     try {
-      const resposta = await fetch(`/api/admin/categorias/${id}`, {
+      const resposta = await fetchAutenticado(`/api/admin/categorias/${id}`, {
         method: "PATCH",
         headers: cabecalhos,
         body: JSON.stringify(alteracoes),
