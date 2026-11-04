@@ -160,11 +160,11 @@ def teste_renovacao_entre_abas(browser):
     ).decode().rstrip("=") + ".assinatura-ficticia"
     novo = "token-renovado-somente-testes"
     context = browser.new_context()
-    context.add_init_script("""(token) => {
-      localStorage.setItem('lartop_access_token', token);
-      localStorage.setItem('lartop_tipo_usuario', 'CLIENTE');
-      localStorage.setItem('lartop_nome_usuario', 'Cliente Duas Abas');
-    }""", antigo)
+    context.add_init_script(
+        "localStorage.setItem('lartop_access_token', " + json.dumps(antigo) + ");" +
+        "localStorage.setItem('lartop_tipo_usuario', 'CLIENTE');" +
+        "localStorage.setItem('lartop_nome_usuario', 'Cliente Duas Abas');"
+    )
     context.add_cookies([{"url": BASE, "name": "lartop_refresh",
                           "value": "cookie-ficticio-inicial", "httpOnly": True, "sameSite": "Lax"}])
     chamadas_refresh = []
@@ -204,7 +204,7 @@ def teste_renovacao_entre_abas(browser):
     a.goto(BASE + "/minhas-solicitacoes", wait_until="domcontentloaded")
     b.goto(BASE + "/minhas-solicitacoes", wait_until="domcontentloaded")
     for page in (a, b):
-        page.wait_for_function("(t) => localStorage.getItem('lartop_access_token') === t", novo,
+        page.wait_for_function("(t) => localStorage.getItem('lartop_access_token') === t", arg=novo,
                                timeout=20000)
         page.get_by_text("Você ainda não pediu nenhum orçamento.").wait_for(timeout=20000)
     assert len(chamadas_refresh) == 1, "Refresh rotativo deve ser consumido só por uma aba: " + str(len(chamadas_refresh))
@@ -215,11 +215,11 @@ def teste_renovacao_entre_abas(browser):
 
     # Falha transitória no Redis/API não pode apagar o login do usuário.
     falha = browser.new_context()
-    falha.add_init_script("""(token) => {
-      localStorage.setItem('lartop_access_token', token);
-      localStorage.setItem('lartop_tipo_usuario', 'CLIENTE');
-      localStorage.setItem('lartop_nome_usuario', 'Cliente Falha Temporária');
-    }""", antigo)
+    falha.add_init_script(
+        "localStorage.setItem('lartop_access_token', " + json.dumps(antigo) + ");" +
+        "localStorage.setItem('lartop_tipo_usuario', 'CLIENTE');" +
+        "localStorage.setItem('lartop_nome_usuario', 'Cliente Falha Temporária');"
+    )
     def api_indisponivel(route):
         if route.request.url.endswith("/api/auth/refresh"):
             return route.fulfill(status=503, content_type="application/json",
