@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
+import { revogarSessao } from '../auth/auth.service.js';
 import type {
   ListarPrestadoresQuery,
   ListarClientesQuery,
@@ -133,11 +134,19 @@ export async function alternarBloqueioUsuario(usuarioId: string, ativo: boolean)
     throw new AdminError('Não é possível bloquear uma conta de administrador', 400);
   }
 
-  return prisma.usuario.update({
+  const atualizado = await prisma.usuario.update({
     where: { id: usuarioId },
     data: { ativo },
     select: { id: true, nome: true, email: true, tipo: true, ativo: true },
   });
+
+  if (!ativo) {
+    // A checagem de conta ativa no middleware bloqueia imediatamente access tokens antigos.
+    // A revogação abaixo também impede renovações posteriores.
+    await revogarSessao(usuarioId);
+  }
+
+  return atualizado;
 }
 
 export async function listarCategoriasAdmin() {
