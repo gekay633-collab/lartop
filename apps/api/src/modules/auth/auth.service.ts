@@ -1,7 +1,7 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { prisma } from '../../lib/prisma.js';
 import { gerarHashSenha, verificarSenha } from '../../lib/senha.js';
-import { gerarAccessToken, gerarRefreshToken, verificarAccessToken, verificarRefreshToken } from '../../lib/jwt.js';
+import { gerarAccessToken, gerarRefreshToken, verificarAccessToken, verificarRefreshToken, versaoCredenciais } from '../../lib/jwt.js';
 import { redis } from '../../lib/redis.js';
 import { resolverCep, CepInvalidoError } from '../../lib/cep.js';
 
@@ -102,7 +102,15 @@ export async function autenticar(email: string, senha: string) {
 }
 
 export async function emitirTokens(usuarioId: string, tipo: 'CLIENTE' | 'PROFISSIONAL' | 'ADMIN') {
-  const accessToken = gerarAccessToken({ sub: usuarioId, tipo });
+  const atual = await prisma.usuario.findUnique({
+    where: { id: usuarioId }, select: { senhaHash: true, tipo: true, ativo: true },
+  });
+  if (!atual?.ativo || atual.tipo !== tipo) {
+    throw new AuthError('Usuário inválido');
+  }
+  const accessToken = gerarAccessToken({
+    sub: usuarioId, tipo, credenciaisVersao: versaoCredenciais(atual.senhaHash),
+  });
   const jti = randomUUID();
   const refreshToken = gerarRefreshToken({ sub: usuarioId, jti });
 
