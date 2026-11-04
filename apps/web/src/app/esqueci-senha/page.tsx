@@ -10,17 +10,23 @@ export default function EsqueciSenhaPage() {
   const [email, setEmail] = useState("");
   const [enviado, setEnviado] = useState(false);
   const [carregando, setCarregando] = useState(false);
+  const [erro, setErro] = useState("");
 
   async function aoSubmeter(evento: React.FormEvent) {
     evento.preventDefault();
     setCarregando(true);
+    setErro("");
     try {
-      await fetch(`/api/auth/esqueci-senha`, {
+      const resposta = await fetch("/api/auth/esqueci-senha", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
+      if (!resposta.ok) throw new Error("A solicitação não foi confirmada pelo servidor.");
       setEnviado(true);
+    } catch {
+      // Não revela se o e-mail existe: a mensagem de falha é genérica.
+      setErro("Não foi possível solicitar o link agora. Tente novamente.");
     } finally {
       setCarregando(false);
     }
@@ -42,6 +48,7 @@ export default function EsqueciSenhaPage() {
           ) : (
             <form onSubmit={aoSubmeter} className="mt-6 flex flex-col gap-3">
               <input type="email" placeholder="Seu e-mail" value={email} onChange={(e) => setEmail(e.target.value)} required className="rounded-lg border border-areia-300 bg-white px-3 py-2 text-pinho-900 outline-none focus:border-relva-500" />
+              {erro && <p role="alert" className="text-sm text-terra-600">{erro}</p>}
               <button type="submit" disabled={carregando} className="mt-2 rounded-xl bg-relva-500 px-4 py-3 font-semibold text-sauge-50 transition hover:bg-relva-600 disabled:opacity-60">
                 {carregando ? "Enviando..." : "Enviar link de recuperação"}
               </button>
