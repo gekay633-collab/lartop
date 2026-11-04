@@ -27,7 +27,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   async function sair() {
-    if (saindo) return;
+    if (saindo || !sessao) return;
     setSaindo(true);
     setErroSaida("");
     try {
