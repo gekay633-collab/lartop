@@ -106,6 +106,26 @@ describe('central de notificações com banco de testes', () => {
     await prisma.$disconnect();
   });
 
+  it('bloqueia tokens de contas desativadas e papéis incompatíveis', async () => {
+    const tokenFalsoAdmin = gerarAccessToken({ sub: clienteId, tipo: 'ADMIN' });
+    const acessoPapelErrado = await app.inject({
+      method: 'GET', url: '/api/notificacoes',
+      headers: { authorization: `Bearer ${tokenFalsoAdmin}` },
+    });
+    assert.equal(acessoPapelErrado.statusCode, 401);
+
+    await prisma.usuario.update({ where: { id: clienteId }, data: { ativo: false } });
+    try {
+      const acessoContaBloqueada = await app.inject({
+        method: 'GET', url: '/api/notificacoes',
+        headers: { authorization: `Bearer ${clienteToken}` },
+      });
+      assert.equal(acessoContaBloqueada.statusCode, 401);
+    } finally {
+      await prisma.usuario.update({ where: { id: clienteId }, data: { ativo: true } });
+    }
+  });
+
   it('mantém RLS ativo na nova tabela de notificações', async () => {
     const verificacao = await prisma.$queryRaw<Array<{ ativo: boolean }>>`
       SELECT c.relrowsecurity AS ativo
