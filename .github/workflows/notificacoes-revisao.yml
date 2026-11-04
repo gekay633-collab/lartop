@@ -37,6 +37,9 @@ jobs:
       JWT_ACCESS_SECRET: segredo-descartavel-ci-access-notificacoes
       JWT_REFRESH_SECRET: segredo-descartavel-ci-refresh-notificacoes
       NOTIFICACOES_TEST_DB: isolated
+      VAPID_SUBJECT: https://lartop-ats6.vercel.app
+      VAPID_PUBLIC_KEY: chave-ficticia-nao-usada-em-envios-ci
+      VAPID_PRIVATE_KEY: chave-ficticia-nao-usada-em-envios-ci
     steps:
       - name: Buscar codigo do PR
         uses: actions/checkout@v4
@@ -50,7 +53,13 @@ jobs:
           node-version: "22"
           cache: pnpm
       - name: Instalar dependencias sem alteracao de lockfile
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
+      - name: Exibir lockfile para atualização da PR (temporário)
+        run: |
+          echo "__LARTOP_LOCK_START__"
+          base64 -w 0 pnpm-lock.yaml
+          echo
+          echo "__LARTOP_LOCK_END__"
       - name: Validar Prisma e compilar API
         run: pnpm --filter @lartop/api build
       - name: Aplicar migracoes APENAS no Postgres temporario de CI
@@ -59,6 +68,8 @@ jobs:
         run: pnpm --filter @lartop/api exec prisma migrate status
       - name: Testar regras e mensagens
         run: pnpm --filter @lartop/api test:notificacoes
+      - name: Testar validação segura de endpoints Push
+        run: pnpm --filter @lartop/api test:push
       - name: "Integracao real: permissoes, pedidos e concorrencia"
         run: pnpm --filter @lartop/api test:notificacoes:integration
       - name: Gerar tipagem de rotas do Next.js

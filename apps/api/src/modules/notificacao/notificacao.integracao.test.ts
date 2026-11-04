@@ -6,6 +6,7 @@ import { prisma } from '../../lib/prisma.js';
 import autenticacaoPlugin from '../../plugins/autenticacao.js';
 import { gerarAccessToken } from '../../lib/jwt.js';
 import { notificacaoRoutes } from './notificacao.routes.js';
+import { pushRoutes } from '../push/push.routes.js';
 import {
   criarSolicitacao,
   atualizarStatusComoProfissional,
@@ -53,6 +54,7 @@ describe('central de notificações com banco de testes', () => {
     app = Fastify({ logger: false });
     await app.register(autenticacaoPlugin);
     await app.register(notificacaoRoutes, { prefix: '/api' });
+    await app.register(pushRoutes, { prefix: '/api' });
     await app.ready();
 
     const cidade = await prisma.cidade.create({
@@ -259,6 +261,58 @@ describe('central de notificações com banco de testes', () => {
     } finally {
       await prisma.usuario.update({ where: { id: clienteId }, data: { ativo: true } });
     }
+  });
+
+  it('protege a tabela de assinaturas push com RLS', async () => {
+    const rows = await prisma.$queryRaw<Array<{ ativo: boolean }>>`
+      SELECT c.relrowsecurity AS ativo FROM pg_catalog.pg_class c
+      JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname='public' AND c.relname='assinaturas_push'
+    `;
+    assert.equal(rows[0]?.ativo, true);
+  });
+
+  it('registra somente dispositivos autorizados e permite revogação por usuário', async () => {
+    const endpoint = `https://fcm.googleapis.com/fcm/send/ci-test-${suffix}`;
+    const assinatura = {
+      endpoint,
+      keys: { p256dh: 'a'.repeat(80), auth: 'b'.repeat(22) },
+    };
+    const headers = { authorization: `Bearer ${profissionalToken}` };
+
+    const semLogin = await app.inject({
+      method: 'POST', url: '/api/push/assinaturas', payload: assinatura,
+    });
+    assert.equal(semLogin.statusCode, 401);
+
+    const malicioso = await app.inject({
+      method: 'POST', url: '/api/push/assinaturas', headers,
+      payload: { ...assinatura, endpoint: 'http://localhost/private' },
+    });
+    assert.equal(malicioso.statusCode, 400);
+
+    const ativar = await app.inject({
+      method: 'POST', url: '/api/push/assinaturas', headers, payload: assinatura,
+    });
+    assert.equal(ativar.statusCode, 201);
+    assert.equal(await prisma.assinaturaPush.count({
+      where: { usuarioId: profissionalId, endpoint },
+    }), 1);
+
+    const tentarApagarOutro = await app.inject({
+      method: 'DELETE', url: '/api/push/assinaturas',
+      headers: { authorization: `Bearer ${clienteToken}` },
+      payload: { endpoint },
+    });
+    assert.equal(tentarApagarOutro.statusCode, 200);
+    assert.equal(await prisma.assinaturaPush.count({ where: { endpoint } }), 1);
+
+    const desativar = await app.inject({
+      method: 'DELETE', url: '/api/push/assinaturas', headers,
+      payload: { endpoint },
+    });
+    assert.equal(desativar.statusCode, 200);
+    assert.equal(await prisma.assinaturaPush.count({ where: { endpoint } }), 0);
   });
 
   it('rejeita limites inválidos sem consultar dados de terceiros', async () => {

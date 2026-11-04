@@ -2,6 +2,7 @@ import { prisma } from '../../lib/prisma.js';
 import { gerarLinkWhatsapp } from '../../lib/whatsapp.js';
 import { registrarEvento } from '../evento/evento.service.js';
 import { AVISOS_CLIENTE } from '../notificacao/notificacao.eventos.js';
+import { enviarPushNotificacao } from '../push/push.service.js';
 import type {
   CriarSolicitacaoInput,
   AtualizarStatusInput,
@@ -50,7 +51,7 @@ export async function criarSolicitacao(clienteId: string, input: CriarSolicitaca
     throw new SolicitacaoError('Esse profissional não atende essa categoria', 400);
   }
 
-  const solicitacao = await prisma.$transaction(async (tx) => {
+  const { solicitacao, avisoPush } = await prisma.$transaction(async (tx) => {
     const pedido = await tx.solicitacaoOrcamento.create({
       data: {
         clienteId,
@@ -65,7 +66,7 @@ export async function criarSolicitacao(clienteId: string, input: CriarSolicitaca
       include: { categoria: true, profissional: { select: { nomeExibicao: true, cidadeId: true } } },
     });
 
-    await tx.notificacao.create({
+    const avisoPush = await tx.notificacao.create({
       data: {
         destinatarioId: input.profissionalId,
         solicitacaoId: pedido.id,
@@ -74,7 +75,13 @@ export async function criarSolicitacao(clienteId: string, input: CriarSolicitaca
         mensagem: `Você recebeu uma solicitação de ${categoriaValida.categoria.nome}. Acesse seu painel para responder.`,
       },
     });
-    return pedido;
+    return { solicitacao: pedido, avisoPush };
+  });
+
+  // Primeiro confirma o pedido e o aviso no banco; depois tenta o push.
+  // Falhas externas não impedem a criação da solicitação.
+  await enviarPushNotificacao(input.profissionalId, avisoPush).catch((erro) => {
+    console.error('[push] falha após criação de solicitação', erro instanceof Error ? erro.name : 'desconhecida');
   });
 
   const linkWhatsapp = gerarLinkWhatsapp(profissional.usuario.telefone, {
@@ -169,7 +176,7 @@ export async function atualizarStatusComoProfissional(
     );
   }
 
-  return prisma.$transaction(async (tx) => {
+  const resultado = await prisma.$transaction(async (tx) => {
     // Evita dois cliques simultâneos criando respostas e notificações conflitantes.
     const atualizado = await tx.solicitacaoOrcamento.updateMany({
       where: { id: solicitacaoId, profissionalId, status: solicitacao.status },
@@ -180,19 +187,25 @@ export async function atualizarStatusComoProfissional(
     }
 
     const aviso = AVISOS_CLIENTE[input.status as keyof typeof AVISOS_CLIENTE];
-    if (aviso) {
-      await tx.notificacao.create({
-        data: {
-          destinatarioId: solicitacao.clienteId,
-          solicitacaoId,
-          tipo: aviso.tipo,
-          titulo: aviso.titulo,
-          mensagem: aviso.mensagem,
-        },
-      });
-    }
-    return tx.solicitacaoOrcamento.findUniqueOrThrow({ where: { id: solicitacaoId } });
+    const avisoPush = aviso ? await tx.notificacao.create({
+      data: {
+        destinatarioId: solicitacao.clienteId,
+        solicitacaoId,
+        tipo: aviso.tipo,
+        titulo: aviso.titulo,
+        mensagem: aviso.mensagem,
+      },
+    }) : null;
+    const pedido = await tx.solicitacaoOrcamento.findUniqueOrThrow({ where: { id: solicitacaoId } });
+    return { pedido, avisoPush };
   });
+
+  if (resultado.avisoPush) {
+    await enviarPushNotificacao(solicitacao.clienteId, resultado.avisoPush).catch((erro) => {
+      console.error('[push] falha após atualização', erro instanceof Error ? erro.name : 'desconhecida');
+    });
+  }
+  return resultado.pedido;
 }
 
 export async function cancelarComoCliente(clienteId: string, solicitacaoId: string) {
@@ -207,7 +220,7 @@ export async function cancelarComoCliente(clienteId: string, solicitacaoId: stri
     throw new SolicitacaoError(`Não é possível cancelar uma solicitação ${solicitacao.status}`, 400);
   }
 
-  return prisma.$transaction(async (tx) => {
+  const resultado = await prisma.$transaction(async (tx) => {
     const atualizado = await tx.solicitacaoOrcamento.updateMany({
       where: { id: solicitacaoId, clienteId, status: solicitacao.status },
       data: { status: 'CANCELADA' },
@@ -215,7 +228,7 @@ export async function cancelarComoCliente(clienteId: string, solicitacaoId: stri
     if (atualizado.count !== 1) {
       throw new SolicitacaoError('O pedido mudou de status. Atualize a página e tente novamente.', 409);
     }
-    await tx.notificacao.create({
+    const avisoPush = await tx.notificacao.create({
       data: {
         destinatarioId: solicitacao.profissionalId,
         solicitacaoId,
@@ -224,8 +237,14 @@ export async function cancelarComoCliente(clienteId: string, solicitacaoId: stri
         mensagem: 'O cliente cancelou uma solicitação. Confira os pedidos no seu painel.',
       },
     });
-    return tx.solicitacaoOrcamento.findUniqueOrThrow({ where: { id: solicitacaoId } });
+    const pedido = await tx.solicitacaoOrcamento.findUniqueOrThrow({ where: { id: solicitacaoId } });
+    return { pedido, avisoPush };
   });
+
+  await enviarPushNotificacao(solicitacao.profissionalId, resultado.avisoPush).catch((erro) => {
+    console.error('[push] falha após cancelamento', erro instanceof Error ? erro.name : 'desconhecida');
+  });
+  return resultado.pedido;
 }
 
 export { SolicitacaoError };

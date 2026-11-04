@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Cabecalho } from "@/components/Cabecalho";
 import { Rodape } from "@/components/Rodape";
+import { AtivarAlertasPush } from "@/components/AtivarAlertasPush";
 import { CardMinhaSolicitacao } from "@/components/CardMinhaSolicitacao";
 import { useGuardaCliente } from "@/components/GuardaCliente";
 
@@ -64,6 +65,7 @@ export default function MinhasSolicitacoesPage() {
         <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
           <h1 className="font-display text-2xl font-semibold text-pinho-900">Minhas solicitações</h1>
           <p className="mt-2 text-pinho-700">Acompanhe seus pedidos de orçamento e avalie após a conclusão do serviço.</p>
+          <AtivarAlertasPush accessToken={sessao.accessToken} />
 
           <div className="mt-6 flex flex-col gap-4">
             {erro && <p className="text-terra-600">{erro}</p>}
