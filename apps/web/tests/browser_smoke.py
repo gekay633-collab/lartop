@@ -258,7 +258,7 @@ def teste_profissional_nao_entra_no_fluxo_cliente(browser, mobile=False):
     )
     page = context.new_page()
     def api(route):
-        if route.request.url.endswith("/api/solicitacoes/recebidas"):
+        if "/api/solicitacoes/recebidas" in route.request.url:
             return route.fulfill(status=200, content_type="application/json",
                                  body='{"itens":[],"total":0}')
         if route.request.url.endswith("/api/notificacoes"):
@@ -278,7 +278,7 @@ def teste_profissional_nao_entra_no_fluxo_cliente(browser, mobile=False):
       localStorage.setItem('lartop_access_token', 'token-ficticio-prestador');
     }""")
     page.goto(BASE + "/painel", wait_until="load")
-    page.get_by_text("Você ainda não recebeu nenhum pedido de orçamento.").wait_for(timeout=20000)
+    page.get_by_text("Nenhum pedido novo aguardando resposta.").wait_for(timeout=20000)
 
     marca = page.locator("header a").filter(has_text="Lartop").first
     assert marca.get_attribute("href") == "/painel"
@@ -420,7 +420,7 @@ def teste_responsividade_central_notificacoes(browser):
                 acoes.append("marcar-lida")
                 return route.fulfill(status=200, content_type="application/json",
                                      body='{"ok":true}')
-            if url.endswith("/api/solicitacoes/recebidas"):
+            if "/api/solicitacoes/recebidas" in url:
                 return route.fulfill(status=200, content_type="application/json",
                                      body='{"itens":[],"total":0}')
             if url.endswith("/api/push/chave-publica"):
@@ -430,7 +430,7 @@ def teste_responsividade_central_notificacoes(browser):
 
         page.route("**/api/**", api)
         page.goto(BASE + "/painel", wait_until="load")
-        page.get_by_text("Você ainda não recebeu nenhum pedido de orçamento.").wait_for(timeout=20000)
+        page.get_by_text("Nenhum pedido novo aguardando resposta.").wait_for(timeout=20000)
         sino = page.locator('button[aria-label^="Notificações:"]')
         sino.wait_for(timeout=15000)
         sino.click()
@@ -532,7 +532,7 @@ def teste_recuperacao_push_expirado(browser):
             corpo = route.request.post_data_json
             assert corpo["endpoint"].endswith("/inscricao-renovada")
             return route.fulfill(status=201, content_type="application/json", body='{"ok":true}')
-        if url.endswith("/api/solicitacoes/recebidas"):
+        if "/api/solicitacoes/recebidas" in url:
             return route.fulfill(status=200, content_type="application/json", body='{"itens":[],"total":0}')
         if "/api/notificacoes" in url:
             return route.fulfill(status=200, content_type="application/json",
@@ -548,6 +548,104 @@ def teste_recuperacao_push_expirado(browser):
     page.get_by_role("button", name="Reparar alertas").wait_for()
     context.close()
     print("PUSH 410: reinscrição obsoleta recuperada e registrada novamente OK")
+
+
+
+def teste_filtros_pedidos_prestador(browser, mobile=False):
+    """Pedidos novos aparecem primeiro, histórico fica separado e páginas têm só cinco."""
+    from urllib.parse import urlsplit, parse_qs
+
+    context = browser.new_context(
+        viewport={"width": 390 if mobile else 1366, "height": 844 if mobile else 768},
+        is_mobile=mobile, has_touch=mobile,
+    )
+    context.add_init_script("""
+      localStorage.setItem('lartop_tipo_usuario', 'PROFISSIONAL');
+      localStorage.setItem('lartop_nome_usuario', 'Prestador de teste');
+      localStorage.setItem('lartop_access_token', 'token-testes-paginacao');
+    """)
+    page = context.new_page()
+    chamadas = []
+    estados = {f"pedido-{i}": "PENDENTE" if i <= 8 else
+               "RESPONDIDA" if i == 9 else "ACEITA" if i == 10 else
+               "CONCLUIDA" if i <= 16 else "RECUSADA"
+               for i in range(1, 21)}
+
+    def api(route):
+        url = route.request.url
+        path = urlsplit(url).path
+        if path.endswith("/api/solicitacoes/recebidas"):
+            q = parse_qs(urlsplit(url).query)
+            grupo = q.get("grupo", ["TODOS"])[0]
+            pagina = int(q.get("pagina", ["1"])[0])
+            por_pagina = int(q.get("porPagina", ["20"])[0])
+            chamadas.append(("listar", grupo, pagina, por_pagina))
+            filtrados = [
+                (i, estado) for i in range(1, 21)
+                if (estado := estados[f"pedido-{i}"]) and (
+                    grupo == "TODOS" or
+                    grupo == "NOVOS" and estado == "PENDENTE" or
+                    grupo == "EM_ANDAMENTO" and estado in ("RESPONDIDA", "ACEITA") or
+                    grupo == "HISTORICO" and estado in ("CONCLUIDA", "RECUSADA", "CANCELADA")
+                )
+            ]
+            itens = [
+                {"id": f"pedido-{i}", "endereco": "Rua teste, 1", "tamanhoM2": 20,
+                 "descricao": None, "status": estado, "criadoEm": "2026-11-04T12:00:00.000Z",
+                 "categoria": {"nome": "Corte de grama"},
+                 "cliente": {"nome": f"Cliente {i}", "telefone": None,
+                              "telefoneVerificado": False}}
+                for i, estado in filtrados[(pagina - 1) * por_pagina:pagina * por_pagina]
+            ]
+            return route.fulfill(status=200, content_type="application/json",
+                                 body=json.dumps({"total": len(filtrados), "itens": itens,
+                                                  "pagina": pagina, "porPagina": por_pagina}))
+        if path.endswith("/api/solicitacoes/pedido-1/status") and route.request.method == "PATCH":
+            assert route.request.post_data_json["status"] == "ACEITA"
+            estados["pedido-1"] = "ACEITA"
+            chamadas.append(("atualizar", "pedido-1"))
+            return route.fulfill(status=200, content_type="application/json",
+                                 body='{"id":"pedido-1","status":"ACEITA"}')
+        if path.endswith("/api/push/assinaturas/verificar"):
+            return route.fulfill(status=200, content_type="application/json",
+                                 body='{"registrada":true}')
+        if path.endswith("/api/notificacoes"):
+            return route.fulfill(status=200, content_type="application/json",
+                                 body='{"itens":[],"naoLidas":0}')
+        return route.fulfill(status=404, content_type="application/json",
+                             body='{"erro":"API simulada"}')
+
+    page.route("**/api/**", api)
+    page.goto(BASE + "/painel", wait_until="load")
+    page.get_by_role("button", name="Novos", exact=True).wait_for(timeout=15000)
+    page.get_by_text("8 solicitações nesta categoria", exact=False).wait_for(timeout=15000)
+    assert page.get_by_text("Cliente 1 - Rua teste, 1").count() == 1
+    assert page.get_by_text("Cliente 6 - Rua teste, 1").count() == 0
+    assert ("listar", "NOVOS", 1, 5) in chamadas
+
+    page.get_by_role("button", name="Próxima").click()
+    page.get_by_text("Cliente 6 - Rua teste, 1").wait_for(timeout=15000)
+    assert page.get_by_text("Cliente 1 - Rua teste, 1").count() == 0
+    assert ("listar", "NOVOS", 2, 5) in chamadas
+
+    page.get_by_role("button", name="Histórico").click()
+    page.get_by_text("Concluído").first.wait_for(timeout=15000)
+    assert page.get_by_text("Cliente 6 - Rua teste, 1").count() == 0
+    assert ("listar", "HISTORICO", 1, 5) in chamadas
+
+    page.get_by_role("button", name="Em andamento").click()
+    page.get_by_text("Cliente 9 - Rua teste, 1").wait_for(timeout=15000)
+    assert ("listar", "EM_ANDAMENTO", 1, 5) in chamadas
+
+    page.get_by_role("button", name="Novos", exact=True).click()
+    page.get_by_text("Cliente 1 - Rua teste, 1").wait_for(timeout=15000)
+    page.get_by_role("button", name="Marcar como Aceito").first.click()
+    page.get_by_text("7 solicitações nesta categoria", exact=False).wait_for(timeout=15000)
+    assert ("atualizar", "pedido-1") in chamadas
+    assert page.get_by_text("Cliente 1 - Rua teste, 1").count() == 0
+    context.close()
+    print(("MOBILE" if mobile else "DESKTOP") +
+          " pedidos agrupados: 5 por página, histórico preservado e aceite atualiza lista OK")
 
 
 if __name__ == "__main__":
@@ -566,6 +664,8 @@ if __name__ == "__main__":
             teste_rodape_contextual(browser, mobile=False)
             teste_rodape_contextual(browser, mobile=True)
             teste_responsividade_central_notificacoes(browser)
+            teste_filtros_pedidos_prestador(browser, mobile=False)
+            teste_filtros_pedidos_prestador(browser, mobile=True)
             teste_recuperacao_push_expirado(browser)
         finally:
             browser.close()

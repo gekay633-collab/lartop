@@ -279,6 +279,83 @@ describe('central de notificações com banco de testes', () => {
     assert.equal(await pedidosCriados(), antes);
   });
 
+  it('organiza pedidos do prestador por grupo e pagina sem perder o histórico', async () => {
+    const marcacao = `teste-grupos-${suffix}`;
+    const statuses = [
+      'PENDENTE', 'PENDENTE', 'PENDENTE', 'PENDENTE',
+      'PENDENTE', 'PENDENTE', 'PENDENTE', 'PENDENTE',
+      'RESPONDIDA', 'ACEITA', 'RECUSADA', 'CONCLUIDA', 'CANCELADA',
+    ] as const;
+    await prisma.solicitacaoOrcamento.createMany({
+      data: statuses.map((status, n) => ({
+        clienteId, profissionalId, categoriaId,
+        cep: '24900000', endereco: `Endereco de testes ${n}, Marica`,
+        tamanhoM2: 20, descricao: marcacao, status,
+      })),
+    });
+    const headers = { authorization: `Bearer ${profissionalToken}` };
+    try {
+      const novos = await app.inject({
+        method: 'GET',
+        url: '/api/solicitacoes/recebidas?grupo=NOVOS&pagina=1&porPagina=5',
+        headers,
+      });
+      assert.equal(novos.statusCode, 200);
+      const dadosNovos = novos.json() as { total: number; itens: { id: string; status: string }[] };
+      assert.ok(dadosNovos.total >= 8);
+      assert.equal(dadosNovos.itens.length, 5);
+      assert.ok(dadosNovos.itens.every(x => x.status === 'PENDENTE'));
+
+      const seguintes = await app.inject({
+        method: 'GET',
+        url: '/api/solicitacoes/recebidas?grupo=NOVOS&pagina=2&porPagina=5',
+        headers,
+      });
+      assert.equal(seguintes.statusCode, 200);
+      const dadosSeguintes = seguintes.json() as { itens: { id: string; status: string }[] };
+      assert.ok(dadosSeguintes.itens.length > 0);
+      assert.ok(dadosSeguintes.itens.every(x => x.status === 'PENDENTE'));
+      assert.ok(dadosSeguintes.itens.every(x => !dadosNovos.itens.some(y => y.id === x.id)));
+
+      const andamento = await app.inject({
+        method: 'GET',
+        url: '/api/solicitacoes/recebidas?grupo=EM_ANDAMENTO&porPagina=5',
+        headers,
+      });
+      assert.equal(andamento.statusCode, 200);
+      const dadosAndamento = andamento.json() as { itens: { status: string }[] };
+      assert.ok(dadosAndamento.itens.some(x => x.status === 'RESPONDIDA'));
+      assert.ok(dadosAndamento.itens.some(x => x.status === 'ACEITA'));
+      assert.ok(dadosAndamento.itens.every(x => ['RESPONDIDA', 'ACEITA'].includes(x.status)));
+
+      const historico = await app.inject({
+        method: 'GET',
+        url: '/api/solicitacoes/recebidas?grupo=HISTORICO&porPagina=5',
+        headers,
+      });
+      assert.equal(historico.statusCode, 200);
+      assert.ok((historico.json() as { itens: { status: string }[] }).itens.every(
+        x => ['RECUSADA', 'CONCLUIDA', 'CANCELADA'].includes(x.status)
+      ));
+
+      const doisFiltros = await app.inject({
+        method: 'GET',
+        url: '/api/solicitacoes/recebidas?grupo=NOVOS&status=CONCLUIDA',
+        headers,
+      });
+      assert.equal(doisFiltros.statusCode, 400);
+      const acessoCliente = await app.inject({
+        method: 'GET', url: '/api/solicitacoes/recebidas?grupo=NOVOS',
+        headers: { authorization: `Bearer ${clienteToken}` },
+      });
+      assert.equal(acessoCliente.statusCode, 403);
+    } finally {
+      await prisma.solicitacaoOrcamento.deleteMany({
+        where: { clienteId, profissionalId, descricao: marcacao },
+      });
+    }
+  });
+
   it('marcar todas como lidas afeta somente a conta autenticada', async () => {
     const antes = await prisma.notificacao.count({
       where: { destinatarioId: profissionalId, lidaEm: null },
