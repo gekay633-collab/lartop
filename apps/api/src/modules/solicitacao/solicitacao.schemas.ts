@@ -16,8 +16,8 @@ export const atualizarStatusSchema = z.object({
 
 export const listarSolicitacoesQuerySchema = z.object({
   status: z.enum(['PENDENTE', 'RESPONDIDA', 'ACEITA', 'RECUSADA', 'CONCLUIDA', 'CANCELADA']).optional(),
-  pagina: z.coerce.number().min(1).default(1),
-  porPagina: z.coerce.number().min(1).max(50).default(20),
+  pagina: z.coerce.number().int().min(1).max(100000).default(1),
+  porPagina: z.coerce.number().int().min(1).max(50).default(20),
 });
 
 export type CriarSolicitacaoInput = z.infer<typeof criarSolicitacaoSchema>;
