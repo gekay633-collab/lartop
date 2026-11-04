@@ -1,3 +1,30 @@
+## Ativação autorizada em banco de testes
+
+Em 03/11/2026, o usuário esclareceu que o banco atual contém apenas dados
+de teste e autorizou a ativação sem exigir backup completo prévio.
+A tabela `public.notificacoes` e o enum `TipoNotificacao` foram criados
+no Supabase antes do merge, via editor SQL, e **confirmados por leitura**:
+
+- RLS da nova tabela ativo;
+- privilégios SELECT/INSERT revogados de `anon` e `authenticated`;
+- índices de unicidade, índice de consultas e duas chaves estrangeiras;
+- usuário `postgres` com privilégios para a API.
+
+**Não executar novamente o arquivo SQL no banco já preparado.**
+O erro `42710 type "TipoNotificacao" already exists` ocorre ao repetir a
+criação de tipo já existente. Não apagar tipo nem tabela.
+
+O banco não contém `_prisma_migrations`; a ativação desta versão foi feita
+manualmente, não por `prisma migrate deploy`. Antes de automatizar novas
+migrações, reconciliar o histórico Prisma com a estrutura real.
+
+Também foi detectado problema anterior de segurança: as 12 tabelas
+pré-existentes têm RLS desabilitado e permissões concedidas aos papéis
+públicos do Supabase. Tratar em revisão de segurança separada, sem
+habilitação indiscriminada que possa quebrar a API.
+
+---
+
 # Central de notificações — proposta em revisão
 
 Esta branch contém a **Etapa A: notificações internas**. Não contém Web Push,
