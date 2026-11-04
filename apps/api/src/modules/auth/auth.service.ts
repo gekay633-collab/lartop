@@ -1,7 +1,7 @@
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { prisma } from '../../lib/prisma.js';
 import { gerarHashSenha, verificarSenha } from '../../lib/senha.js';
-import { gerarAccessToken, gerarRefreshToken, verificarRefreshToken } from '../../lib/jwt.js';
+import { gerarAccessToken, gerarRefreshToken, verificarAccessToken, verificarRefreshToken } from '../../lib/jwt.js';
 import { redis } from '../../lib/redis.js';
 import { resolverCep, CepInvalidoError } from '../../lib/cep.js';
 
@@ -137,6 +137,29 @@ export async function renovarTokens(refreshToken: string) {
   }
 
   return emitirTokens(usuario.id, usuario.tipo);
+}
+
+function chaveAccessRevogado(token: string): string {
+  return `auth:access:revogado:${createHash('sha256').update(token).digest('hex')}`;
+}
+
+export async function tokenDeAcessoRevogado(token: string): Promise<boolean> {
+  return (await redis.exists(chaveAccessRevogado(token))) === 1;
+}
+
+export async function revogarTokenDeAcesso(token: string): Promise<void> {
+  let expiraEm: number | undefined;
+  try {
+    const payload = verificarAccessToken(token) as { exp?: number };
+    expiraEm = payload.exp;
+  } catch {
+    return;
+  }
+  if (typeof expiraEm !== 'number') return;
+  const segundosRestantes = Math.ceil(expiraEm - Date.now() / 1000);
+  if (segundosRestantes > 0) {
+    await redis.set(chaveAccessRevogado(token), '1', 'EX', segundosRestantes);
+  }
 }
 
 // Logout encerra apenas o dispositivo atual; bloqueio e troca de senha revogam todas as sessões.
