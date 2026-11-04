@@ -86,3 +86,29 @@ jobs:
         run: pnpm --filter @lartop/web exec next typegen
       - name: Verificar tipagem do frontend
         run: pnpm --filter @lartop/web exec tsc --noEmit
+
+  navegador-chromium:
+    name: Chromium desktop + celular emulado (API simulada)
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.17.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Instalar dependencias do frontend
+        run: pnpm install --frozen-lockfile
+      - name: Instalar Chromium para testes reais de navegador
+        run: |
+          python3 -m pip install --quiet playwright==1.56.0
+          python3 -m playwright install --with-deps chromium
+      - name: Testar interface real Next.js em desktop e janela movel
+        run: |
+          pnpm --filter @lartop/web dev > /tmp/lartop-next.log 2>&1 &
+          APP_PID=$!
+          trap 'kill $APP_PID 2>/dev/null || true' EXIT
+          python3 apps/web/tests/browser_smoke.py
