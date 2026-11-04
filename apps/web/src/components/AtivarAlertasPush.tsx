@@ -30,6 +30,27 @@ function mensagemErro(resposta: Response, dados: unknown): string {
   return `Erro ao configurar as notificações (HTTP ${resposta.status}).`;
 }
 
+// Uma inscrição é compartilhada por abas do mesmo navegador. Impede que
+// verificações simultâneas consumam/substituam o mesmo endpoint várias vezes.
+let sincronizacaoPendente: Promise<void> | null = null;
+
+async function coordenarInscricao(acao: () => Promise<void>): Promise<void> {
+  if (sincronizacaoPendente) return sincronizacaoPendente;
+  const operacao = (async () => {
+    if (navigator.locks?.request) {
+      await navigator.locks.request("lartop:push-reinscricao", acao);
+    } else {
+      await acao();
+    }
+  })();
+  sincronizacaoPendente = operacao;
+  try {
+    await operacao;
+  } finally {
+    if (sincronizacaoPendente === operacao) sincronizacaoPendente = null;
+  }
+}
+
 export function AtivarAlertasPush({ accessToken }: { accessToken: string }) {
   const [estado, setEstado] = useState<EstadoPush>("verificando");
   const [ocupado, setOcupado] = useState(false);
@@ -119,7 +140,7 @@ export function AtivarAlertasPush({ accessToken }: { accessToken: string }) {
         }
         // Uma inscrição perdida/expirada após HTTP 410 é recriada na abertura
         // do painel, sem pedir novamente a permissão já concedida.
-        await registrarInscricao(reg, false);
+        await coordenarInscricao(() => registrarInscricao(reg, false));
         if (ativo) { setEstado("ativo"); setErro(""); }
       } catch {
         if (ativo) {
@@ -143,7 +164,7 @@ export function AtivarAlertasPush({ accessToken }: { accessToken: string }) {
         throw new Error("Permita as notificações nas configurações do navegador ou do celular.");
       }
       const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-      await registrarInscricao(reg, forcarRenovacao);
+      await coordenarInscricao(() => registrarInscricao(reg, forcarRenovacao));
       setEstado("ativo");
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível ativar alertas neste aparelho.");
