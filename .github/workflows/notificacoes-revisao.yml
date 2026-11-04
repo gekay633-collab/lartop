@@ -43,6 +43,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://lartop_test:somente_teste@127.0.0.1:5432/lartop_ci?schema=public
       DIRECT_DATABASE_URL: postgresql://lartop_test:somente_teste@127.0.0.1:5432/lartop_ci?schema=public
+      REDIS_URL: redis://127.0.0.1:6379
       JWT_ACCESS_SECRET: segredo-descartavel-ci-access-notificacoes
       JWT_REFRESH_SECRET: segredo-descartavel-ci-refresh-notificacoes
       NOTIFICACOES_TEST_DB: isolated
