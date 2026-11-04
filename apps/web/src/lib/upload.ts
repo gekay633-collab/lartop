@@ -1,45 +1,35 @@
-
-
 const TIPOS_PERMITIDOS = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-const TAMANHO_MAXIMO_BYTES = 5 * 1024 * 1024; // 5MB
+const TAMANHO_MAXIMO_BYTES = 5 * 1024 * 1024; // O servidor também aplica este limite.
 
 export async function enviarImagem(arquivo: File, accessToken: string): Promise<string> {
   if (!TIPOS_PERMITIDOS.includes(arquivo.type)) {
-    throw new Error("Formato de imagem nao suportado. Use JPG, PNG ou WEBP.");
+    throw new Error("Formato não suportado. Use JPG, PNG ou WEBP.");
+  }
+  if (arquivo.size < 1 || arquivo.size > TAMANHO_MAXIMO_BYTES) {
+    throw new Error("A imagem precisa ter entre 1 byte e 5 MB.");
   }
 
-  if (arquivo.size > TAMANHO_MAXIMO_BYTES) {
-    throw new Error("Imagem muito grande. O tamanho maximo e 5MB.");
-  }
-
-  const respostaAssinatura = await fetch(`/api/upload/assinatura`, {
+  // Não há mais assinatura Cloudinary no navegador. A API valida tamanho e conteúdo.
+  const resposta = await fetch("/api/upload/imagem", {
     method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": arquivo.type === "image/jpg" ? "image/jpeg" : arquivo.type,
+    },
+    body: arquivo,
   });
-
-  if (!respostaAssinatura.ok) {
-    throw new Error("Nao foi possivel iniciar o upload");
+  if (!resposta.ok) {
+    const corpo: unknown = await resposta.json().catch(() => null);
+    const erro = corpo && typeof corpo === "object" && "erro" in corpo &&
+      typeof corpo.erro === "string" ? corpo.erro : null;
+    if (resposta.status === 413) throw new Error("Imagem muito grande. O limite é 5 MB.");
+    throw new Error(erro ?? "Não foi possível enviar a imagem.");
   }
 
-  const { timestamp, folder, allowedFormats, signature, apiKey, cloudName } = await respostaAssinatura.json();
-
-  const formData = new FormData();
-  formData.append("file", arquivo);
-  formData.append("timestamp", String(timestamp));
-  formData.append("folder", folder);
-  formData.append("allowed_formats", allowedFormats);
-  formData.append("signature", signature);
-  formData.append("api_key", apiKey);
-
-  const respostaUpload = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-    method: "POST",
-    body: formData,
-  });
-
-  if (!respostaUpload.ok) {
-    throw new Error("Falha ao enviar a imagem");
+  const dados: unknown = await resposta.json().catch(() => null);
+  if (!dados || typeof dados !== "object" || !("url" in dados) ||
+    typeof dados.url !== "string" || !dados.url.startsWith("https://")) {
+    throw new Error("O servidor não confirmou o endereço seguro da imagem.");
   }
-
-  const dados = await respostaUpload.json();
-  return dados.secure_url as string;
+  return dados.url;
 }
