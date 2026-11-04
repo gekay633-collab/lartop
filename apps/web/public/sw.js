@@ -1,4 +1,12 @@
 /* Service Worker do Lartop. Sem cache offline ou controle de pedidos. */
+// A atualização é segura porque este worker não intercepta fetch nem mantém
+// caches. O novo diagnóstico deve valer mesmo para PWAs já instalados.
+self.addEventListener("install", () => {
+  self.skipWaiting();
+});
+self.addEventListener("activate", event => {
+  event.waitUntil(self.clients.claim());
+});
 self.addEventListener("push", event => {
   let payload = {};
   try { payload = event.data ? event.data.json() : {}; } catch { payload = {}; }
