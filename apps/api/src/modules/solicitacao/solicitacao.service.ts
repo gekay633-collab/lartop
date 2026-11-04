@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
 import { gerarLinkWhatsapp } from '../../lib/whatsapp.js';
 import { registrarEvento } from '../evento/evento.service.js';
+import { AVISOS_CLIENTE } from '../notificacao/notificacao.eventos.js';
 import type {
   CriarSolicitacaoInput,
   AtualizarStatusInput,
@@ -49,18 +50,31 @@ export async function criarSolicitacao(clienteId: string, input: CriarSolicitaca
     throw new SolicitacaoError('Esse profissional não atende essa categoria', 400);
   }
 
-  const solicitacao = await prisma.solicitacaoOrcamento.create({
-    data: {
-      clienteId,
-      profissionalId: input.profissionalId,
-      categoriaId: input.categoriaId,
-      cep: input.cep,
-      endereco: input.endereco,
-      tamanhoM2: input.tamanhoM2,
-      descricao: input.descricao,
-      fotos: input.fotos,
-    },
-    include: { categoria: true, profissional: { select: { nomeExibicao: true, cidadeId: true } } },
+  const solicitacao = await prisma.$transaction(async (tx) => {
+    const pedido = await tx.solicitacaoOrcamento.create({
+      data: {
+        clienteId,
+        profissionalId: input.profissionalId,
+        categoriaId: input.categoriaId,
+        cep: input.cep,
+        endereco: input.endereco,
+        tamanhoM2: input.tamanhoM2,
+        descricao: input.descricao,
+        fotos: input.fotos,
+      },
+      include: { categoria: true, profissional: { select: { nomeExibicao: true, cidadeId: true } } },
+    });
+
+    await tx.notificacao.create({
+      data: {
+        destinatarioId: input.profissionalId,
+        solicitacaoId: pedido.id,
+        tipo: 'NOVA_SOLICITACAO',
+        titulo: 'Você recebeu um novo pedido',
+        mensagem: `Você recebeu uma solicitação de ${categoriaValida.categoria.nome}. Acesse seu painel para responder.`,
+      },
+    });
+    return pedido;
   });
 
   const linkWhatsapp = gerarLinkWhatsapp(profissional.usuario.telefone, {
@@ -155,9 +169,29 @@ export async function atualizarStatusComoProfissional(
     );
   }
 
-  return prisma.solicitacaoOrcamento.update({
-    where: { id: solicitacaoId },
-    data: { status: input.status },
+  return prisma.$transaction(async (tx) => {
+    // Evita dois cliques simultâneos criando respostas e notificações conflitantes.
+    const atualizado = await tx.solicitacaoOrcamento.updateMany({
+      where: { id: solicitacaoId, profissionalId, status: solicitacao.status },
+      data: { status: input.status },
+    });
+    if (atualizado.count !== 1) {
+      throw new SolicitacaoError('O pedido mudou de status. Atualize a página e tente novamente.', 409);
+    }
+
+    const aviso = AVISOS_CLIENTE[input.status as keyof typeof AVISOS_CLIENTE];
+    if (aviso) {
+      await tx.notificacao.create({
+        data: {
+          destinatarioId: solicitacao.clienteId,
+          solicitacaoId,
+          tipo: aviso.tipo,
+          titulo: aviso.titulo,
+          mensagem: aviso.mensagem,
+        },
+      });
+    }
+    return tx.solicitacaoOrcamento.findUniqueOrThrow({ where: { id: solicitacaoId } });
   });
 }
 
@@ -173,9 +207,24 @@ export async function cancelarComoCliente(clienteId: string, solicitacaoId: stri
     throw new SolicitacaoError(`Não é possível cancelar uma solicitação ${solicitacao.status}`, 400);
   }
 
-  return prisma.solicitacaoOrcamento.update({
-    where: { id: solicitacaoId },
-    data: { status: 'CANCELADA' },
+  return prisma.$transaction(async (tx) => {
+    const atualizado = await tx.solicitacaoOrcamento.updateMany({
+      where: { id: solicitacaoId, clienteId, status: solicitacao.status },
+      data: { status: 'CANCELADA' },
+    });
+    if (atualizado.count !== 1) {
+      throw new SolicitacaoError('O pedido mudou de status. Atualize a página e tente novamente.', 409);
+    }
+    await tx.notificacao.create({
+      data: {
+        destinatarioId: solicitacao.profissionalId,
+        solicitacaoId,
+        tipo: 'SOLICITACAO_CANCELADA',
+        titulo: 'Um pedido foi cancelado',
+        mensagem: 'O cliente cancelou uma solicitação. Confira os pedidos no seu painel.',
+      },
+    });
+    return tx.solicitacaoOrcamento.findUniqueOrThrow({ where: { id: solicitacaoId } });
   });
 }
 

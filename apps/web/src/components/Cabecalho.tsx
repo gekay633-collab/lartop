@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { obterSessao, limparSessao, type SessaoLocal } from "@/lib/auth-client";
+import { SinoNotificacoes } from "@/components/SinoNotificacoes";
 
 export function Cabecalho() {
   const router = useRouter();
@@ -56,9 +57,16 @@ export function Cabecalho() {
           )}
         </nav>
 
-        <button onClick={() => setMenuAberto(!menuAberto)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-areia-300 text-pinho-900 sm:hidden" aria-label="Abrir menu">
-          {menuAberto ? "✕" : "☰"}
-        </button>
+        <div className="flex items-center gap-2">
+          {carregado && sessao && (
+            <SinoNotificacoes accessToken={sessao.accessToken} tipo={sessao.tipo} />
+          )}
+          <button onClick={() => setMenuAberto(!menuAberto)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-areia-300 text-pinho-900 sm:hidden"
+            aria-label={menuAberto ? "Fechar menu" : "Abrir menu"} aria-expanded={menuAberto}>
+            {menuAberto ? "✕" : "☰"}
+          </button>
+        </div>
       </div>
 
       {menuAberto && (
