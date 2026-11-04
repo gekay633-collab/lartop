@@ -10,7 +10,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "test:notificacoes": "tsx --test src/modules/notificacao/notificacao.eventos.test.ts"
+    "test:notificacoes": "tsx --test src/modules/notificacao/notificacao.eventos.test.ts",
+    "test:notificacoes:integration": "tsx --test src/modules/notificacao/notificacao.integracao.test.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.1",

@@ -1,0 +1,65 @@
+name: Validar central de notificacoes (somente PR)
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "apps/api/**"
+      - "apps/web/**"
+      - "docs/CENTRAL_NOTIFICACOES_REVISAO.md"
+      - ".github/workflows/notificacoes-revisao.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  revisao-sem-producao:
+    name: API + Prisma + testes + tipos Web (banco descartavel)
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: lartop_test
+          POSTGRES_PASSWORD: somente_teste
+          POSTGRES_DB: lartop_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lartop_test -d lartop_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://lartop_test:somente_teste@127.0.0.1:5432/lartop_ci?schema=public
+      DIRECT_DATABASE_URL: postgresql://lartop_test:somente_teste@127.0.0.1:5432/lartop_ci?schema=public
+      JWT_ACCESS_SECRET: segredo-descartavel-ci-access-notificacoes
+      JWT_REFRESH_SECRET: segredo-descartavel-ci-refresh-notificacoes
+      NOTIFICACOES_TEST_DB: isolated
+    steps:
+      - name: Buscar codigo do PR
+        uses: actions/checkout@v4
+      - name: Preparar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.17.0
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Instalar dependencias sem alteracao de lockfile
+        run: pnpm install --frozen-lockfile
+      - name: Validar Prisma e compilar API
+        run: pnpm --filter @lartop/api build
+      - name: Aplicar migracoes APENAS no Postgres temporario de CI
+        run: pnpm --filter @lartop/api exec prisma migrate deploy
+      - name: Verificar historico de migracoes em CI
+        run: pnpm --filter @lartop/api exec prisma migrate status
+      - name: Testar regras e mensagens
+        run: pnpm --filter @lartop/api test:notificacoes
+      - name: Integracao real: permissoes, pedidos e concorrencia
+        run: pnpm --filter @lartop/api test:notificacoes:integration
+      - name: Verificar tipagem do frontend
+        run: pnpm --filter @lartop/web exec tsc --noEmit

@@ -31,10 +31,13 @@ token autenticado; nenhum cliente pode consultar notificações de outro.
 A migração adiciona somente a tabela `notificacoes` e o enum
 `TipoNotificacao`. Não reescreve pedidos, usuários ou avaliações.
 
-**Atenção:** o histórico de migrações do repositório parece incompleto em
-relação ao esquema atual (ex.: `refresh_tokens`). Antes de rodar
-`prisma migrate deploy`, verificar `_prisma_migrations` no Supabase,
-comparar o estado real do banco e confirmar backup/restauração.
+**Revisão do histórico no repositório:** as migrações já incluem a tabela
+`refresh_tokens` na migração inicial, a coluna `tamanho_m2`, o campo
+`categorias.ativo`, os eventos de análise e os tokens de recuperação.
+Essa verificação confirma os arquivos no GitHub, **não** a equivalência
+com o banco Supabase real. Antes de rodar `prisma migrate deploy` em
+produção, verificar `_prisma_migrations` no Supabase, comparar o estado
+real e confirmar backup/restauração.
 A implantação exige esta ordem: 1) validar e aplicar migração no ambiente
 de homologação; 2) testar API; 3) migrar produção com backup; 4) implantar
 API e frontend na mesma janela controlada. Não publicar o código da API
@@ -53,9 +56,28 @@ antes de criar a tabela nova, pois novos pedidos poderiam falhar.
 9. Testar usuário sem login, token expirado e usuário bloqueado.
 10. Abrir sino no celular e computador; validar que não cobre controles.
 11. Simular Redis temporariamente indisponível; conferir comportamento da API.
-12. Validar build: `pnpm --filter @lartop/api build`,
+12. Validar build e testes em um PostgreSQL descartável: `pnpm --filter @lartop/api build`,
     `pnpm --filter @lartop/api test:notificacoes`,
-    `pnpm --filter @lartop/web build`.
+    `pnpm --filter @lartop/api test:notificacoes:integration`.
+13. Verificar o build do frontend na prévia da Vercel e a tipagem em CI.
+14. Validar a correspondência das migrations com o Supabase real **somente
+    após inspeção separada, com acesso administrativo autorizado**.
+
+## Validação automatizada
+
+O workflow `.github/workflows/notificacoes-revisao.yml` executa instalação,
+geração do Prisma, migração em **PostgreSQL 16 descartável** e testes que
+abrangem: criação, aviso ao destinatário correto, leitura autorizada,
+negação de terceiros, mudança de status, rejeição de duplicatas,
+concorrência e rollback transacional.
+
+As credenciais de teste são fictícias e o script de integração bloqueia
+conexões fora de `localhost` ou `127.0.0.1`. Nenhuma migração de CI
+acessa o banco Supabase real.
+
+O teste só pode ser marcado como aprovado quando o check do workflow
+aparecer verde no PR. Uma compilação verde da Vercel não substitui os
+testes reais da API e de migração.
 
 ## Possível rollback
 
