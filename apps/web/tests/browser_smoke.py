@@ -160,19 +160,6 @@ def teste_renovacao_entre_abas(browser):
     ).decode().rstrip("=") + ".assinatura-ficticia"
     novo = "token-renovado-somente-testes"
     context = browser.new_context()
-    # Diagnóstico: rastreia concessões de Web Locks sem registrar segredos reais.
-    context.add_init_script("""
-      const original = navigator.locks?.request?.bind(navigator.locks);
-      if (original) {
-        navigator.locks.request = (nome, callback) =>
-          original(nome, async (lock) => {
-            console.log('TEST_LOCK_ENTRADA', nome, location.pathname, localStorage.getItem('lartop_access_token'));
-            try { return await callback(lock); }
-            finally { console.log('TEST_LOCK_SAIDA', nome, location.pathname, localStorage.getItem('lartop_access_token')); }
-          });
-      }
-    """)
-    contexto_logs = []
     context.add_cookies([{"url": BASE, "name": "lartop_refresh",
                           "value": "cookie-ficticio-inicial", "httpOnly": True, "sameSite": "Lax"}])
     chamadas_refresh = []
@@ -222,8 +209,6 @@ def teste_renovacao_entre_abas(browser):
       localStorage.setItem('lartop_access_token', token);
     }""", antigo)
     b = context.new_page()
-    for p in (a, b):
-        p.on("console", lambda msg: contexto_logs.append(msg.text) if "TEST_LOCK_" in msg.text else None)
     a.goto(BASE + "/minhas-solicitacoes", wait_until="domcontentloaded")
     b.goto(BASE + "/minhas-solicitacoes", wait_until="domcontentloaded")
     for page in (a, b):
@@ -236,8 +221,7 @@ def teste_renovacao_entre_abas(browser):
         " | autorizacoes: " + str(chamadas_autenticadas) +
         " | abas: " + str([p.evaluate("localStorage.getItem('lartop_access_token')") for p in (a,b)]) +
         " | WebLocks: " + str([p.evaluate("Boolean(navigator.locks?.request)") for p in (a,b)]) +
-        " | tabs: " + str(origens_refresh) +
-        " | lock_trace: " + str(contexto_logs[-35:])
+        " | tabs: " + str(origens_refresh)
     )
     assert chamadas_autenticadas and all(t == "Bearer " + novo for t in chamadas_autenticadas)
     assert "lartop_refresh=cookie-ficticio-inicial" in chamadas_refresh[0]
