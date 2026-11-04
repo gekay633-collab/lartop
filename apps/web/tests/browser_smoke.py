@@ -209,7 +209,13 @@ def teste_renovacao_entre_abas(browser):
         page.wait_for_function("(t) => localStorage.getItem('lartop_access_token') === t", arg=novo,
                                timeout=20000)
         page.get_by_text("Você ainda não pediu nenhum orçamento.").wait_for(timeout=20000)
-    assert len(chamadas_refresh) == 1, "Refresh rotativo deve ser consumido só por uma aba: " + str(len(chamadas_refresh))
+    assert len(chamadas_refresh) == 1, (
+        "Refresh rotativo deveria ocorrer apenas uma vez, recebeu " + str(len(chamadas_refresh)) +
+        " | cookies: " + str(chamadas_refresh) +
+        " | autorizacoes: " + str(chamadas_autenticadas) +
+        " | abas: " + str([p.evaluate("localStorage.getItem('lartop_access_token')") for p in (a,b)]) +
+        " | WebLocks: " + str([p.evaluate("Boolean(navigator.locks?.request)") for p in (a,b)])
+    )
     assert chamadas_autenticadas and all(t == "Bearer " + novo for t in chamadas_autenticadas)
     assert "lartop_refresh=cookie-ficticio-inicial" in chamadas_refresh[0]
     context.close()
