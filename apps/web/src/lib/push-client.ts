@@ -1,5 +1,7 @@
 "use client";
 
+import { fetchAutenticado } from "@/lib/auth-client";
+
 /** Remove a inscrição local e avisa a API; outras contas/dispositivos não são afetados. */
 export async function desativarPushNoDispositivo(accessToken: string): Promise<void> {
   if (!("serviceWorker" in navigator)) return;
@@ -9,7 +11,7 @@ export async function desativarPushNoDispositivo(accessToken: string): Promise<v
 
   let falhaServidor = false;
   try {
-    const resposta = await fetch("/api/push/assinaturas", {
+    const resposta = await fetchAutenticado("/api/push/assinaturas", {
       method: "DELETE",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({ endpoint: assinatura.endpoint }),
