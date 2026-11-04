@@ -72,7 +72,7 @@ def scenario(browser, mobile=False):
     logout_should_fail = False
     sair.click()
     page.wait_for_function("localStorage.getItem('lartop_access_token') === null")
-    page.get_by_role("link", name="Entrar").first.wait_for(timeout=15000)
+    assert page.evaluate("localStorage.getItem('lartop_tipo_usuario')") is None
     assert sum(x[1].endswith("/api/auth/logout") for x in request_log) == 2
     context.close()
     print(("MOBILE" if mobile else "DESKTOP") + " Chromium: login, erro de logout e logout confirmado OK")
