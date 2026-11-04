@@ -1,5 +1,6 @@
-import { fetchAutenticado } from "@/lib/auth-client";
 "use client";
+
+import { fetchAutenticado } from "@/lib/auth-client";
 
 import { useEffect, useRef, useState } from "react";
 import { enviarImagem } from "@/lib/upload";
