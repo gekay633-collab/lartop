@@ -46,6 +46,23 @@ export async function pushRoutes(app: FastifyInstance) {
     }
   });
 
+  // O push service pode devolver 410 (Gone). Nesse caso o backend remove a
+  // inscrição, mas o navegador pode ainda ter uma cópia local obsoleta.
+  // Consulta autenticada sem endpoint na URL/log de acesso.
+  app.post('/push/assinaturas/verificar', { preHandler: guard }, async (request, reply) => {
+    const parsed = removerSchema.safeParse(request.body);
+    if (!parsed.success) return reply.status(400).send({ erro: 'Assinatura inválida' });
+    try {
+      const registrada = await prisma.assinaturaPush.count({
+        where: { usuarioId: request.usuario!.id, endpoint: parsed.data.endpoint },
+      });
+      return reply.header('Cache-Control', 'no-store').send({ registrada: registrada > 0 });
+    } catch (e) {
+      request.log.error(e);
+      return reply.status(503).send({ erro: 'Não foi possível verificar alertas agora' });
+    }
+  });
+
   app.delete('/push/assinaturas', { preHandler: guard }, async (request, reply) => {
     const parsed = removerSchema.safeParse(request.body);
     if (!parsed.success) return reply.status(400).send({ erro: 'Assinatura inválida' });
