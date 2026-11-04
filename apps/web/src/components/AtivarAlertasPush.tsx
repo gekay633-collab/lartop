@@ -195,6 +195,9 @@ export function AtivarAlertasPush({ accessToken }: { accessToken: string }) {
     setTesteId(null);
     try {
       const registro = await navigator.serviceWorker.getRegistration("/");
+      // Verifica a versão do service worker antes de testar a confirmação;
+      // o PWA pode ter sido instalado antes dessa funcionalidade existir.
+      await registro?.update();
       const assinatura = await registro?.pushManager.getSubscription();
       if (!assinatura || Notification.permission !== "granted") {
         throw new Error("Ative os alertas deste aparelho antes de testar.");
