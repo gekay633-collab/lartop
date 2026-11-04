@@ -277,7 +277,7 @@ describe('central de notificações com banco de testes', () => {
         method: 'GET', url: '/api/notificacoes',
         headers: { authorization: `Bearer ${clienteToken}` },
       });
-      assert.equal(resposta.statusCode, 403);
+      assert.equal(resposta.statusCode, 401);
     } finally {
       await prisma.usuario.update({ where: { id: clienteId }, data: { ativo: true } });
     }
