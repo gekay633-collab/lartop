@@ -97,6 +97,60 @@ def scenario(browser, mobile=False):
     context.close()
     print(("MOBILE" if mobile else "DESKTOP") + " Chromium: login, logout e reset sem token na URL OK")
 
+def admin_logout(browser, mobile=False):
+    """Verifica logout da área administrativa sem contas/dados reais."""
+    context = browser.new_context(
+        viewport={"width": 390 if mobile else 1366, "height": 844 if mobile else 768},
+        is_mobile=mobile, has_touch=mobile,
+    )
+    page = context.new_page()
+    pedidos_logout = []
+    falhar_logout = True
+
+    def mock_api(route):
+        nonlocal falhar_logout
+        url = route.request.url
+        if url.endswith("/api/auth/logout"):
+            pedidos_logout.append(route.request.method)
+            if falhar_logout:
+                return route.fulfill(status=503, content_type="application/json",
+                                     body='{"erro":"falha-simulada"}')
+            return route.fulfill(status=200, content_type="application/json",
+                                 body='{"ok":true}')
+        if url.endswith("/api/admin/dashboard"):
+            return route.fulfill(status=200, content_type="application/json",
+                body=json.dumps({
+                    "hoje": {"novosClientes":0,"novosPrestadores":0,"solicitacoes":0},
+                    "geral": {"totalClientes":0,"totalPrestadores":0,"prestadoresPublicados":0,
+                              "prestadoresNaoPublicados":0,"solicitacoesTotal":0,
+                              "avaliacoesTotal":0,"usuariosBloqueados":0}
+                }))
+        return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
+
+    page.route("**/api/**", mock_api)
+    page.goto(BASE + "/", wait_until="domcontentloaded")
+    page.evaluate("""() => {
+      localStorage.setItem('lartop_access_token', 'token-admin-ficticio');
+      localStorage.setItem('lartop_tipo_usuario', 'ADMIN');
+      localStorage.setItem('lartop_nome_usuario', 'Teste Admin');
+    }""")
+    page.goto(BASE + "/admin", wait_until="load")
+    page.wait_for_load_state("networkidle", timeout=20000)
+    if mobile:
+        page.get_by_role("button", name="Abrir menu").click()
+    sair = page.get_by_role("button", name="Sair")
+    sair.click()
+    page.get_by_role("alert").filter(has_text="Não foi possível encerrar sua sessão").wait_for(timeout=15000)
+    assert page.evaluate("localStorage.getItem('lartop_access_token')") == "token-admin-ficticio"
+    falhar_logout = False
+    sair.click()
+    page.wait_for_function("localStorage.getItem('lartop_access_token') === null", timeout=15000)
+    page.wait_for_url(BASE + "/", timeout=20000, wait_until="domcontentloaded")
+    assert pedidos_logout == ["POST", "POST"]
+    context.close()
+    print(("MOBILE" if mobile else "DESKTOP") + " Chromium: logout administrativo OK")
+
+
 if __name__ == "__main__":
     wait_server()
     with sync_playwright() as p:
@@ -104,5 +158,7 @@ if __name__ == "__main__":
         try:
             scenario(browser, mobile=False)
             scenario(browser, mobile=True)
+            admin_logout(browser, mobile=False)
+            admin_logout(browser, mobile=True)
         finally:
             browser.close()
