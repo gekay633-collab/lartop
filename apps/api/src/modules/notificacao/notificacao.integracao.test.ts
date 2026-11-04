@@ -7,6 +7,7 @@ import { redis } from '../../lib/redis.js';
 import autenticacaoPlugin from '../../plugins/autenticacao.js';
 import { gerarAccessToken, versaoCredenciais } from '../../lib/jwt.js';
 import { emitirTokens } from '../auth/auth.service.js';
+import { solicitacaoRoutes } from '../solicitacao/solicitacao.routes.js';
 import { notificacaoRoutes } from './notificacao.routes.js';
 import { pushRoutes } from '../push/push.routes.js';
 import {
@@ -56,6 +57,7 @@ describe('central de notificações com banco de testes', () => {
     app = Fastify({ logger: false });
     await app.register(autenticacaoPlugin);
     await app.register(notificacaoRoutes, { prefix: '/api' });
+    await app.register(solicitacaoRoutes, { prefix: '/api' });
     await app.register(pushRoutes, { prefix: '/api' });
     await app.ready();
 
@@ -138,6 +140,28 @@ describe('central de notificações com banco de testes', () => {
     `;
     assert.equal(verificacao.length, 1);
     assert.equal(verificacao[0]?.ativo, true);
+  });
+
+  it('não permite prestador contratar nem solicitar orçamento para si mesmo', async () => {
+    const pedidosAntes = await prisma.solicitacaoOrcamento.count();
+    const avisosAntes = await prisma.notificacao.count();
+
+    const resposta = await app.inject({
+      method: 'POST',
+      url: '/api/solicitacoes',
+      headers: { authorization: `Bearer ${profissionalToken}` },
+      payload: entrada(),
+    });
+    assert.equal(resposta.statusCode, 403, 'a API aceita solicitações apenas de clientes');
+
+    await assert.rejects(
+      criarSolicitacao(profissionalId, entrada()),
+      (erro: unknown) => erro instanceof SolicitacaoError && erro.status === 403,
+      'a camada de serviço também deve impedir pedidos para o próprio perfil'
+    );
+
+    assert.equal(await prisma.solicitacaoOrcamento.count(), pedidosAntes);
+    assert.equal(await prisma.notificacao.count(), avisosAntes);
   });
 
   it('gera aviso de novo pedido somente para o prestador', async () => {
