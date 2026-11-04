@@ -3,9 +3,23 @@ import { Rodape } from "@/components/Rodape";
 import { RegistradorEvento } from "@/components/RegistradorEvento";
 import { AcaoPedirOrcamento } from "@/components/AcaoPedirOrcamento";
 import { obterPerfilPublico, listarAvaliacoes, ehErroApi } from "@/lib/api";
+import type { Avaliacao } from "@/lib/api";
 
 function iniciais(nome: string): string {
   return nome.split(" ").slice(0, 2).map((p) => p[0]).join("").toUpperCase();
+}
+
+/** O mesmo cartão é usado para as avaliações principais e as demais. */
+function CartaoAvaliacao({ avaliacao }: { avaliacao: Avaliacao }) {
+  return (
+    <div className="rounded-xl border border-areia-300 bg-white/60 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <span className="min-w-0 break-words font-medium text-pinho-900">{avaliacao.avaliador.nome}</span>
+        <span className="shrink-0 font-data text-terra-600">{avaliacao.nota}/5</span>
+      </div>
+      {avaliacao.comentario && <p className="mt-2 break-words text-pinho-900/80">{avaliacao.comentario}</p>}
+    </div>
+  );
 }
 
 interface PageProps {
@@ -67,8 +81,26 @@ export default async function PerfilProfissionalPage({ params }: PageProps) {
           </div>
         </div>
 
-        <div className="mx-auto grid max-w-4xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+        <div className="mx-auto grid max-w-4xl gap-8 px-4 py-6 sm:px-6 sm:py-10 lg:grid-cols-3 lg:gap-10">
+          {/* A contratação vem ANTES das avaliações no celular. */}
+          <aside className="lg:order-2">
+            <div className="rounded-2xl border border-areia-300 bg-white/70 p-5 lg:sticky lg:top-6">
+              <h2 className="font-display text-lg font-semibold text-pinho-900">Serviços</h2>
+              <ul className="mt-3 flex flex-col gap-2">
+                {perfil.categorias.map((c) => (
+                  <li key={c.id} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-pinho-900">{c.categoria.nome}</span>
+                    {c.valorReferencia && (
+                      <span className="shrink-0 font-data text-pinho-700">a partir de R$ {c.valorReferencia.toFixed(0)}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <AcaoPedirOrcamento profissionalId={perfil.usuarioId} />
+            </div>
+          </aside>
+
+          <div className="min-w-0 lg:order-1 lg:col-span-2">
             {perfil.bio && (
               <section>
                 <h2 className="font-display text-xl font-semibold text-pinho-900">Sobre</h2>
@@ -92,37 +124,28 @@ export default async function PerfilProfissionalPage({ params }: PageProps) {
               {avaliacoes.length === 0 ? (
                 <p className="mt-2 text-pinho-700">Esse profissional ainda não recebeu avaliações.</p>
               ) : (
-                <div className="mt-4 flex flex-col gap-4">
-                  {avaliacoes.map((a) => (
-                    <div key={a.id} className="rounded-xl border border-areia-300 bg-white/60 p-4">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-pinho-900">{a.avaliador.nome}</span>
-                        <span className="font-data text-terra-600">{a.nota}/5</span>
-                      </div>
-                      {a.comentario && <p className="mt-2 text-pinho-900/80">{a.comentario}</p>}
-                    </div>
+                <div className="mt-4 flex flex-col gap-3">
+                  {avaliacoes.slice(0, 2).map((a) => (
+                    <CartaoAvaliacao key={a.id} avaliacao={a} />
                   ))}
+                  {avaliacoes.length > 2 && (
+                    <details className="group rounded-xl border border-areia-300 bg-white/40 p-3">
+                      <summary className="cursor-pointer rounded-lg px-2 py-2 text-sm font-semibold text-relva-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-relva-500">
+                        Ver mais {avaliacoes.length - 2} avaliações
+                        <span aria-hidden="true" className="ml-2 inline-block transition-transform group-open:rotate-180">⌄</span>
+                      </summary>
+                      <div className="mt-3 flex flex-col gap-3">
+                        {avaliacoes.slice(2).map((a) => (
+                          <CartaoAvaliacao key={a.id} avaliacao={a} />
+                        ))}
+                      </div>
+                    </details>
+                  )}
                 </div>
               )}
             </section>
           </div>
 
-          <aside>
-            <div className="sticky top-6 rounded-2xl border border-areia-300 bg-white/70 p-5">
-              <h2 className="font-display text-lg font-semibold text-pinho-900">Serviços</h2>
-              <ul className="mt-3 flex flex-col gap-2">
-                {perfil.categorias.map((c) => (
-                  <li key={c.id} className="flex items-center justify-between text-sm">
-                    <span className="text-pinho-900">{c.categoria.nome}</span>
-                    {c.valorReferencia && (
-                      <span className="font-data text-pinho-700">a partir de R$ {c.valorReferencia.toFixed(0)}</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-              <AcaoPedirOrcamento profissionalId={perfil.usuarioId} />
-            </div>
-          </aside>
         </div>
       </main>
       <Rodape />
