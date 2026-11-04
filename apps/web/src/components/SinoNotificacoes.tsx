@@ -132,6 +132,7 @@ export function SinoNotificacoes({
     <div className="relative">
       <button type="button" onClick={() => setAberto(valor => !valor)}
         aria-label={`Notificações: ${naoLidas} não lidas`} aria-expanded={aberto}
+        aria-controls="central-notificacoes"
         className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-areia-300 bg-white text-xl text-pinho-900 hover:bg-sauge-100">
         <span aria-hidden="true">🔔</span>
         {naoLidas > 0 && (
@@ -142,27 +143,34 @@ export function SinoNotificacoes({
       </button>
 
       {aberto && (
-        <section aria-label="Central de notificações"
-          className="absolute right-0 z-50 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-areia-300 bg-white p-3 text-pinho-900 shadow-xl">
-          <div className="flex items-center justify-between gap-2 border-b border-areia-200 pb-2">
-            <h2 className="font-semibold">Notificações</h2>
-            {naoLidas > 0 && (
-              <button type="button" onClick={() => void marcarTodas()} disabled={processando}
-                className="text-xs font-medium text-relva-600 hover:underline disabled:opacity-50">
-                Marcar todas como lidas
+        <section id="central-notificacoes" aria-label="Central de notificações"
+          className="fixed inset-x-3 top-[calc(4.25rem+env(safe-area-inset-top,0px))] z-50 flex max-h-[calc(100dvh-7rem)] min-w-0 flex-col overflow-hidden rounded-xl border border-areia-300 bg-white p-3 text-pinho-900 shadow-xl sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-[22rem] sm:max-w-[calc(100vw-2rem)] sm:max-h-[min(75vh,34rem)]">
+          <div className="flex shrink-0 items-start justify-between gap-2 border-b border-areia-200 pb-2">
+            <h2 className="min-w-0 font-semibold">Notificações</h2>
+            <div className="flex shrink-0 items-center gap-2">
+              {naoLidas > 0 && (
+                <button type="button" onClick={() => void marcarTodas()} disabled={processando}
+                  className="max-w-36 text-right text-xs font-medium text-relva-600 hover:underline disabled:opacity-50">
+                  Marcar todas como lidas
+                </button>
+              )}
+              <button type="button" onClick={() => setAberto(false)}
+                aria-label="Fechar notificações"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-lg text-pinho-700 hover:bg-sauge-100">
+                <span aria-hidden="true">×</span>
               </button>
-            )}
+            </div>
           </div>
-          {erro && <p role="alert" className="mt-2 text-sm text-terra-600">{erro}</p>}
+          {erro && <p role="alert" className="mt-2 break-words text-sm text-terra-600">{erro}</p>}
           {itens.length === 0 ? (
             <p className="py-5 text-center text-sm text-pinho-700">Nenhuma notificação por enquanto.</p>
           ) : (
-            <ul className="max-h-80 divide-y divide-areia-200 overflow-y-auto">
+            <ul className="min-h-0 flex-1 divide-y divide-areia-200 overflow-y-auto overscroll-contain">
               {itens.map(item => (
                 <li key={item.id} className={`py-3 text-sm ${!item.lidaEm ? "font-medium" : ""}`}>
                   <Link href={destino} onClick={() => setAberto(false)}
-                    className="block text-pinho-900 hover:underline">{item.titulo}</Link>
-                  <p className="mt-1 font-normal text-pinho-700">{item.mensagem}</p>
+                    className="block break-words [overflow-wrap:anywhere] text-pinho-900 hover:underline">{item.titulo}</Link>
+                  <p className="mt-1 break-words font-normal text-pinho-700 [overflow-wrap:anywhere]">{item.mensagem}</p>
                   <div className="mt-1 flex items-center justify-between gap-2">
                     <time className="text-xs font-normal text-pinho-700">
                       {new Date(item.criadoEm).toLocaleString("pt-BR", {
@@ -172,7 +180,7 @@ export function SinoNotificacoes({
                     {!item.lidaEm && (
                       <button type="button" disabled={processando}
                         onClick={() => void marcarLida(item.id)}
-                        className="text-xs text-relva-600 hover:underline disabled:opacity-50">
+                        className="min-h-8 text-right text-xs text-relva-600 hover:underline disabled:opacity-50">
                         Marcar como lida
                       </button>
                     )}
