@@ -32,14 +32,25 @@ function Cartao({ titulo, valor }: { titulo: string; valor: number | string }) {
 export default function AdminDashboardPage() {
   const { sessao } = useGuardaAdmin();
   const [dados, setDados] = useState<Dashboard | null>(null);
+  const [erro, setErro] = useState("");
 
   useEffect(() => {
     if (!sessao) return;
-    fetchAutenticado(`/api/admin/dashboard`, { headers: { Authorization: `Bearer ${sessao.accessToken}` } })
-      .then((r) => r.json())
-      .then(setDados);
-  }, [sessao]);
+    let ativo = true;
+    setErro("");
+    void fetchAutenticado("/api/admin/dashboard", { cache: "no-store" })
+      .then(async (resposta) => {
+        if (!resposta.ok) throw new Error(`Não foi possível consultar o painel (HTTP ${resposta.status}).`);
+        return resposta.json() as Promise<Dashboard>;
+      })
+      .then((resultado) => { if (ativo) setDados(resultado); })
+      .catch((falha) => {
+        if (ativo) setErro(falha instanceof Error ? falha.message : "Erro ao carregar o painel.");
+      });
+    return () => { ativo = false; };
+  }, [sessao?.accessToken]);
 
+  if (erro) return <p role="alert" className="text-terra-600">{erro}</p>;
   if (!dados) return <p className="text-pinho-700">Carregando...</p>;
 
   return (
