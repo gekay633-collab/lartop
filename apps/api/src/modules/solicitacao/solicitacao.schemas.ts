@@ -21,8 +21,12 @@ export const atualizarStatusSchema = z.object({
 
 export const listarSolicitacoesQuerySchema = z.object({
   status: z.enum(['PENDENTE', 'RESPONDIDA', 'ACEITA', 'RECUSADA', 'CONCLUIDA', 'CANCELADA']).optional(),
+  // Agrupamento exclusivo da lista do prestador, mantendo o status legado.
+  grupo: z.enum(['NOVOS', 'EM_ANDAMENTO', 'HISTORICO']).optional(),
   pagina: z.coerce.number().int().min(1).max(100000).default(1),
   porPagina: z.coerce.number().int().min(1).max(50).default(20),
+}).refine(query => !query.grupo || !query.status, {
+  message: 'Informe apenas status ou grupo, não ambos',
 });
 
 export type CriarSolicitacaoInput = z.infer<typeof criarSolicitacaoSchema>;
