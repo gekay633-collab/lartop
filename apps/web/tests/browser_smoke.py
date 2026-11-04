@@ -386,6 +386,90 @@ def teste_rodape_contextual(browser, mobile=False):
     print(("MOBILE" if mobile else "DESKTOP") + " RODAPÉ: visitante/cliente/prestador/admin e atualização de sessão OK")
 
 
+
+def teste_responsividade_central_notificacoes(browser):
+    """Popup de notificações deve caber na tela sem cortar título/ações."""
+    for largura, altura in ((320, 620), (360, 740), (390, 844), (428, 900), (768, 850), (1366, 768)):
+        context = browser.new_context(
+            viewport={"width": largura, "height": altura},
+            is_mobile=largura < 640, has_touch=largura < 640,
+        )
+        context.add_init_script("""
+          localStorage.setItem('lartop_tipo_usuario', 'PROFISSIONAL');
+          localStorage.setItem('lartop_nome_usuario', 'Prestador de Teste');
+          localStorage.setItem('lartop_access_token', 'token-testes-interface');
+        """)
+        page = context.new_page()
+        acoes = []
+
+        def api(route):
+            url = route.request.url
+            if "/api/notificacoes?" in url:
+                itens = [
+                    {"id": "not-" + str(i), "tipo": "NOVA_SOLICITACAO",
+                     "titulo": "Você recebeu um novo pedido" if i != 1 else "X" * 190,
+                     "mensagem": "Solicitação de Corte de Grama. Acesse seu painel para responder. " +
+                                 ("texto-sem-espacos" * 18 if i == 1 else ""),
+                     "solicitacaoId": "pedido-" + str(i),
+                     "lidaEm": None if i == 0 else "2026-11-03T21:41:00.000Z",
+                     "criadoEm": "2026-11-03T21:41:00.000Z"} for i in range(15)
+                ]
+                return route.fulfill(status=200, content_type="application/json",
+                                     body=json.dumps({"itens": itens, "naoLidas": 1}))
+            if "/api/notificacoes/not-0/lida" in url:
+                acoes.append("marcar-lida")
+                return route.fulfill(status=200, content_type="application/json",
+                                     body='{"ok":true}')
+            if url.endswith("/api/solicitacoes/recebidas"):
+                return route.fulfill(status=200, content_type="application/json",
+                                     body='{"itens":[],"total":0}')
+            if url.endswith("/api/push/chave-publica"):
+                return route.fulfill(status=503, content_type="application/json",
+                                     body='{"erro":"mock"}')
+            return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
+
+        page.route("**/api/**", api)
+        page.goto(BASE + "/painel", wait_until="load")
+        page.get_by_text("Você ainda não recebeu nenhum pedido de orçamento.").wait_for(timeout=20000)
+        sino = page.locator('button[aria-label^="Notificações:"]')
+        sino.wait_for(timeout=15000)
+        sino.click()
+        painel = page.get_by_role("region", name="Central de notificações")
+        painel.wait_for(state="visible", timeout=15000)
+        painel.get_by_role("heading", name="Notificações").wait_for(timeout=15000)
+        painel.locator("li").first.wait_for(timeout=15000)
+
+        # Bounding boxes garantem que nenhuma parte do painel fique fora da viewport.
+        tamanho = painel.evaluate("""el => {
+          const r = el.getBoundingClientRect();
+          const lista = el.querySelector('ul');
+          const c = lista?.getBoundingClientRect();
+          const viewport = document.documentElement.clientWidth;
+          return { left: r.left, right: r.right, top: r.top, bottom: r.bottom,
+                   vw: viewport, vh: window.innerHeight,
+                   scrollWidth: document.documentElement.scrollWidth,
+                   listaScroll: lista ? lista.scrollHeight : 0,
+                   listaAltura: c ? c.height : 0 };
+        }""")
+        assert tamanho["left"] >= 7, f"painel cortado à esquerda {largura}: {tamanho}"
+        assert tamanho["right"] <= largura - 7, f"painel cortado à direita {largura}: {tamanho}"
+        assert tamanho["top"] >= 0, f"cabeçalho cortado {largura}: {tamanho}"
+        assert tamanho["bottom"] <= altura - 4, f"painel passa da altura {largura}: {tamanho}"
+        assert tamanho["scrollWidth"] <= tamanho["vw"] + 1, f"scroll horizontal {largura}: {tamanho}"
+        assert tamanho["listaScroll"] > tamanho["listaAltura"] + 30, (
+            f"lista deveria ter rolagem independente {largura}: {tamanho}"
+        )
+        # Título e botões devem ser acessíveis mesmo com 15 notificações e textos longos.
+        painel.get_by_role("button", name="Fechar notificações").click()
+        painel.wait_for(state="hidden")
+        sino.click()
+        painel.get_by_role("button", name="Marcar como lida").first.click()
+        page.wait_for_timeout(150)
+        assert "marcar-lida" in acoes, f"ação marcar como lida não chegou à API: {largura}"
+        context.close()
+        print(f"NOTIFICAÇÕES RESPONSIVAS: {largura}x{altura} OK")
+
+
 if __name__ == "__main__":
     wait_server()
     with sync_playwright() as p:
@@ -401,5 +485,6 @@ if __name__ == "__main__":
             teste_cliente_pode_continuar_na_busca(browser)
             teste_rodape_contextual(browser, mobile=False)
             teste_rodape_contextual(browser, mobile=True)
+            teste_responsividade_central_notificacoes(browser)
         finally:
             browser.close()
