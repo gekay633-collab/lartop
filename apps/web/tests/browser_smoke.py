@@ -74,8 +74,13 @@ def scenario(browser, mobile=False):
     page.wait_for_function("localStorage.getItem('lartop_access_token') === null")
     assert page.evaluate("localStorage.getItem('lartop_tipo_usuario')") is None
     assert sum(x[1].endswith("/api/auth/logout") for x in request_log) == 2
+    page.goto(BASE + "/redefinir-senha?token=token-falso&id=usuario-falso", wait_until="domcontentloaded")
+    page.get_by_role("heading", name="Criar nova senha").wait_for(timeout=15000)
+    page.wait_for_function("window.location.search === ''", timeout=10000)
+    assert page.evaluate("window.location.pathname") == "/redefinir-senha"
+    assert page.evaluate("localStorage.getItem('lartop_access_token')") is None
     context.close()
-    print(("MOBILE" if mobile else "DESKTOP") + " Chromium: login, erro de logout e logout confirmado OK")
+    print(("MOBILE" if mobile else "DESKTOP") + " Chromium: login, logout e link reset sem token na URL OK")
 
 if __name__ == "__main__":
     wait_server()
