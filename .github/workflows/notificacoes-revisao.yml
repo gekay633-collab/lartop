@@ -89,7 +89,8 @@ jobs:
 
   navegador-chromium:
     name: Chromium desktop + celular emulado (API simulada)
-    runs-on: ubuntu-latest
+    # Playwright 1.56 suporta Ubuntu 24.04; ubuntu-latest já pode ser 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
