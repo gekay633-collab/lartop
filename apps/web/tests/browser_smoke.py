@@ -487,6 +487,7 @@ def teste_recuperacao_push_expirado(browser):
                         keys: { p256dh: 'a'.repeat(80), auth: 'b'.repeat(22) } }),
       };
       const registro = {
+        update: async () => undefined,
         pushManager: {
           getSubscription: async () => inscricao,
           subscribe: async () => {
