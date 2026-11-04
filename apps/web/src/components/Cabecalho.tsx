@@ -63,7 +63,7 @@ export function Cabecalho() {
   return (
     <header className="border-b border-areia-300 bg-sauge-50">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-        <Link href="/" className="font-display text-2xl font-semibold text-pinho-900">Lartop</Link>
+        <Link href={sessao?.tipo === "PROFISSIONAL" ? "/painel" : sessao?.tipo === "ADMIN" ? "/admin" : "/"} className="font-display text-2xl font-semibold text-pinho-900">Lartop</Link>
 
         <nav className="hidden items-center gap-6 text-sm font-medium text-pinho-700 sm:flex">
           {linksNavegacao}

@@ -249,6 +249,74 @@ def teste_renovacao_entre_abas(browser):
     print("FALHA 503: sessão local preservada OK")
 
 
+
+def teste_profissional_nao_entra_no_fluxo_cliente(browser, mobile=False):
+    """Prestador permanece no painel mesmo se abrir busca/contratação por URL."""
+    context = browser.new_context(
+        viewport={"width": 390 if mobile else 1366, "height": 844 if mobile else 768},
+        is_mobile=mobile, has_touch=mobile,
+    )
+    page = context.new_page()
+    def api(route):
+        if route.request.url.endswith("/api/solicitacoes/recebidas"):
+            return route.fulfill(status=200, content_type="application/json",
+                                 body='{"itens":[],"total":0}')
+        if route.request.url.endswith("/api/notificacoes"):
+            return route.fulfill(status=200, content_type="application/json",
+                                 body='{"itens":[],"naoLidas":0}')
+        if route.request.url.endswith("/api/push/chave-publica"):
+            return route.fulfill(status=503, content_type="application/json",
+                                 body='{"erro":"sem push no teste"}')
+        return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
+
+    page.route("**/api/**", api)
+    page.goto(BASE + "/", wait_until="load")
+    page.wait_for_load_state("networkidle", timeout=20000)
+    page.evaluate("""() => {
+      localStorage.setItem('lartop_tipo_usuario', 'PROFISSIONAL');
+      localStorage.setItem('lartop_nome_usuario', 'Profissional de Teste');
+      localStorage.setItem('lartop_access_token', 'token-ficticio-prestador');
+    }""")
+    page.goto(BASE + "/painel", wait_until="load")
+    page.get_by_text("Você ainda não recebeu nenhum pedido de orçamento.").wait_for(timeout=20000)
+
+    marca = page.locator("header a").filter(has_text="Lartop").first
+    assert marca.get_attribute("href") == "/painel"
+    marca.click()
+    page.wait_for_url(BASE + "/painel", timeout=15000)
+
+    page.goto(BASE + "/buscar", wait_until="domcontentloaded")
+    page.wait_for_url(BASE + "/painel", timeout=20000)
+    page.goto(BASE + "/solicitar", wait_until="domcontentloaded")
+    page.wait_for_url(BASE + "/painel", timeout=20000)
+
+    # Página inicial continua pública, mas a busca não é exibida para o prestador.
+    page.goto(BASE + "/", wait_until="load")
+    page.get_by_text("A busca e a contratação são destinadas a contas de cliente.").first.wait_for(timeout=15000)
+    assert page.get_by_role("button", name="Buscar profissionais").count() == 0
+    context.close()
+    print(("MOBILE" if mobile else "DESKTOP") + " PRESTADOR: logo/páginas de busca/contratação bloqueadas OK")
+
+
+def teste_cliente_pode_continuar_na_busca(browser):
+    """Não bloquear visitantes ou clientes reais de procurar profissionais."""
+    for tipo in (None, "CLIENTE"):
+        context = browser.new_context()
+        page = context.new_page()
+        page.goto(BASE + "/", wait_until="load")
+        if tipo:
+            page.evaluate("""() => {
+              localStorage.setItem('lartop_tipo_usuario', 'CLIENTE');
+              localStorage.setItem('lartop_nome_usuario', 'Cliente Teste');
+              localStorage.setItem('lartop_access_token', 'token-ficticio-cliente');
+            }""")
+        page.goto(BASE + "/buscar", wait_until="domcontentloaded")
+        page.get_by_role("heading", name="Digite um CEP para começar").wait_for(timeout=15000)
+        assert page.url.endswith("/buscar")
+        context.close()
+    print("VISITANTE E CLIENTE: busca preservada OK")
+
+
 if __name__ == "__main__":
     wait_server()
     with sync_playwright() as p:
@@ -259,5 +327,8 @@ if __name__ == "__main__":
             admin_logout(browser, mobile=False)
             admin_logout(browser, mobile=True)
             teste_renovacao_entre_abas(browser)
+            teste_profissional_nao_entra_no_fluxo_cliente(browser, mobile=False)
+            teste_profissional_nao_entra_no_fluxo_cliente(browser, mobile=True)
+            teste_cliente_pode_continuar_na_busca(browser)
         finally:
             browser.close()

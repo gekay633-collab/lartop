@@ -29,6 +29,12 @@ const TRANSICOES_CLIENTE: Record<string, string[]> = {
 };
 
 export async function criarSolicitacao(clienteId: string, input: CriarSolicitacaoInput) {
+  // Defesa extra à autorização HTTP: jamais permitir solicitar serviço a si mesmo,
+  // inclusive se esta função for chamada por outro módulo futuramente.
+  if (clienteId === input.profissionalId) {
+    throw new SolicitacaoError('Não é permitido solicitar orçamento para o próprio perfil.', 403);
+  }
+
   const profissional = await prisma.perfilProfissional.findUnique({
     where: { usuarioId: input.profissionalId },
     include: { usuario: { select: { telefone: true, ativo: true } } },

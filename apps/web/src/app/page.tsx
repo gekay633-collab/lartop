@@ -1,6 +1,7 @@
 import { Cabecalho } from "@/components/Cabecalho";
 import { Rodape } from "@/components/Rodape";
 import { BuscaHero } from "@/components/BuscaHero";
+import { AcessoBuscaCliente } from "@/components/AcessoBuscaCliente";
 import { CategoriasHome } from "@/components/CategoriasHome";
 import { Faq } from "@/components/Faq";
 
@@ -23,14 +24,14 @@ export default function HomePage() {
               <p className="mt-4 text-lg text-sauge-100">Encontre profissionais de jardinagem, piscina e cuidados com sua casa perto de você. Compare avaliações e combine tudo direto pelo WhatsApp.</p>
             </div>
             <div className="max-w-3xl">
-              <BuscaHero />
+              <AcessoBuscaCliente><BuscaHero /></AcessoBuscaCliente>
             </div>
           </div>
         </section>
 
         <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
           <h2 className="font-display text-2xl font-semibold text-pinho-900">De qual serviço sua casa precisa?</h2>
-          <CategoriasHome />
+          <AcessoBuscaCliente><CategoriasHome /></AcessoBuscaCliente>
         </section>
 
         <section className="textura-gramado-sutil border-y border-areia-300">
