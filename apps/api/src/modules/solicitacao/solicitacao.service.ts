@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
+import type { Prisma, StatusSolicitacao } from '@prisma/client';
 import { gerarLinkWhatsapp } from '../../lib/whatsapp.js';
 import { registrarEvento } from '../evento/evento.service.js';
 import { AVISOS_CLIENTE } from '../notificacao/notificacao.eventos.js';
@@ -111,9 +112,16 @@ export async function listarSolicitacoesRecebidas(
   profissionalId: string,
   query: ListarSolicitacoesQuery
 ) {
-  const where = {
+  const grupos: Record<'NOVOS' | 'EM_ANDAMENTO' | 'HISTORICO', StatusSolicitacao[]> = {
+    NOVOS: ['PENDENTE'],
+    EM_ANDAMENTO: ['RESPONDIDA', 'ACEITA'],
+    HISTORICO: ['RECUSADA', 'CONCLUIDA', 'CANCELADA'],
+  };
+  const where: Prisma.SolicitacaoOrcamentoWhereInput = {
     profissionalId,
-    ...(query.status ? { status: query.status } : {}),
+    ...(query.status
+      ? { status: query.status }
+      : query.grupo ? { status: { in: grupos[query.grupo] } } : {}),
   };
 
   const [total, itens] = await Promise.all([
