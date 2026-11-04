@@ -41,6 +41,11 @@ describe('segurança das sessões com banco e Redis isolados', () => {
       await assert.rejects(renovarTokens(segunda.refreshToken), /Sessão expirada ou revogada/);
       await assert.rejects(renovarTokens(renovada.refreshToken), /Sessão expirada ou revogada/);
 
+      const antesDaTroca = await emitirTokens(id, 'CLIENTE');
+      // Mesmo sem revogação no Redis, o JWT antigo não pode renovar após mudar a senha.
+      await prisma.usuario.update({ where: { id }, data: { senhaHash: 'nova-senha-de-teste' } });
+      await assert.rejects(renovarTokens(antesDaTroca.refreshToken), /Credenciais alteradas/);
+
       const ativa = await emitirTokens(id, 'CLIENTE');
       await prisma.usuario.update({ where: { id }, data: { ativo: false } });
       await assert.rejects(renovarTokens(ativa.refreshToken), /Usuário inválido/);
