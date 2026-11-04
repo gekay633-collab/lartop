@@ -1,3 +1,4 @@
+import { fetchAutenticado } from "@/lib/auth-client";
 "use client";
 
 import { useEffect, useState } from "react";
@@ -33,7 +34,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (!sessao) return;
-    fetch(`/api/admin/dashboard`, { headers: { Authorization: `Bearer ${sessao.accessToken}` } })
+    fetchAutenticado(`/api/admin/dashboard`, { headers: { Authorization: `Bearer ${sessao.accessToken}` } })
       .then((r) => r.json())
       .then(setDados);
   }, [sessao]);
