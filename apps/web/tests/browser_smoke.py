@@ -211,7 +211,11 @@ def teste_renovacao_entre_abas(browser):
     context.route("**/api/**", api)
     a = context.new_page()
     # Inicializa uma única vez: nunca reescreve o token ao abrir a segunda aba.
-    a.goto(BASE + "/", wait_until="domcontentloaded")
+    a.goto(BASE + "/", wait_until="load")
+    # Conclui hidratação antes de inserir a sessão: evita criar um refresh
+    # que seria abortado ao navegar da página inicial para o painel.
+    a.wait_for_load_state("networkidle", timeout=20000)
+    a.wait_for_timeout(700)
     a.evaluate("""(token) => {
       localStorage.setItem('lartop_tipo_usuario', 'CLIENTE');
       localStorage.setItem('lartop_nome_usuario', 'Cliente Duas Abas');
