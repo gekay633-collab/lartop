@@ -8,7 +8,7 @@ import time
 import urllib.request
 from playwright.sync_api import sync_playwright
 
-BASE = os.environ.get("LARTOP_BROWSER_URL", "http://127.0.0.1:3000")
+BASE = os.environ.get("LARTOP_BROWSER_URL", "http://localhost:3000")
 def wait_server():
     for _ in range(50):
         try:
