@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fp from 'fastify-plugin';
 import { verificarAccessToken } from '../lib/jwt.js';
+import { prisma } from '../lib/prisma.js';
 
 interface UsuarioAutenticado {
   id: string;
@@ -22,7 +23,14 @@ async function autenticacaoPlugin(app: FastifyInstance) {
 
     try {
       const payload = verificarAccessToken(auth.slice(7));
-      request.usuario = { id: payload.sub, tipo: payload.tipo };
+      const usuario = await prisma.usuario.findUnique({
+        where: { id: payload.sub },
+        select: { tipo: true, ativo: true },
+      });
+      if (!usuario?.ativo || usuario.tipo !== payload.tipo) {
+        return reply.status(401).send({ erro: 'Sessão inválida ou conta desativada' });
+      }
+      request.usuario = { id: payload.sub, tipo: usuario.tipo };
     } catch {
       return reply.status(401).send({ erro: 'Token de acesso invalido ou expirado' });
     }
