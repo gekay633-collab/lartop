@@ -3,6 +3,7 @@ on:
   pull_request:
     branches:
       - main
+      - security/refresh-session-hardening-20261103
     paths:
       - "apps/api/**"
       - "apps/web/**"
