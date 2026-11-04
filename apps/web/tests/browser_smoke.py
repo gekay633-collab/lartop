@@ -28,6 +28,10 @@ def scenario(browser, mobile=False):
     )
     page = context.new_page()
     request_log = []
+    browser_errors = []
+    page.on('pageerror', lambda err: browser_errors.append('JS: ' + str(err)))
+    page.on('console', lambda msg: browser_errors.append('CONSOLE: ' + msg.text) if msg.type == 'error' else None)
+    page.on('response', lambda response: browser_errors.append('HTTP: ' + str(response.status) + ' ' + response.url) if response.status >= 400 and '/_next/' in response.url else None)
     logout_should_fail = True
 
     def intercept(route):
@@ -69,7 +73,9 @@ def scenario(browser, mobile=False):
         print("BROWSER DEBUG URL:", page.url)
         print("BROWSER DEBUG CALLS:", request_log[-15:])
         print("BROWSER DEBUG TEXT:", page.locator("body").inner_text()[-1200:])
-        print("BROWSER DEBUG REACT KEYS:", page.evaluate("Object.keys(document.querySelector('form') || {})" )[:25])
+        print("BROWSER DEBUG REACT KEYS:", page.evaluate("Object.keys(document.querySelector('form') || {})")[:25])
+        print("BROWSER DEBUG ERRORS:", browser_errors[-25:])
+        print("BROWSER DEBUG SCRIPTS:", page.evaluate("Array.from(document.scripts).map(s => s.src).filter(Boolean).slice(0,6)"))
         raise
     assert page.evaluate("localStorage.getItem('lartop_access_token')") == "test-only-not-a-real-jwt"
 
