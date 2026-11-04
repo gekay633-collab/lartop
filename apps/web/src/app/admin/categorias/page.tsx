@@ -1,5 +1,6 @@
-import { fetchAutenticado } from "@/lib/auth-client";
 "use client";
+
+import { fetchAutenticado } from "@/lib/auth-client";
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useGuardaAdmin } from "@/components/GuardaAdmin";
