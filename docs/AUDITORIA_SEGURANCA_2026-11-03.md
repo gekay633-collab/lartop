@@ -6,20 +6,23 @@
 ## Correções implementadas nesta branch
 1. JWT de renovação recebe `jti` aleatório e único; sessão é registrada no Redis.
 2. Renovação consome o token via `GETDEL`, valida identidade e conta ativa e impede replay do mesmo token.
-3. Logout revoga a sessão mesmo que o access token tenha expirado, quando o refresh cookie é válido.
+3. Logout revoga **somente o refresh token deste dispositivo** e, quando enviado, inclui o access token atual em uma lista de revogação no Redis até sua expiração. Isso evita derrubar sessões de outros dispositivos.
 4. Redefinição de senha consome o token de recuperação condicionalmente dentro de transação, evitando uso concorrente.
 5. Sessões de renovação anteriores são revogadas após redefinição de senha.
 6. Middleware de autenticação verifica se a conta existe, está ativa e se o papel no JWT corresponde ao papel atual no banco.
 7. Bloqueio administrativo aciona revogação de sessões; perfis de profissionais desativados não aparecem em consultas públicas.
 8. Busca por cidade e paginação de solicitações recebem validação e limites numéricos.
 9. URLs de imagens recebidas nos perfis e solicitações precisam utilizar HTTPS, sem usuário/senha embutidos.
-10. Testes de regressão de autenticação foram adicionados à CI com Redis e PostgreSQL locais isolados. Teste antigo foi atualizado para esperar HTTP 401 de uma conta bloqueada.
+10. O botão **Sair** do frontend agora chama o logout no backend antes de apagar os dados locais; em caso de falha não informa sucesso e permite tentar novamente. A assinatura push local é desativada após a confirmação de logout.
+11. Access tokens passaram a ter identificador aleatório único para permitir revogação individual mesmo quando emitidos no mesmo segundo.
+12. Foram adicionados testes HTTP de login, cookies HttpOnly, logout em dois dispositivos, reuso e concorrência de refresh, recuperação de senha e revogação do access token. As integrações de notificação encerram as conexões Redis corretamente no fim dos testes.
 
 ## Comprovações e limites
-- A suíte GitHub Actions do PR, incluindo compilação da API, aplicação de migrações em PostgreSQL isolado, testes de notificações, integração, push, autenticação e tipagem frontend, passou na execução do código anterior a este relatório.
+- A suíte GitHub Actions do PR passou na execução [41760441077](https://github.com/gekay633-collab/lartop/actions/runs/41760441077): compilação da API, migrações em banco descartável, testes de notificações, push, autenticação HTTP, revogação de sessões, integração e checagem de tipos do frontend.
+- A validação HTTP ocorreu via `Fastify.inject` em ambiente isolado. **Não equivale a testes manuais no navegador ou no celular**, que permanecem pendentes.
 - Nenhuma alteração foi implantada na produção como parte desta auditoria; nenhuma linha da base real foi alterada.
 - A mudança do formato do refresh JWT exige novo login de sessões antigas após deploy.
-- O backend consulta o banco para autorizar operações; isso aumenta a proteção contra contas bloqueadas, com custo de uma leitura adicional por requisição autenticada.
+- O backend consulta o banco e o Redis para autorizar operações; isso protege contas bloqueadas e tokens revogados, com custo de uma consulta adicional a cada serviço por requisição autenticada. Se o Redis ficar indisponível, a API responde 503 em vez de autorizar sem verificação; monitorar esta dependência.
 
 ## Achados pendentes — não tratar como corrigidos
 
@@ -31,7 +34,7 @@
 ### Prioridade média
 - **Cloudinary:** a verificação de 5 MB é feita no navegador; não equivale a limite obrigatório no serviço externo. Configurar limites de tamanho e quota também no Cloudinary (preset ou política de conta). Avaliar limites por conta para assinatura de upload.
 - **Privilégios Supabase:** todas as 14 tabelas do esquema `public` têm RLS ativada e nenhum policy; o auditor classifica como informativo. Confirmar se a Data API está restrita e quais grants existem antes de mudar qualquer policy. Como a API usa Prisma, não criar policies indiscriminadas.
-- **Bloqueio de contas:** middleware agora nega operações após bloqueio. Implementar testes específicos de logout, redefinição e bloqueio em ambiente de homologação, incluindo múltiplas abas e dispositivos.
+- **Validação em navegadores:** testes HTTP automatizados já cobrem login, logout, troca de senha e dois dispositivos; ainda precisam ser exercitados em navegador, celular e com múltiplas abas, avaliando cookies, expiração e notificações push.
 - **Redis:** `KEYS` é usado para localizar sessões; para volume maior, migrar para SCAN/índice de sessões. Rever concorrência em revogação e renovação.
 - **Eventos de analytics públicos:** validar prevenção de tráfego automatizado e manipulação das métricas por cliente anônimo.
 - **Confirmação de e-mail:** depende da configuração de domínio de envio e de fluxo de verificação; não está concluída nesta auditoria.
@@ -46,8 +49,9 @@
 - [x] Revisão estática das áreas críticas de API, sessão e autorização.
 - [x] Testes automatizados de CI passaram.
 - [ ] Testar fluxo de login, renovação, logout e recuperação de senha no navegador real.
-- [ ] Testar sessão simultânea em múltiplas abas/dispositivos; uma renovação concorrente do mesmo token será recusada e pode exigir novo login.
-- [ ] Confirmar que o Redis da produção suporta GETDEL (Redis 6.2+).
+- [x] Testar sessões simultâneas de dois dispositivos e refresh concorrente em integração HTTP isolada.
+- [ ] Testar sessões simultâneas em navegadores/abas reais; uma renovação concorrente do mesmo token será recusada e pode exigir novo login.
+- [ ] Confirmar que o Redis da produção suporta GETDEL (Redis 6.2+) e monitorar disponibilidade devido à consulta por requisição autenticada.
 - [ ] Planejar comunicação de novo login após deploy.
 - [ ] Verificar configuração de produção do Cloudinary e de segurança do Vercel.
 - [ ] Fazer revisão humana do PR e implantar em janela controlada.
