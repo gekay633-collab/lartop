@@ -160,11 +160,6 @@ def teste_renovacao_entre_abas(browser):
     ).decode().rstrip("=") + ".assinatura-ficticia"
     novo = "token-renovado-somente-testes"
     context = browser.new_context()
-    context.add_init_script(
-        "localStorage.setItem('lartop_access_token', " + json.dumps(antigo) + ");" +
-        "localStorage.setItem('lartop_tipo_usuario', 'CLIENTE');" +
-        "localStorage.setItem('lartop_nome_usuario', 'Cliente Duas Abas');"
-    )
     context.add_cookies([{"url": BASE, "name": "lartop_refresh",
                           "value": "cookie-ficticio-inicial", "httpOnly": True, "sameSite": "Lax"}])
     chamadas_refresh = []
@@ -200,6 +195,13 @@ def teste_renovacao_entre_abas(browser):
 
     context.route("**/api/**", api)
     a = context.new_page()
+    # Inicializa uma única vez: nunca reescreve o token ao abrir a segunda aba.
+    a.goto(BASE + "/", wait_until="domcontentloaded")
+    a.evaluate("""(token) => {
+      localStorage.setItem('lartop_tipo_usuario', 'CLIENTE');
+      localStorage.setItem('lartop_nome_usuario', 'Cliente Duas Abas');
+      localStorage.setItem('lartop_access_token', token);
+    }""", antigo)
     b = context.new_page()
     a.goto(BASE + "/minhas-solicitacoes", wait_until="domcontentloaded")
     b.goto(BASE + "/minhas-solicitacoes", wait_until="domcontentloaded")
