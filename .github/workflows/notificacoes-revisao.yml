@@ -4,6 +4,7 @@ on:
     branches:
       - main
       - security/refresh-session-hardening-20261103
+      - security/session-logout-step1-20261104
     paths:
       - "apps/api/**"
       - "apps/web/**"
