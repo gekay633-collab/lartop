@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useGuardaAdmin } from "@/components/GuardaAdmin";
-import { limparSessao } from "@/lib/auth-client";
+import { encerrarSessao } from "@/lib/auth-client";
 
 const ITENS_MENU = [
   { href: "/admin", label: "Dashboard" },
@@ -19,14 +19,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const [menuAberto, setMenuAberto] = useState(false);
+  const [saindo, setSaindo] = useState(false);
+  const [erroSaida, setErroSaida] = useState("");
 
   if (carregando || !sessao) {
     return <div className="flex min-h-screen items-center justify-center text-pinho-700">Carregando...</div>;
   }
 
-  function sair() {
-    limparSessao();
-    router.push("/");
+  async function sair() {
+    if (saindo) return;
+    setSaindo(true);
+    setErroSaida("");
+    try {
+      await encerrarSessao(sessao.accessToken);
+      router.replace("/");
+    } catch {
+      setErroSaida("Não foi possível encerrar sua sessão. Tente novamente.");
+    } finally {
+      setSaindo(false);
+    }
   }
 
   function irPara(href: string) {
@@ -56,7 +67,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           ))}
         </nav>
         <div className="border-t border-pinho-700 p-3">
-          <button onClick={sair} className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-sauge-100/80 hover:bg-pinho-700/50">Sair</button>
+          <button onClick={() => void sair()} disabled={saindo} className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-sauge-100/80 hover:bg-pinho-700/50 disabled:opacity-50">{saindo ? "Saindo..." : "Sair"}</button>
+          {erroSaida && <p role="alert" className="mt-2 px-3 text-xs text-sauge-100">{erroSaida}</p>}
         </div>
       </aside>
 
