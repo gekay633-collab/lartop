@@ -1,5 +1,6 @@
-import { fetchAutenticado } from "@/lib/auth-client";
 "use client";
+
+import { fetchAutenticado } from "@/lib/auth-client";
 
 import { useEffect, useState } from "react";
 import { Cabecalho } from "@/components/Cabecalho";
