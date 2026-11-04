@@ -1,5 +1,7 @@
 "use client";
 
+import { fetchAutenticado } from "@/lib/auth-client";
+
 import { useEffect, useState } from "react";
 import { useGuardaAdmin } from "@/components/GuardaAdmin";
 
@@ -23,18 +25,29 @@ const ROTULOS_SITUACAO: Record<Linha["situacao"], { texto: string; cor: string }
 export default function AdminOfertaDemandaPage() {
   const { sessao } = useGuardaAdmin();
   const [linhas, setLinhas] = useState<Linha[] | null>(null);
+  const [erro, setErro] = useState("");
 
   useEffect(() => {
     if (!sessao) return;
-    fetch(`/api/admin/oferta-demanda`, { headers: { Authorization: `Bearer ${sessao.accessToken}` } })
-      .then((r) => r.json())
-      .then(setLinhas);
-  }, [sessao]);
+    let ativo = true;
+    setErro("");
+    void fetchAutenticado("/api/admin/oferta-demanda", { cache: "no-store" })
+      .then(async (resposta) => {
+        if (!resposta.ok) throw new Error(`Não foi possível consultar oferta e demanda (HTTP ${resposta.status}).`);
+        return resposta.json() as Promise<Linha[]>;
+      })
+      .then((resultado) => { if (ativo) setLinhas(resultado); })
+      .catch((falha) => {
+        if (ativo) setErro(falha instanceof Error ? falha.message : "Erro ao carregar oferta e demanda.");
+      });
+    return () => { ativo = false; };
+  }, [sessao?.accessToken]);
 
   return (
     <div>
       <h1 className="font-display text-2xl font-semibold text-pinho-900">Oferta e demanda</h1>
       <p className="mt-2 text-pinho-700">Pesquisas, contatos gerados e prestadores ativos por cidade e serviço, nos últimos 30 dias.</p>
+      {erro && <p role="alert" className="mt-3 text-terra-600">{erro}</p>}
 
       <div className="mt-6 overflow-x-auto rounded-2xl border border-areia-300 bg-white/70">
         <table className="w-full text-left text-sm">

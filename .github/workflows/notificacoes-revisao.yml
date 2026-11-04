@@ -3,6 +3,8 @@ on:
   pull_request:
     branches:
       - main
+      - security/refresh-session-hardening-20261103
+      - security/session-logout-step1-20261104
     paths:
       - "apps/api/**"
       - "apps/web/**"
@@ -18,6 +20,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 18
     services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
       postgres:
         image: postgres:16
         env:
@@ -34,6 +45,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://lartop_test:somente_teste@127.0.0.1:5432/lartop_ci?schema=public
       DIRECT_DATABASE_URL: postgresql://lartop_test:somente_teste@127.0.0.1:5432/lartop_ci?schema=public
+      REDIS_URL: redis://127.0.0.1:6379
       JWT_ACCESS_SECRET: segredo-descartavel-ci-access-notificacoes
       JWT_REFRESH_SECRET: segredo-descartavel-ci-refresh-notificacoes
       NOTIFICACOES_TEST_DB: isolated
@@ -62,6 +74,12 @@ jobs:
         run: pnpm --filter @lartop/api exec prisma migrate status
       - name: Testar regras e mensagens
         run: pnpm --filter @lartop/api test:notificacoes
+      - name: Testar revogação e renovação de sessões com banco e Redis isolados
+        run: pnpm --filter @lartop/api test:auth:security
+      - name: Testar login e logout HTTP em múltiplos dispositivos e recuperação de senha
+        run: pnpm --filter @lartop/api test:auth:http
+      - name: Testar limite, MIME e autenticação do upload pela API
+        run: pnpm --filter @lartop/api test:upload
       - name: Testar validação segura de endpoints Push
         run: pnpm --filter @lartop/api test:push
       - name: "Integracao real: permissoes, pedidos e concorrencia"
@@ -70,3 +88,32 @@ jobs:
         run: pnpm --filter @lartop/web exec next typegen
       - name: Verificar tipagem do frontend
         run: pnpm --filter @lartop/web exec tsc --noEmit
+      - name: Compilar frontend Next.js em modo de produção
+        run: pnpm --filter @lartop/web build
+
+  navegador-chromium:
+    name: Chromium desktop + celular emulado (API simulada)
+    # Playwright 1.56 suporta Ubuntu 24.04; ubuntu-latest já pode ser 26.04.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.17.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Instalar dependencias do frontend
+        run: pnpm install --frozen-lockfile
+      - name: Instalar Chromium para testes reais de navegador
+        run: |
+          python3 -m pip install --quiet playwright==1.56.0
+          python3 -m playwright install --with-deps chromium
+      - name: Testar interface real Next.js em desktop e janela movel
+        run: |
+          pnpm --filter @lartop/web dev > /tmp/lartop-next.log 2>&1 &
+          APP_PID=$!
+          trap 'STATUS=$?; if [ $STATUS -ne 0 ]; then echo ---NEXT SERVER LOG---; tail -n 80 /tmp/lartop-next.log; fi; kill $APP_PID 2>/dev/null || true; exit $STATUS' EXIT
+          python3 apps/web/tests/browser_smoke.py

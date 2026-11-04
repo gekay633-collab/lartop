@@ -1,9 +1,14 @@
 import { z } from 'zod';
 
+const urlImagemSegura = z.string().url().max(2048).refine((valor) => {
+  const url = new URL(valor);
+  return url.protocol === 'https:' && !url.username && !url.password;
+}, { message: 'Use um endereço HTTPS válido para a imagem' });
+
 export const atualizarPerfilSchema = z.object({
   nomeExibicao: z.string().min(2).max(120).optional(),
   bio: z.string().max(1000).optional(),
-  fotoPerfilUrl: z.string().url().optional(),
+  fotoPerfilUrl: urlImagemSegura.optional(),
   raioAtendimentoKm: z.number().min(1).max(100).optional(),
 });
 
@@ -34,8 +39,8 @@ export const definirCategoriasSchema = z.object({
 });
 
 export const adicionarFotoPortfolioSchema = z.object({
-  urlAntes: z.string().url().optional(),
-  urlDepois: z.string().url(),
+  urlAntes: urlImagemSegura.optional(),
+  urlDepois: urlImagemSegura,
   descricao: z.string().max(300).optional(),
 });
 

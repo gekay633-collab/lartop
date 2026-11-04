@@ -1,5 +1,7 @@
 "use client";
 
+import { fetchAutenticado } from "@/lib/auth-client";
+
 import { useState } from "react";
 import { lerRespostaAutenticacao } from "@/lib/auth-client";
 
@@ -35,7 +37,7 @@ export function CardMinhaSolicitacao({ solicitacao, accessToken }: { solicitacao
     setEnviando(true);
     setErro("");
     try {
-      const resposta = await fetch("/api/avaliacoes/cliente", {
+      const resposta = await fetchAutenticado("/api/avaliacoes/cliente", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ solicitacaoId: solicitacao.id, nota, comentario: comentario || undefined }),

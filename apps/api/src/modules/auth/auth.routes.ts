@@ -11,13 +11,13 @@ import {
   registrarProfissional,
   autenticar,
   renovarTokens,
-  revogarSessao,
+  revogarTokenRefresh,
+  revogarTokenDeAcesso,
   emitirTokens,
   solicitarRecuperacaoSenha,
   redefinirSenha,
   AuthError,
 } from './auth.service.js';
-import { verificarAccessToken } from '../../lib/jwt.js';
 import { limiteAutenticacao } from '../../plugins/seguranca.js';
 import {
   consultarBloqueioLogin,
@@ -144,22 +144,31 @@ export async function authRoutes(app: FastifyInstance) {
       definirCookieRefresh(reply, refreshToken);
       return reply.send({ accessToken });
     } catch (err) {
-      return reply.status(401).send({ erro: 'Sessão inválida, faça login novamente' });
+      if (err instanceof AuthError) {
+        return reply.status(401).send({ erro: 'Sessão inválida, faça login novamente' });
+      }
+      request.log.error({ err }, 'Falha temporária ao renovar sessão');
+      return reply.status(503).send({ erro: 'Não foi possível renovar a sessão agora. Tente novamente.' });
     }
   });
 
   app.post('/auth/logout', async (request, reply) => {
-    const auth = request.headers.authorization;
-    if (auth?.startsWith('Bearer ')) {
-      try {
-        const payload = verificarAccessToken(auth.slice(7));
-        await revogarSessao(payload.sub);
-      } catch {
-        // token ja invalido, segue o logout mesmo assim
+    const tokenRefresh = request.cookies[COOKIE_REFRESH_NOME];
+    try {
+      if (tokenRefresh) {
+        await revogarTokenRefresh(tokenRefresh);
       }
+      const tokenAcesso = request.headers.authorization;
+      if (tokenAcesso?.startsWith('Bearer ')) {
+        await revogarTokenDeAcesso(tokenAcesso.slice(7));
+      }
+      reply.clearCookie(COOKIE_REFRESH_NOME, { path: '/' });
+      return reply.send({ ok: true });
+    } catch (err) {
+      request.log.error(err);
+      // Se Redis falhar, não apresentar logout como concluído.
+      return reply.status(503).send({ erro: 'Não foi possível encerrar a sessão. Tente novamente.' });
     }
-    reply.clearCookie(COOKIE_REFRESH_NOME, { path: '/' });
-    return reply.send({ ok: true });
   });
 
   app.post('/auth/esqueci-senha', limiteAutenticacao, async (request, reply) => {

@@ -1,5 +1,7 @@
 "use client";
 
+import { fetchAutenticado } from "@/lib/auth-client";
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { SessaoLocal } from "@/lib/auth-client";
@@ -48,7 +50,7 @@ export function SinoNotificacoes({
 
     async function carregar() {
       try {
-        const resposta = await fetch("/api/notificacoes?limite=15", {
+        const resposta = await fetchAutenticado("/api/notificacoes?limite=15", {
           headers: { Authorization: `Bearer ${accessToken}` },
           cache: "no-store",
         });
@@ -86,7 +88,7 @@ export function SinoNotificacoes({
     if (processando) return;
     setProcessando(true);
     try {
-      const resposta = await fetch(`/api/notificacoes/${id}/lida`, {
+      const resposta = await fetchAutenticado(`/api/notificacoes/${id}/lida`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${accessToken}` },
       });
@@ -109,7 +111,7 @@ export function SinoNotificacoes({
     if (processando) return;
     setProcessando(true);
     try {
-      const resposta = await fetch("/api/notificacoes/marcar-todas", {
+      const resposta = await fetchAutenticado("/api/notificacoes/marcar-todas", {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}` },
       });

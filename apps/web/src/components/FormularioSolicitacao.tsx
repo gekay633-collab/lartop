@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { obterSessao, entrar, registrarComoCliente, type SessaoLocal } from "@/lib/auth-client";
+import { obterSessao, entrar, registrarComoCliente, fetchAutenticado, type SessaoLocal } from "@/lib/auth-client";
 
 
 
@@ -103,7 +103,7 @@ function FormularioPedido({ profissionalId, profissionalNome, categorias, access
     setErro("");
     setCarregando(true);
     try {
-      const resposta = await fetch(`/api/solicitacoes`, {
+      const resposta = await fetchAutenticado(`/api/solicitacoes`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ profissionalId, categoriaId, cep: cep.replace(/\D/g, ""), endereco, tamanhoM2: Number(tamanhoM2), descricao: descricao || undefined }),

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { buscarProfissionaisSchema } from './busca.schemas.js';
+import { buscarProfissionaisSchema, buscarProfissionaisPorCidadeSchema, cidadeParamsSchema } from './busca.schemas.js';
 import { buscarProfissionaisPorCep, buscarProfissionaisPorCidadeSlug, BuscaError } from './busca.service.js';
 
 export async function buscaRoutes(app: FastifyInstance) {
@@ -22,17 +22,16 @@ export async function buscaRoutes(app: FastifyInstance) {
   });
 
   app.get('/cidades/:estado/:cidadeSlug/profissionais', async (request, reply) => {
-    const { estado, cidadeSlug } = request.params as { estado: string; cidadeSlug: string };
-    const query = request.query as { categoria?: string; raioKm?: string; pagina?: string; porPagina?: string };
+    const params = cidadeParamsSchema.safeParse(request.params);
+    const query = buscarProfissionaisPorCidadeSchema.safeParse(request.query);
+    if (!params.success || !query.success) {
+      return reply.status(400).send({ erro: 'Parâmetros de busca inválidos' });
+    }
 
     try {
       const resultado = await buscarProfissionaisPorCidadeSlug({
-        estado,
-        cidadeSlug,
-        categoria: query.categoria,
-        raioKm: query.raioKm ? Number(query.raioKm) : undefined,
-        pagina: query.pagina ? Number(query.pagina) : undefined,
-        porPagina: query.porPagina ? Number(query.porPagina) : undefined,
+        ...params.data,
+        ...query.data,
       });
       return reply.send(resultado);
     } catch (err) {

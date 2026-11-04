@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fp from 'fastify-plugin';
-import { verificarAccessToken } from '../lib/jwt.js';
+import { verificarAccessToken, versaoCredenciais } from '../lib/jwt.js';
+import { prisma } from '../lib/prisma.js';
+import { tokenDeAcessoRevogado } from '../modules/auth/auth.service.js';
 
 interface UsuarioAutenticado {
   id: string;
@@ -20,11 +22,31 @@ async function autenticacaoPlugin(app: FastifyInstance) {
       return reply.status(401).send({ erro: 'Token de acesso ausente' });
     }
 
+    const token = auth.slice(7);
+    let payload: ReturnType<typeof verificarAccessToken>;
     try {
-      const payload = verificarAccessToken(auth.slice(7));
-      request.usuario = { id: payload.sub, tipo: payload.tipo };
+      payload = verificarAccessToken(token);
     } catch {
-      return reply.status(401).send({ erro: 'Token de acesso invalido ou expirado' });
+      return reply.status(401).send({ erro: 'Token de acesso inválido ou expirado' });
+    }
+
+    try {
+      const [revogado, usuario] = await Promise.all([
+        tokenDeAcessoRevogado(token),
+        prisma.usuario.findUnique({
+          where: { id: payload.sub },
+          select: { tipo: true, ativo: true, senhaHash: true },
+        }),
+      ]);
+      if (revogado || !usuario?.ativo || usuario.tipo !== payload.tipo ||
+          !payload.credenciaisVersao ||
+          payload.credenciaisVersao !== versaoCredenciais(usuario.senhaHash)) {
+        return reply.status(401).send({ erro: 'Sessão inválida ou conta desativada' });
+      }
+      request.usuario = { id: payload.sub, tipo: usuario.tipo };
+    } catch (err) {
+      request.log.error(err);
+      return reply.status(503).send({ erro: 'Não foi possível validar sua sessão agora' });
     }
   });
 

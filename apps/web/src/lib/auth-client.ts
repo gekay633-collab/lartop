@@ -3,6 +3,26 @@
 const CHAVE_TOKEN = "lartop_access_token";
 const CHAVE_TIPO = "lartop_tipo_usuario";
 const CHAVE_NOME = "lartop_nome_usuario";
+const EVENTO_SESSAO = "lartop:sessao-alterada";
+const LIMIAR_RENOVACAO_SEGUNDOS = 60;
+const NOME_BLOQUEIO_RENOVACAO = "lartop:renovacao-sessao";
+
+function avisarMudancaSessao() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(EVENTO_SESSAO));
+}
+
+/** Atualiza cabeçalho e painéis em outra aba sem propagar tokens por mensagens. */
+export function observarSessao(callback: () => void): () => void {
+  const aoArmazenar = (evento: StorageEvent) => {
+    if (!evento.key || [CHAVE_TOKEN, CHAVE_TIPO, CHAVE_NOME].includes(evento.key)) callback();
+  };
+  window.addEventListener("storage", aoArmazenar);
+  window.addEventListener(EVENTO_SESSAO, callback);
+  return () => {
+    window.removeEventListener("storage", aoArmazenar);
+    window.removeEventListener(EVENTO_SESSAO, callback);
+  };
+}
 
 // A API pode retornar texto/HTML quando o proxy ou backend falha.
 // Não converter cegamente esse tipo de resposta para JSON.
@@ -52,15 +72,39 @@ export function obterSessao(): SessaoLocal | null {
 }
 
 export function salvarSessao(sessao: SessaoLocal) {
-  localStorage.setItem(CHAVE_TOKEN, sessao.accessToken);
+  // O access token é o marcador final de atualização entre abas.
   localStorage.setItem(CHAVE_TIPO, sessao.tipo);
   localStorage.setItem(CHAVE_NOME, sessao.nome);
+  localStorage.setItem(CHAVE_TOKEN, sessao.accessToken);
+  avisarMudancaSessao();
 }
 
 export function limparSessao() {
   localStorage.removeItem(CHAVE_TOKEN);
   localStorage.removeItem(CHAVE_TIPO);
   localStorage.removeItem(CHAVE_NOME);
+  avisarMudancaSessao();
+}
+
+/**
+ * Encerra a sessão primeiro no servidor (cookie refresh + access JWT) e
+ * somente depois apaga o estado local. Isso evita logout falso se o Redis
+ * estiver temporariamente indisponível.
+ */
+export async function encerrarSessao(accessToken?: string): Promise<void> {
+  // Logout aguarda qualquer refresh em outra aba antes de invalidar o cookie.
+  await comBloqueioSessao(async () => {
+    const tokenAtual = obterSessao()?.accessToken ?? accessToken;
+    const resposta = await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+      headers: tokenAtual ? { Authorization: `Bearer ${tokenAtual}` } : {},
+    });
+    if (!resposta.ok) {
+      throw new Error("O servidor não confirmou o encerramento da sessão.");
+    }
+    limparSessao();
+  });
 }
 
 async function buscarUsuarioLogado(accessToken: string): Promise<{ nome: string; tipo: SessaoLocal["tipo"] }> {
@@ -116,4 +160,120 @@ export async function registrarComoCliente(input: { nome: string; email: string;
   const sessao: SessaoLocal = { accessToken: dados.accessToken, tipo: dados.usuario.tipo, nome: dados.usuario.nome };
   salvarSessao(sessao);
   return sessao;
+}
+
+
+/**
+ * O JWT é decodificado apenas para antecipar a renovação; sua autenticidade
+ * continua sendo verificada exclusivamente pela API.
+ */
+function tokenPrestesAExpirar(token: string): boolean {
+  try {
+    const parte = token.split(".")[1];
+    if (!parte) return false;
+    const base64 = parte.replace(/-/g, "+").replace(/_/g, "/");
+    const payload: unknown = JSON.parse(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "=")));
+    return Boolean(payload && typeof payload === "object" && "exp" in payload &&
+      typeof payload.exp === "number" &&
+      payload.exp <= Date.now() / 1000 + LIMIAR_RENOVACAO_SEGUNDOS);
+  } catch {
+    return false;
+  }
+}
+
+/** O Web Locks garante que só uma aba use o refresh cookie rotativo por vez. */
+async function comBloqueioSessao<T>(operacao: () => Promise<T>): Promise<T> {
+  if (typeof navigator !== "undefined" && navigator.locks?.request) {
+    return navigator.locks.request(NOME_BLOQUEIO_RENOVACAO, operacao);
+  }
+  // Sem Web Locks, o logout continua possível; a renovação é recusada abaixo.
+  return operacao();
+}
+
+let renovacaoPendente: Promise<string> | null = null;
+
+async function renovarTokenUmaVez(tokenAnterior: string): Promise<string> {
+  if (renovacaoPendente) return renovacaoPendente;
+
+  const promessa = (async () => {
+    if (!navigator.locks?.request) {
+      // Melhor pedir novo login em navegadores antigos do que revogar um cookie
+      // válido por duas renovações concorrentes em abas diferentes.
+      throw new Error("Este navegador não suporta renovação segura. Entre novamente.");
+    }
+
+    return comBloqueioSessao(async () => {
+      const sessao = obterSessao();
+      if (!sessao) throw new Error("Sua sessão terminou. Entre novamente.");
+      if (sessao.accessToken !== tokenAnterior) return sessao.accessToken;
+
+      let resposta: Response;
+      try {
+        resposta = await fetch("/api/auth/refresh", {
+          method: "POST",
+          credentials: "include",
+          cache: "no-store",
+        });
+      } catch {
+        throw new Error("Sem conexão para renovar a sessão. Tente novamente.");
+      }
+
+      if (!resposta.ok) {
+        const novoToken = obterSessao()?.accessToken;
+        if (novoToken && novoToken !== tokenAnterior) return novoToken;
+        if (resposta.status === 401) {
+          limparSessao();
+          throw new Error("Sua sessão expirou. Entre novamente.");
+        }
+        throw new Error("Não foi possível renovar a sessão agora. Tente novamente.");
+      }
+
+      const dados: unknown = await resposta.json().catch(() => null);
+      if (!dados || typeof dados !== "object" || !("accessToken" in dados) ||
+          typeof dados.accessToken !== "string" || !dados.accessToken) {
+        throw new Error("Resposta de renovação inválida. Tente novamente.");
+      }
+
+      const atual = obterSessao();
+      if (!atual) throw new Error("Sessão encerrada em outra aba. Entre novamente.");
+      // Outra conta pode ter feito login durante o pedido de refresh.
+      if (atual.accessToken !== tokenAnterior) return atual.accessToken;
+      localStorage.setItem(CHAVE_TOKEN, dados.accessToken);
+      avisarMudancaSessao();
+      return dados.accessToken;
+    });
+  })();
+
+  renovacaoPendente = promessa;
+  try {
+    return await promessa;
+  } finally {
+    if (renovacaoPendente === promessa) renovacaoPendente = null;
+  }
+}
+
+/**
+ * Ponto único para chamadas protegidas do frontend.
+ * Renova antes da expiração ou após HTTP 401, tenta novamente uma vez
+ * e nunca apaga a sessão por falha transitória HTTP 5xx / rede.
+ */
+export async function fetchAutenticado(caminho: string, opcoes: RequestInit = {}): Promise<Response> {
+  const sessao = obterSessao();
+  if (!sessao) throw new Error("Sua sessão terminou. Entre novamente.");
+
+  let token = sessao.accessToken;
+  if (tokenPrestesAExpirar(token)) token = await renovarTokenUmaVez(token);
+
+  const executar = (tokenAtual: string) => {
+    const headers = new Headers(opcoes.headers);
+    headers.set("Authorization", `Bearer ${tokenAtual}`);
+    return fetch(caminho, { ...opcoes, headers, credentials: "include" });
+  };
+
+  let resposta = await executar(token);
+  if (resposta.status === 401) {
+    token = await renovarTokenUmaVez(token);
+    resposta = await executar(token);
+  }
+  return resposta;
 }

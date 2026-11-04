@@ -1,5 +1,7 @@
 "use client";
 
+import { fetchAutenticado } from "@/lib/auth-client";
+
 import { useEffect, useState } from "react";
 import { Cabecalho } from "@/components/Cabecalho";
 import { Rodape } from "@/components/Rodape";
@@ -29,7 +31,7 @@ export default function MinhasSolicitacoesPage() {
 
     setErro("");
     setSolicitacoes(null);
-    fetch("/api/solicitacoes/minhas", {
+    fetchAutenticado("/api/solicitacoes/minhas", {
       headers: { Authorization: `Bearer ${sessao.accessToken}` },
       cache: "no-store",
     })

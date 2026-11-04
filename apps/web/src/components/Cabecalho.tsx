@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { obterSessao, limparSessao, type SessaoLocal } from "@/lib/auth-client";
+import { obterSessao, observarSessao, encerrarSessao, type SessaoLocal } from "@/lib/auth-client";
 import { SinoNotificacoes } from "@/components/SinoNotificacoes";
 import { desativarPushNoDispositivo } from "@/lib/push-client";
 
@@ -12,19 +12,36 @@ export function Cabecalho() {
   const [sessao, setSessao] = useState<SessaoLocal | null>(null);
   const [carregado, setCarregado] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
+  const [saindo, setSaindo] = useState(false);
+  const [erroSaida, setErroSaida] = useState("");
 
   useEffect(() => {
-    setSessao(obterSessao());
+    const atualizar = () => setSessao(obterSessao());
+    atualizar();
     setCarregado(true);
+    return observarSessao(atualizar);
   }, []);
 
-  function sair() {
+  async function sair() {
+    if (saindo) return;
+    setSaindo(true);
+    setErroSaida("");
     const token = sessao?.accessToken;
-    if (token) void desativarPushNoDispositivo(token).catch(() => undefined);
-    limparSessao();
-    setSessao(null);
-    setMenuAberto(false);
-    router.push("/");
+    try {
+      // Remove a assinatura Push no servidor antes de revogar a credencial.
+      if (token) {
+        await desativarPushNoDispositivo(token).catch(() => undefined);
+      }
+      await encerrarSessao(token);
+      setSessao(null);
+      setMenuAberto(false);
+      router.push("/");
+    } catch {
+      // Sem confirmação do servidor, não informar logout como concluído.
+      setErroSaida("Não foi possível encerrar sua sessão. Tente novamente.");
+    } finally {
+      setSaindo(false);
+    }
   }
 
   const linksNavegacao = !carregado ? null : sessao?.tipo === "ADMIN" ? (
@@ -53,7 +70,8 @@ export function Cabecalho() {
           {!carregado ? null : sessao ? (
             <div className="flex items-center gap-3">
               <span className="text-pinho-900">Olá, {sessao.nome.split(" ")[0]}</span>
-              <button onClick={sair} className="rounded-lg border border-pinho-900 px-4 py-2 text-pinho-900 transition hover:bg-pinho-900 hover:text-sauge-50">Sair</button>
+              <button onClick={() => void sair()} disabled={saindo} className="rounded-lg border border-pinho-900 px-4 py-2 text-pinho-900 transition hover:bg-pinho-900 hover:text-sauge-50 disabled:opacity-50">{saindo ? "Saindo..." : "Sair"}</button>
+              {erroSaida && <span role="alert" className="max-w-52 text-xs text-terra-600">{erroSaida}</span>}
             </div>
           ) : (
             <Link href="/entrar" className="rounded-lg border border-pinho-900 px-4 py-2 text-pinho-900 transition hover:bg-pinho-900 hover:text-sauge-50">Entrar</Link>
@@ -78,7 +96,8 @@ export function Cabecalho() {
           {!carregado ? null : sessao ? (
             <div className="mt-2 flex flex-col gap-2 border-t border-areia-300 pt-3">
               <span className="text-pinho-900">Olá, {sessao.nome.split(" ")[0]}</span>
-              <button onClick={sair} className="rounded-lg border border-pinho-900 px-4 py-2 text-center text-pinho-900">Sair</button>
+              <button onClick={() => void sair()} disabled={saindo} className="rounded-lg border border-pinho-900 px-4 py-2 text-center text-pinho-900 disabled:opacity-50">{saindo ? "Saindo..." : "Sair"}</button>
+              {erroSaida && <p role="alert" className="text-sm text-terra-600">{erroSaida}</p>}
             </div>
           ) : (
             <Link href="/entrar" className="mt-2 block rounded-lg border border-pinho-900 px-4 py-2 text-center text-pinho-900">Entrar</Link>

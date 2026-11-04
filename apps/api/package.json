@@ -12,7 +12,10 @@
     "prisma:studio": "prisma studio",
     "test:notificacoes": "tsx --test src/modules/notificacao/notificacao.eventos.test.ts",
     "test:notificacoes:integration": "tsx --test src/modules/notificacao/notificacao.integracao.test.ts",
-    "test:push": "tsx --test src/modules/push/push.service.test.ts"
+    "test:push": "tsx --test src/modules/push/push.service.test.ts",
+    "test:auth:security": "tsx --test src/modules/auth/auth.seguranca.test.ts",
+    "test:auth:http": "tsx --test src/modules/auth/auth.http.test.ts",
+    "test:upload": "tsx --test src/modules/upload/upload.routes.test.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.1",

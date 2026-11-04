@@ -1,7 +1,7 @@
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { prisma } from '../../lib/prisma.js';
 import { gerarHashSenha, verificarSenha } from '../../lib/senha.js';
-import { gerarAccessToken, gerarRefreshToken, verificarRefreshToken } from '../../lib/jwt.js';
+import { gerarAccessToken, gerarRefreshToken, verificarAccessToken, verificarRefreshToken, versaoCredenciais } from '../../lib/jwt.js';
 import { redis } from '../../lib/redis.js';
 import { resolverCep, CepInvalidoError } from '../../lib/cep.js';
 
@@ -102,9 +102,19 @@ export async function autenticar(email: string, senha: string) {
 }
 
 export async function emitirTokens(usuarioId: string, tipo: 'CLIENTE' | 'PROFISSIONAL' | 'ADMIN') {
-  const accessToken = gerarAccessToken({ sub: usuarioId, tipo });
-  const refreshToken = gerarRefreshToken({ sub: usuarioId });
+  const atual = await prisma.usuario.findUnique({
+    where: { id: usuarioId }, select: { senhaHash: true, tipo: true, ativo: true },
+  });
+  if (!atual?.ativo || atual.tipo !== tipo) {
+    throw new AuthError('Usuário inválido');
+  }
+  const accessToken = gerarAccessToken({
+    sub: usuarioId, tipo, credenciaisVersao: versaoCredenciais(atual.senhaHash),
+  });
   const jti = randomUUID();
+  const refreshToken = gerarRefreshToken({
+    sub: usuarioId, jti, credenciaisVersao: versaoCredenciais(atual.senhaHash),
+  });
 
   await redis.set(
     `refresh:${jti}:${usuarioId}`,
@@ -117,7 +127,7 @@ export async function emitirTokens(usuarioId: string, tipo: 'CLIENTE' | 'PROFISS
 }
 
 export async function renovarTokens(refreshToken: string) {
-  let payload: { sub: string };
+  let payload: { sub: string; jti: string; credenciaisVersao: string };
   try {
     payload = verificarRefreshToken(refreshToken);
   } catch {
@@ -128,8 +138,53 @@ export async function renovarTokens(refreshToken: string) {
   if (!usuario || !usuario.ativo) {
     throw new AuthError('Usuário inválido');
   }
+  if (payload.credenciaisVersao !== versaoCredenciais(usuario.senhaHash)) {
+    throw new AuthError('Credenciais alteradas, faça login novamente');
+  }
+
+  // Consome a sessão de forma atômica: tokens revogados ou reutilizados não renovam acesso.
+  const chaveSessao = `refresh:${payload.jti}:${payload.sub}`;
+  const tokenRegistrado = await redis.getdel(chaveSessao);
+  if (tokenRegistrado !== refreshToken) {
+    throw new AuthError('Sessão expirada ou revogada');
+  }
 
   return emitirTokens(usuario.id, usuario.tipo);
+}
+
+function chaveAccessRevogado(token: string): string {
+  return `auth:access:revogado:${createHash('sha256').update(token).digest('hex')}`;
+}
+
+export async function tokenDeAcessoRevogado(token: string): Promise<boolean> {
+  return (await redis.exists(chaveAccessRevogado(token))) === 1;
+}
+
+export async function revogarTokenDeAcesso(token: string): Promise<void> {
+  let expiraEm: number | undefined;
+  try {
+    const payload = verificarAccessToken(token) as { exp?: number };
+    expiraEm = payload.exp;
+  } catch {
+    return;
+  }
+  if (typeof expiraEm !== 'number') return;
+  const segundosRestantes = Math.ceil(expiraEm - Date.now() / 1000);
+  if (segundosRestantes > 0) {
+    await redis.set(chaveAccessRevogado(token), '1', 'EX', segundosRestantes);
+  }
+}
+
+// Logout encerra apenas o dispositivo atual; bloqueio e troca de senha revogam todas as sessões.
+export async function revogarTokenRefresh(token: string): Promise<void> {
+  let payload: { sub: string; jti: string };
+  try {
+    payload = verificarRefreshToken(token);
+  } catch {
+    // Um cookie ausente/inválido não deve causar revogação de outras contas.
+    return;
+  }
+  await redis.del(`refresh:${payload.jti}:${payload.sub}`);
 }
 
 export async function revogarSessao(usuarioId: string) {
@@ -186,8 +241,17 @@ export async function redefinirSenha(usuarioId: string, tokenBruto: string, nova
 
   const novaSenhaHash = await gerarHashSenha(novaSenha);
 
-  await prisma.$transaction([
-    prisma.usuario.update({ where: { id: usuarioId }, data: { senhaHash: novaSenhaHash } }),
-    prisma.tokenRecuperacaoSenha.update({ where: { id: tokenValido.id }, data: { usado: true } }),
-  ]);
+  await prisma.$transaction(async (tx) => {
+    // Consumo condicionado: duas requisições concorrentes não podem usar o mesmo link.
+    const consumido = await tx.tokenRecuperacaoSenha.updateMany({
+      where: { id: tokenValido.id, usuarioId, usado: false, expiraEm: { gt: new Date() } },
+      data: { usado: true },
+    });
+    if (consumido.count !== 1) {
+      throw new AuthError('Link inválido, já utilizado ou expirado');
+    }
+    await tx.usuario.update({ where: { id: usuarioId }, data: { senhaHash: novaSenhaHash } });
+  });
+  // Não permite que sessões antigas continuem sendo renovadas após a troca da senha.
+  await revogarSessao(usuarioId);
 }

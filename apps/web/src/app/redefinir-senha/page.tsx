@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Cabecalho } from "@/components/Cabecalho";
 import { Rodape } from "@/components/Rodape";
@@ -10,8 +10,17 @@ import { Rodape } from "@/components/Rodape";
 function FormularioRedefinirSenha() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get("token") ?? "";
-  const usuarioId = searchParams.get("id") ?? "";
+  // Captura o token uma vez: não o mantém na barra de endereço/histórico.
+  const [{ token, usuarioId }] = useState(() => ({
+    token: searchParams.get("token") ?? "",
+    usuarioId: searchParams.get("id") ?? "",
+  }));
+
+  useEffect(() => {
+    if (token && usuarioId) {
+      window.history.replaceState(window.history.state, "", "/redefinir-senha");
+    }
+  }, [token, usuarioId]);
 
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");

@@ -1,5 +1,7 @@
 "use client";
 
+import { fetchAutenticado } from "@/lib/auth-client";
+
 import { useEffect, useState } from "react";
 import { desativarPushNoDispositivo } from "@/lib/push-client";
 
@@ -90,7 +92,7 @@ export function AtivarAlertasPush({ accessToken }: { accessToken: string }) {
       if (!dados.endpoint || !dados.keys?.p256dh || !dados.keys?.auth) {
         throw new Error("Não foi possível registrar este aparelho.");
       }
-      const resposta = await fetch("/api/push/assinaturas", {
+      const resposta = await fetchAutenticado("/api/push/assinaturas", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ endpoint: dados.endpoint, keys: dados.keys }),

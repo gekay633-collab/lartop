@@ -1,8 +1,10 @@
 import jwt from 'jsonwebtoken';
+import { randomUUID, createHmac } from 'node:crypto';
 
 interface PayloadAccessToken {
   sub: string;
   tipo: 'CLIENTE' | 'PROFISSIONAL' | 'ADMIN';
+  credenciaisVersao: string;
 }
 
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET as string;
@@ -14,11 +16,16 @@ if (!ACCESS_SECRET || !REFRESH_SECRET) {
   throw new Error('JWT secrets nao configurados no .env');
 }
 
-export function gerarAccessToken(payload: PayloadAccessToken): string {
-  return jwt.sign(payload, ACCESS_SECRET, { expiresIn: ACCESS_EXPIRES_IN });
+// A versão não revela o hash de senha: ela é autenticada com um segredo do servidor.
+export function versaoCredenciais(senhaHash: string): string {
+  return createHmac('sha256', ACCESS_SECRET).update(senhaHash).digest('base64url');
 }
 
-export function gerarRefreshToken(payload: { sub: string }): string {
+export function gerarAccessToken(payload: PayloadAccessToken): string {
+  return jwt.sign(payload, ACCESS_SECRET, { expiresIn: ACCESS_EXPIRES_IN, jwtid: randomUUID() });
+}
+
+export function gerarRefreshToken(payload: { sub: string; jti: string; credenciaisVersao: string }): string {
   return jwt.sign(payload, REFRESH_SECRET, { expiresIn: REFRESH_EXPIRES_IN });
 }
 
@@ -26,6 +33,13 @@ export function verificarAccessToken(token: string): PayloadAccessToken {
   return jwt.verify(token, ACCESS_SECRET) as PayloadAccessToken;
 }
 
-export function verificarRefreshToken(token: string): { sub: string } {
-  return jwt.verify(token, REFRESH_SECRET) as { sub: string };
+export function verificarRefreshToken(token: string): { sub: string; jti: string; credenciaisVersao: string } {
+  const payload = jwt.verify(token, REFRESH_SECRET) as {
+    sub?: unknown; jti?: unknown; credenciaisVersao?: unknown
+  };
+  if (typeof payload.sub !== 'string' || typeof payload.jti !== 'string' || !payload.jti ||
+      typeof payload.credenciaisVersao !== 'string' || !payload.credenciaisVersao) {
+    throw new Error('Refresh token sem identificador de sessão ou versão das credenciais');
+  }
+  return { sub: payload.sub, jti: payload.jti, credenciaisVersao: payload.credenciaisVersao };
 }
