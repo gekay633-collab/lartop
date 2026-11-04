@@ -1,4 +1,44 @@
-# Lartop — Auditoria de segurança (04/11/2026)
+# Atualização — proteções aplicadas no Supabase (04/11/2026)
+
+O usuário aprovou corrigir agora as permissões públicas das 12 tabelas.
+As seguintes mudanças foram **executadas e verificadas no projeto Lartop**,
+sem apagar ou editar registros:
+
+1. Revogadas todas as permissões diretas `anon` e `authenticated`
+   nas 12 tabelas originais.
+2. Ativado RLS nas mesmas 12 tabelas. As duas tabelas mais recentes
+   (`notificacoes` e `assinaturas_push`) já estavam protegidas.
+3. Revogados privilégios **padrão** para novas tabelas, sequências e
+   funções criadas pelo papel `postgres` no esquema `public`.
+4. Verificado via PostgreSQL: **14 de 14 tabelas com RLS ativo;
+   0 com permissões diretas para anon/authenticated**.
+5. Confirmado: `postgres` continua com permissões e `BYPASSRLS`.
+6. Supabase Security Advisor: o alerta de 12 tabelas sem RLS
+   desapareceu. O aviso informativo de 14 tabelas com RLS mas sem
+   políticas é **esperado** porque o frontend usa Fastify/Prisma,
+   não a Data API para essas tabelas.
+
+**Pendente:** `supabase_admin` possui ACLs padrão automáticas.
+O usuário `postgres` não é membro dessa role, então essas ACLs não
+foram modificadas. Configurar pelo painel do Supabase:
+**Data API > Automatically expose new tables = desativado**
+ou desativar a Data API inteira após conferir outras integrações.
+Nenhum ajuste foi feito nesse controle do painel.
+
+**Importante:** as proteções de RLS/grants não resolvem as
+pendências independentes de refresh JWT, logout, validação de contas
+bloqueadas, expiração de sessões e CSP. Tratar em PRs posteriores.
+
+**Histórico das instruções executadas e plano de retorno:**
+`docs/SECURITY_HARDENING_APLICADO_2026-11-04.sql`.
+Este arquivo é documento de auditoria; **não é uma migration Prisma** e
+não deve ser executado automaticamente. O banco real do projeto não
+contém `_prisma_migrations` e exige reconciliação antes de deploy
+de migrations futuras.
+
+---
+
+# Auditoria inicial — antes das correções (04/11/2026)
 
 > **Status:** revisão técnica, sem alteração de permissões no banco ou código
 > publicado. O objetivo é conservar a operação atual até a mudança passar
