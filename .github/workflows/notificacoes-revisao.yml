@@ -61,5 +61,7 @@ jobs:
         run: pnpm --filter @lartop/api test:notificacoes
       - name: "Integracao real: permissoes, pedidos e concorrencia"
         run: pnpm --filter @lartop/api test:notificacoes:integration
+      - name: Gerar tipagem de rotas do Next.js
+        run: pnpm --filter @lartop/web exec next typegen
       - name: Verificar tipagem do frontend
         run: pnpm --filter @lartop/web exec tsc --noEmit

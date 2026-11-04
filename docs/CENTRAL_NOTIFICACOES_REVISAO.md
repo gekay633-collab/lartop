@@ -59,11 +59,13 @@ antes de criar a tabela nova, pois novos pedidos poderiam falhar.
 12. Validar build e testes em um PostgreSQL descartável: `pnpm --filter @lartop/api build`,
     `pnpm --filter @lartop/api test:notificacoes`,
     `pnpm --filter @lartop/api test:notificacoes:integration`.
-13. Verificar o build do frontend na prévia da Vercel e a tipagem em CI.
+13. Verificar o build do frontend na prévia da Vercel e a tipagem em CI (gerando primeiro as rotas com `next typegen`).
 14. Validar a correspondência das migrations com o Supabase real **somente
     após inspeção separada, com acesso administrativo autorizado**.
 
 ## Validação automatizada
+
+O frontend renderiza uma única instância do sino por usuário (sem pesquisas duplicadas no layout responsivo).
 
 O workflow `.github/workflows/notificacoes-revisao.yml` executa instalação,
 geração do Prisma, migração em **PostgreSQL 16 descartável** e testes que

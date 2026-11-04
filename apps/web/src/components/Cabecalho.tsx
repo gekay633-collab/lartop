@@ -49,7 +49,6 @@ export function Cabecalho() {
           {linksNavegacao}
           {!carregado ? null : sessao ? (
             <div className="flex items-center gap-3">
-              <SinoNotificacoes accessToken={sessao.accessToken} tipo={sessao.tipo} />
               <span className="text-pinho-900">Olá, {sessao.nome.split(" ")[0]}</span>
               <button onClick={sair} className="rounded-lg border border-pinho-900 px-4 py-2 text-pinho-900 transition hover:bg-pinho-900 hover:text-sauge-50">Sair</button>
             </div>
@@ -58,12 +57,12 @@ export function Cabecalho() {
           )}
         </nav>
 
-        <div className="flex items-center gap-2 sm:hidden">
+        <div className="flex items-center gap-2">
           {carregado && sessao && (
             <SinoNotificacoes accessToken={sessao.accessToken} tipo={sessao.tipo} />
           )}
           <button onClick={() => setMenuAberto(!menuAberto)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-areia-300 text-pinho-900"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-areia-300 text-pinho-900 sm:hidden"
             aria-label={menuAberto ? "Fechar menu" : "Abrir menu"} aria-expanded={menuAberto}>
             {menuAberto ? "✕" : "☰"}
           </button>
