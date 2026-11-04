@@ -149,6 +149,10 @@ describe('autenticação HTTP com duas sessões e recuperação de senha', () =>
     await assert.rejects(renovarTokens(sessaoAntiga.refreshToken),
       /Sessão expirada ou revogada/);
     assert.equal((await app.inject({
+      method: 'GET', url: '/api/usuarios/mim',
+      headers: { authorization: `Bearer ${sessaoAntiga.accessToken}` },
+    })).statusCode, 401, 'access token antigo também deve ser invalidado imediatamente');
+    assert.equal((await app.inject({
       method: 'POST', url: '/api/auth/login',
       payload: { email, senha: senhaOriginal },
     })).statusCode, 401);
