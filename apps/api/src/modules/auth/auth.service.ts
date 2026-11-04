@@ -193,10 +193,17 @@ export async function redefinirSenha(usuarioId: string, tokenBruto: string, nova
 
   const novaSenhaHash = await gerarHashSenha(novaSenha);
 
-  await prisma.$transaction([
-    prisma.usuario.update({ where: { id: usuarioId }, data: { senhaHash: novaSenhaHash } }),
-    prisma.tokenRecuperacaoSenha.update({ where: { id: tokenValido.id }, data: { usado: true } }),
-  ]);
+  await prisma.$transaction(async (tx) => {
+    // Consumo condicionado: duas requisições concorrentes não podem usar o mesmo link.
+    const consumido = await tx.tokenRecuperacaoSenha.updateMany({
+      where: { id: tokenValido.id, usuarioId, usado: false, expiraEm: { gt: new Date() } },
+      data: { usado: true },
+    });
+    if (consumido.count !== 1) {
+      throw new AuthError('Link inválido, já utilizado ou expirado');
+    }
+    await tx.usuario.update({ where: { id: usuarioId }, data: { senhaHash: novaSenhaHash } });
+  });
   // Não permite que sessões antigas continuem sendo renovadas após a troca da senha.
   await revogarSessao(usuarioId);
 }
