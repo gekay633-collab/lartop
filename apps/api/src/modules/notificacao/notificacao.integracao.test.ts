@@ -5,7 +5,8 @@ import Fastify from 'fastify';
 import { prisma } from '../../lib/prisma.js';
 import { redis } from '../../lib/redis.js';
 import autenticacaoPlugin from '../../plugins/autenticacao.js';
-import { gerarAccessToken } from '../../lib/jwt.js';
+import { gerarAccessToken, versaoCredenciais } from '../../lib/jwt.js';
+import { emitirTokens } from '../auth/auth.service.js';
 import { notificacaoRoutes } from './notificacao.routes.js';
 import { pushRoutes } from '../push/push.routes.js';
 import {
@@ -88,8 +89,8 @@ describe('central de notificações com banco de testes', () => {
       data: { profissionalId, categoriaId },
     });
 
-    clienteToken = gerarAccessToken({ sub: clienteId, tipo: 'CLIENTE' });
-    profissionalToken = gerarAccessToken({ sub: profissionalId, tipo: 'PROFISSIONAL' });
+    clienteToken = (await emitirTokens(clienteId, 'CLIENTE')).accessToken;
+    profissionalToken = (await emitirTokens(profissionalId, 'PROFISSIONAL')).accessToken;
   });
 
   after(async () => {
@@ -109,7 +110,7 @@ describe('central de notificações com banco de testes', () => {
   });
 
   it('bloqueia tokens de contas desativadas e papéis incompatíveis', async () => {
-    const tokenFalsoAdmin = gerarAccessToken({ sub: clienteId, tipo: 'ADMIN' });
+    const tokenFalsoAdmin = gerarAccessToken({ sub: clienteId, tipo: 'ADMIN', credenciaisVersao: versaoCredenciais('nao-usada') });
     const acessoPapelErrado = await app.inject({
       method: 'GET', url: '/api/notificacoes',
       headers: { authorization: `Bearer ${tokenFalsoAdmin}` },
