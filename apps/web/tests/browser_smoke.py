@@ -258,7 +258,7 @@ def teste_profissional_nao_entra_no_fluxo_cliente(browser, mobile=False):
     )
     page = context.new_page()
     def api(route):
-        if route.request."/api/solicitacoes/recebidas" in url:
+        if "/api/solicitacoes/recebidas" in route.request.url:
             return route.fulfill(status=200, content_type="application/json",
                                  body='{"itens":[],"total":0}')
         if route.request.url.endswith("/api/notificacoes"):
