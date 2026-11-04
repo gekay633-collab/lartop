@@ -63,6 +63,23 @@ export function limparSessao() {
   localStorage.removeItem(CHAVE_NOME);
 }
 
+/**
+ * Encerra a sessão primeiro no servidor (cookie refresh + access JWT) e
+ * somente depois apaga o estado local. Isso evita logout falso se o Redis
+ * estiver temporariamente indisponível.
+ */
+export async function encerrarSessao(accessToken?: string): Promise<void> {
+  const resposta = await fetch("/api/auth/logout", {
+    method: "POST",
+    credentials: "include",
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+  if (!resposta.ok) {
+    throw new Error("O servidor não confirmou o encerramento da sessão.");
+  }
+  limparSessao();
+}
+
 async function buscarUsuarioLogado(accessToken: string): Promise<{ nome: string; tipo: SessaoLocal["tipo"] }> {
   const resposta = await fetch(`/api/usuarios/mim`, {
     headers: { Authorization: `Bearer ${accessToken}` },
