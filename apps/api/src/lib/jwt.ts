@@ -1,9 +1,10 @@
 import jwt from 'jsonwebtoken';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHmac } from 'node:crypto';
 
 interface PayloadAccessToken {
   sub: string;
   tipo: 'CLIENTE' | 'PROFISSIONAL' | 'ADMIN';
+  credenciaisVersao: string;
 }
 
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET as string;
@@ -13,6 +14,11 @@ const REFRESH_EXPIRES_IN = (process.env.JWT_REFRESH_EXPIRES_IN ?? '30d') as jwt.
 
 if (!ACCESS_SECRET || !REFRESH_SECRET) {
   throw new Error('JWT secrets nao configurados no .env');
+}
+
+// A versão não revela o hash de senha: ela é autenticada com um segredo do servidor.
+export function versaoCredenciais(senhaHash: string): string {
+  return createHmac('sha256', ACCESS_SECRET).update(senhaHash).digest('base64url');
 }
 
 export function gerarAccessToken(payload: PayloadAccessToken): string {
