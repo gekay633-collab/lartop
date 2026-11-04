@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { before, after, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
@@ -393,6 +393,80 @@ describe('central de notificações com banco de testes', () => {
     });
     assert.equal(verificarDepois410.statusCode, 200);
     assert.equal(verificarDepois410.json().registrada, false);
+  });
+
+  it('teste Push com tela bloqueada: não permite disparos anônimos ou para outra pessoa', async () => {
+    const endpointAlheio = 'https://fcm.googleapis.com/fcm/send/nao-pertence-ao-profissional';
+    const semLogin = await app.inject({
+      method: 'POST', url: '/api/push/teste', payload: { endpoint: endpointAlheio },
+    });
+    assert.equal(semLogin.statusCode, 401);
+
+    const clienteNaoPode = await app.inject({
+      method: 'POST', url: '/api/push/teste',
+      headers: { authorization: `Bearer ${clienteToken}` },
+      payload: { endpoint: endpointAlheio },
+    });
+    assert.equal(clienteNaoPode.statusCode, 403);
+
+    // Um profissional não pode escolher o endpoint de outro usuário.
+    // Não é enviado Push nem criado um agendamento nesta situação.
+    const profissionalSemInscricao = await app.inject({
+      method: 'POST', url: '/api/push/teste',
+      headers: { authorization: `Bearer ${profissionalToken}` },
+      payload: { endpoint: endpointAlheio },
+    });
+    assert.equal(profissionalSemInscricao.statusCode, 409);
+  });
+
+  it('teste Push: resultados privados e recibo protegido por segredo efêmero', async () => {
+    const id = randomUUID();
+    const segredo = 'a'.repeat(64);
+    const chave = `lartop:push-diagnostico:${id}`;
+    try {
+      await redis.hset(chave,
+        'usuarioId', profissionalId,
+        'segredoHash', createHash('sha256').update(segredo).digest('hex'),
+        'provedor', 'aceito',
+        'worker', 'aguardando',
+      );
+      await redis.expire(chave, 60);
+
+      const semLogin = await app.inject({ method: 'GET', url: `/api/push/teste/${id}` });
+      assert.equal(semLogin.statusCode, 401);
+      const cliente = await app.inject({
+        method: 'GET', url: `/api/push/teste/${id}`,
+        headers: { authorization: `Bearer ${clienteToken}` },
+      });
+      assert.equal(cliente.statusCode, 403);
+      const profissional = await app.inject({
+        method: 'GET', url: `/api/push/teste/${id}`,
+        headers: { authorization: `Bearer ${profissionalToken}` },
+      });
+      assert.equal(profissional.statusCode, 200);
+      assert.deepEqual(profissional.json(), { provedor: 'aceito', worker: 'aguardando' });
+      assert.equal(profissional.headers['cache-control'], 'no-store');
+      assert.equal(profissional.body.includes(segredo), false);
+
+      const falso = await app.inject({
+        method: 'POST', url: `/api/push/teste/${id}/confirmar`,
+        payload: { segredo: 'b'.repeat(64), estado: 'exibida' },
+      });
+      assert.equal(falso.statusCode, 403);
+
+      const confirmar = await app.inject({
+        method: 'POST', url: `/api/push/teste/${id}/confirmar`,
+        payload: { segredo, estado: 'exibida' },
+      });
+      assert.equal(confirmar.statusCode, 200);
+      const atualizado = await app.inject({
+        method: 'GET', url: `/api/push/teste/${id}`,
+        headers: { authorization: `Bearer ${profissionalToken}` },
+      });
+      assert.equal(atualizado.json().worker, 'showNotification_ok');
+    } finally {
+      await redis.del(chave);
+    }
   });
 
   it('rejeita limites inválidos sem consultar dados de terceiros', async () => {
