@@ -338,6 +338,17 @@ describe('central de notificações com banco de testes', () => {
     });
     assert.equal(malicioso.statusCode, 400);
 
+    const verificarSemLogin = await app.inject({
+      method: 'POST', url: '/api/push/assinaturas/verificar', payload: { endpoint },
+    });
+    assert.equal(verificarSemLogin.statusCode, 401);
+    const verificarAntes = await app.inject({
+      method: 'POST', url: '/api/push/assinaturas/verificar',
+      headers, payload: { endpoint },
+    });
+    assert.equal(verificarAntes.statusCode, 200);
+    assert.equal(verificarAntes.json().registrada, false);
+
     const ativar = await app.inject({
       method: 'POST', url: '/api/push/assinaturas', headers, payload: assinatura,
     });
@@ -345,6 +356,21 @@ describe('central de notificações com banco de testes', () => {
     assert.equal(await prisma.assinaturaPush.count({
       where: { usuarioId: profissionalId, endpoint },
     }), 1);
+
+    const verificarAtiva = await app.inject({
+      method: 'POST', url: '/api/push/assinaturas/verificar',
+      headers, payload: { endpoint },
+    });
+    assert.equal(verificarAtiva.statusCode, 200);
+    assert.equal(verificarAtiva.json().registrada, true);
+    assert.equal(verificarAtiva.headers['cache-control'], 'no-store');
+
+    const verificarOutroUsuario = await app.inject({
+      method: 'POST', url: '/api/push/assinaturas/verificar',
+      headers: { authorization: `Bearer ${clienteToken}` }, payload: { endpoint },
+    });
+    assert.equal(verificarOutroUsuario.statusCode, 200);
+    assert.equal(verificarOutroUsuario.json().registrada, false);
 
     const tentarApagarOutro = await app.inject({
       method: 'DELETE', url: '/api/push/assinaturas',
@@ -360,6 +386,13 @@ describe('central de notificações com banco de testes', () => {
     });
     assert.equal(desativar.statusCode, 200);
     assert.equal(await prisma.assinaturaPush.count({ where: { endpoint } }), 0);
+
+    const verificarDepois410 = await app.inject({
+      method: 'POST', url: '/api/push/assinaturas/verificar',
+      headers, payload: { endpoint },
+    });
+    assert.equal(verificarDepois410.statusCode, 200);
+    assert.equal(verificarDepois410.json().registrada, false);
   });
 
   it('rejeita limites inválidos sem consultar dados de terceiros', async () => {
