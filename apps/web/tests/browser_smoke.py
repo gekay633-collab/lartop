@@ -56,14 +56,10 @@ def scenario(browser, mobile=False):
                              body='{"erro":"API mock: endpoint indisponível"}')
 
     page.route("**/api/**", intercept)
-    page.goto(BASE + "/entrar", wait_until="domcontentloaded")
-    # Next.js pode mostrar o HTML antes de conectar os handlers do React.
-    page.wait_for_function("""() => {
-      const form = document.querySelector('form');
-      if (!form) return false;
-      return Object.keys(form).some(key =>
-        key.includes('reactProps') && form[key] && typeof form[key].onSubmit === 'function');
-    }""", timeout=25000)
+    page.goto(BASE + "/entrar", wait_until="load")
+    # Aguarda scripts e hidratação; não depende de propriedades internas do React.
+    page.wait_for_load_state("networkidle", timeout=20000)
+    page.wait_for_timeout(1000)
     page.get_by_placeholder("E-mail").fill("fake@example.test")
     page.get_by_placeholder("Senha").fill("Senha123!SomenteTeste")
     page.locator('form button[type="submit"]').click()
@@ -73,6 +69,7 @@ def scenario(browser, mobile=False):
         print("BROWSER DEBUG URL:", page.url)
         print("BROWSER DEBUG CALLS:", request_log[-15:])
         print("BROWSER DEBUG TEXT:", page.locator("body").inner_text()[-1200:])
+        print("BROWSER DEBUG REACT KEYS:", page.evaluate("Object.keys(document.querySelector('form') || {})" )[:25])
         raise
     assert page.evaluate("localStorage.getItem('lartop_access_token')") == "test-only-not-a-real-jwt"
 
