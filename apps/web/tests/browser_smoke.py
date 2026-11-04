@@ -2,6 +2,7 @@
 Next.js runs locally; every API call is intercepted, and no real account is touched.
 This is NOT a test on a physical phone or the production server.
 """
+import base64
 import json
 import os
 import time
@@ -151,6 +152,88 @@ def admin_logout(browser, mobile=False):
     print(("MOBILE" if mobile else "DESKTOP") + " Chromium: logout administrativo OK")
 
 
+
+def teste_renovacao_entre_abas(browser):
+    """Duas abas recebem um 401/expiração; só um refresh deve consumir o cookie."""
+    antigo = "e30." + base64.urlsafe_b64encode(
+        json.dumps({"exp": int(time.time()) - 30}).encode()
+    ).decode().rstrip("=") + ".assinatura-ficticia"
+    novo = "token-renovado-somente-testes"
+    context = browser.new_context()
+    context.add_init_script("""(token) => {
+      localStorage.setItem('lartop_access_token', token);
+      localStorage.setItem('lartop_tipo_usuario', 'CLIENTE');
+      localStorage.setItem('lartop_nome_usuario', 'Cliente Duas Abas');
+    }""", antigo)
+    context.add_cookies([{"url": BASE, "name": "lartop_refresh",
+                          "value": "cookie-ficticio-inicial", "httpOnly": True, "sameSite": "Lax"}])
+    chamadas_refresh = []
+    chamadas_autenticadas = []
+
+    def api(route):
+        url = route.request.url
+        if url.endswith("/api/auth/refresh"):
+            chamadas_refresh.append(route.request.headers.get("cookie", ""))
+            time.sleep(0.25)
+            return route.fulfill(status=200, content_type="application/json",
+                headers={"Set-Cookie": "lartop_refresh=cookie-renovado; Path=/; HttpOnly; SameSite=Lax"},
+                body=json.dumps({"accessToken": novo}))
+        if "/api/notificacoes" in url:
+            token = route.request.headers.get("authorization")
+            chamadas_autenticadas.append(token)
+            if token != "Bearer " + novo:
+                return route.fulfill(status=401, content_type="application/json",
+                                     body='{"erro":"Token expirado"}')
+            return route.fulfill(status=200, content_type="application/json",
+                                 body='{"itens":[],"naoLidas":0}')
+        if url.endswith("/api/solicitacoes/minhas"):
+            token = route.request.headers.get("authorization")
+            chamadas_autenticadas.append(token)
+            if token != "Bearer " + novo:
+                return route.fulfill(status=401, content_type="application/json",
+                                     body='{"erro":"Token expirado"}')
+            return route.fulfill(status=200, content_type="application/json",
+                                 body='{"itens":[],"total":0,"pagina":1}')
+        if url.endswith("/api/push/chave-publica"):
+            return route.fulfill(status=503, content_type="application/json", body='{"erro":"simulado"}')
+        return route.fulfill(status=404, content_type="application/json", body='{"erro":"simulado"}')
+
+    context.route("**/api/**", api)
+    a = context.new_page()
+    b = context.new_page()
+    a.goto(BASE + "/minhas-solicitacoes", wait_until="domcontentloaded")
+    b.goto(BASE + "/minhas-solicitacoes", wait_until="domcontentloaded")
+    for page in (a, b):
+        page.wait_for_function("(t) => localStorage.getItem('lartop_access_token') === t", novo,
+                               timeout=20000)
+        page.get_by_text("Você ainda não pediu nenhum orçamento.").wait_for(timeout=20000)
+    assert len(chamadas_refresh) == 1, "Refresh rotativo deve ser consumido só por uma aba: " + str(len(chamadas_refresh))
+    assert chamadas_autenticadas and all(t == "Bearer " + novo for t in chamadas_autenticadas)
+    assert "lartop_refresh=cookie-ficticio-inicial" in chamadas_refresh[0]
+    context.close()
+    print("MULTIABAS: apenas um refresh, ambas as abas autorizadas OK")
+
+    # Falha transitória no Redis/API não pode apagar o login do usuário.
+    falha = browser.new_context()
+    falha.add_init_script("""(token) => {
+      localStorage.setItem('lartop_access_token', token);
+      localStorage.setItem('lartop_tipo_usuario', 'CLIENTE');
+      localStorage.setItem('lartop_nome_usuario', 'Cliente Falha Temporária');
+    }""", antigo)
+    def api_indisponivel(route):
+        if route.request.url.endswith("/api/auth/refresh"):
+            return route.fulfill(status=503, content_type="application/json",
+                                 body='{"erro":"Redis indisponível"}')
+        return route.fulfill(status=404, content_type="application/json", body='{"erro":"simulado"}')
+    falha.route("**/api/**", api_indisponivel)
+    pagina = falha.new_page()
+    pagina.goto(BASE + "/minhas-solicitacoes", wait_until="load")
+    pagina.get_by_text("Não foi possível renovar a sessão agora", exact=False).wait_for(timeout=20000)
+    assert pagina.evaluate("localStorage.getItem('lartop_access_token')") == antigo
+    falha.close()
+    print("FALHA 503: sessão local preservada OK")
+
+
 if __name__ == "__main__":
     wait_server()
     with sync_playwright() as p:
@@ -160,5 +243,6 @@ if __name__ == "__main__":
             scenario(browser, mobile=True)
             admin_logout(browser, mobile=False)
             admin_logout(browser, mobile=True)
+            teste_renovacao_entre_abas(browser)
         finally:
             browser.close()
