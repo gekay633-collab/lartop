@@ -112,7 +112,9 @@ export async function emitirTokens(usuarioId: string, tipo: 'CLIENTE' | 'PROFISS
     sub: usuarioId, tipo, credenciaisVersao: versaoCredenciais(atual.senhaHash),
   });
   const jti = randomUUID();
-  const refreshToken = gerarRefreshToken({ sub: usuarioId, jti });
+  const refreshToken = gerarRefreshToken({
+    sub: usuarioId, jti, credenciaisVersao: versaoCredenciais(atual.senhaHash),
+  });
 
   await redis.set(
     `refresh:${jti}:${usuarioId}`,
@@ -125,7 +127,7 @@ export async function emitirTokens(usuarioId: string, tipo: 'CLIENTE' | 'PROFISS
 }
 
 export async function renovarTokens(refreshToken: string) {
-  let payload: { sub: string; jti: string };
+  let payload: { sub: string; jti: string; credenciaisVersao: string };
   try {
     payload = verificarRefreshToken(refreshToken);
   } catch {
@@ -135,6 +137,9 @@ export async function renovarTokens(refreshToken: string) {
   const usuario = await prisma.usuario.findUnique({ where: { id: payload.sub } });
   if (!usuario || !usuario.ativo) {
     throw new AuthError('Usuário inválido');
+  }
+  if (payload.credenciaisVersao !== versaoCredenciais(usuario.senhaHash)) {
+    throw new AuthError('Credenciais alteradas, faça login novamente');
   }
 
   // Consome a sessão de forma atômica: tokens revogados ou reutilizados não renovam acesso.
