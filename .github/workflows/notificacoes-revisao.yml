@@ -88,6 +88,8 @@ jobs:
         run: pnpm --filter @lartop/web exec next typegen
       - name: Verificar tipagem do frontend
         run: pnpm --filter @lartop/web exec tsc --noEmit
+      - name: Compilar frontend Next.js em modo de produção
+        run: pnpm --filter @lartop/web build
 
   navegador-chromium:
     name: Chromium desktop + celular emulado (API simulada)
