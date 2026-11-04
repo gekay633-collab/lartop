@@ -121,7 +121,7 @@ export async function enviarPushNotificacao(destinatarioId: string, aviso: Mensa
 
   await Promise.all(assinaturas.map(async (assinatura) => {
     try {
-      await webpush.sendNotification(
+      const resultado = await webpush.sendNotification(
         {
           endpoint: assinatura.endpoint,
           keys: { p256dh: assinatura.chaveP256dh, auth: assinatura.chaveAuth },
@@ -129,6 +129,9 @@ export async function enviarPushNotificacao(destinatarioId: string, aviso: Mensa
         payload,
         { vapidDetails: vapid, TTL: 3600, urgency: 'high', timeout: 4000 }
       );
+      // Aceitação pelo provedor de push NÃO comprova exibição no aparelho.
+      // Não registrar endpoint, chaves ou conteúdo da notificação.
+      console.info('[push] aceito pelo provedor', { statusCode: resultado.statusCode });
     } catch (err) {
       const codigo = (err as { statusCode?: number }).statusCode;
       if (codigo === 404 || codigo === 410) {
