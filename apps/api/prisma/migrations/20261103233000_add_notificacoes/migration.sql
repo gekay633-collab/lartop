@@ -34,3 +34,20 @@ ALTER TABLE "notificacoes"
   ADD CONSTRAINT "notificacoes_solicitacao_id_fkey"
   FOREIGN KEY ("solicitacao_id") REFERENCES "solicitacoes_orcamento"("id")
   ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Lartop usa autenticação própria e serve os dados pelo Fastify/Prisma.
+-- A tabela de notificações não deve ficar exposta via Supabase Data API.
+ALTER TABLE "public"."notificacoes" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE "public"."notificacoes" FROM PUBLIC;
+
+-- Em homologação a base local pode não possuir as roles especiais do Supabase.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    REVOKE ALL PRIVILEGES ON TABLE "public"."notificacoes" FROM anon;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    REVOKE ALL PRIVILEGES ON TABLE "public"."notificacoes" FROM authenticated;
+  END IF;
+END
+$$;
