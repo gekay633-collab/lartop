@@ -1,3 +1,4 @@
+import { fetchAutenticado } from "@/lib/auth-client";
 "use client";
 
 import { useEffect, useState } from "react";
@@ -24,7 +25,7 @@ export default function AdminPrestadoresPage() {
     if (!sessao) return;
     const query = new URLSearchParams();
     if (busca) query.set("busca", busca);
-    const resposta = await fetch(`/api/admin/prestadores?${query.toString()}`, {
+    const resposta = await fetchAutenticado(`/api/admin/prestadores?${query.toString()}`, {
       headers: { Authorization: `Bearer ${sessao.accessToken}` },
     });
     const dados = await resposta.json();
@@ -37,7 +38,7 @@ export default function AdminPrestadoresPage() {
 
   async function alternarPublicacao(id: string, publicado: boolean) {
     if (!sessao) return;
-    await fetch(`/api/admin/prestadores/${id}/publicacao`, {
+    await fetchAutenticado(`/api/admin/prestadores/${id}/publicacao`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessao.accessToken}` },
       body: JSON.stringify({ publicado }),
@@ -47,7 +48,7 @@ export default function AdminPrestadoresPage() {
 
   async function alternarBloqueio(id: string, ativo: boolean) {
     if (!sessao) return;
-    await fetch(`/api/admin/usuarios/${id}/bloqueio`, {
+    await fetchAutenticado(`/api/admin/usuarios/${id}/bloqueio`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessao.accessToken}` },
       body: JSON.stringify({ ativo }),
