@@ -317,6 +317,75 @@ def teste_cliente_pode_continuar_na_busca(browser):
     print("VISITANTE E CLIENTE: busca preservada OK")
 
 
+
+def teste_rodape_contextual(browser, mobile=False):
+    """Rodapé não deve anunciar busca, cadastro ou login a um prestador conectado."""
+    context = browser.new_context(
+        viewport={"width": 390 if mobile else 1366, "height": 844 if mobile else 768},
+        is_mobile=mobile, has_touch=mobile,
+    )
+    page = context.new_page()
+
+    def api(route):
+        path = route.request.url
+        if path.endswith("/api/solicitacoes/recebidas"):
+            return route.fulfill(status=200, content_type="application/json", body='{"itens":[],"total":0}')
+        if path.endswith("/api/notificacoes"):
+            return route.fulfill(status=200, content_type="application/json", body='{"itens":[],"naoLidas":0}')
+        if path.endswith("/api/categorias"):
+            return route.fulfill(status=200, content_type="application/json", body='[]')
+        return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
+
+    page.route("**/api/**", api)
+    page.goto(BASE + "/", wait_until="load")
+    footer = page.locator("footer")
+    footer.get_by_role("link", name="Entrar na minha conta").wait_for(timeout=15000)
+    assert footer.get_by_text("Tipos de serviço").count() == 1
+
+    def alterar_papel(papel):
+        page.evaluate("""(papel) => {
+          localStorage.setItem('lartop_access_token', 'token-ficticio-para-teste');
+          localStorage.setItem('lartop_tipo_usuario', papel);
+          localStorage.setItem('lartop_nome_usuario', 'Conta de Teste');
+          window.dispatchEvent(new Event('lartop:sessao-alterada'));
+        }""", papel)
+
+    alterar_papel("PROFISSIONAL")
+    footer.get_by_role("link", name="Meu painel profissional").wait_for(timeout=15000)
+    for nome in ("Entrar na minha conta", "Encontrar profissional", "Criar meu perfil", "Sou profissional"):
+        assert footer.get_by_role("link", name=nome).count() == 0, nome
+    assert footer.get_by_text("Tipos de serviço").count() == 0
+    assert footer.get_by_role("link", name="Termos de uso").count() == 1
+
+    # Valida o rodapé exatamente no painel do prestador, como na captura do usuário.
+    page.goto(BASE + "/painel", wait_until="load")
+    page.locator("footer").get_by_role("link", name="Meu painel profissional").wait_for(timeout=15000)
+    assert page.locator("footer").get_by_role("link", name="Entrar na minha conta").count() == 0
+
+    page.goto(BASE + "/", wait_until="load")
+    alterar_papel("CLIENTE")
+    footer = page.locator("footer")
+    footer.get_by_role("link", name="Minhas solicitações").wait_for(timeout=15000)
+    assert footer.get_by_role("link", name="Buscar profissionais").count() == 1
+    assert footer.get_by_role("link", name="Entrar na minha conta").count() == 0
+    assert footer.get_by_text("Tipos de serviço").count() == 0
+
+    alterar_papel("ADMIN")
+    footer.get_by_role("link", name="Painel administrativo").wait_for(timeout=15000)
+    assert footer.get_by_role("link", name="Buscar profissionais").count() == 0
+
+    page.evaluate("""() => {
+      localStorage.removeItem('lartop_access_token');
+      localStorage.removeItem('lartop_tipo_usuario');
+      localStorage.removeItem('lartop_nome_usuario');
+      window.dispatchEvent(new Event('lartop:sessao-alterada'));
+    }""")
+    footer.get_by_role("link", name="Entrar na minha conta").wait_for(timeout=15000)
+    assert footer.get_by_text("Tipos de serviço").count() == 1
+    context.close()
+    print(("MOBILE" if mobile else "DESKTOP") + " RODAPÉ: visitante/cliente/prestador/admin e atualização de sessão OK")
+
+
 if __name__ == "__main__":
     wait_server()
     with sync_playwright() as p:
@@ -330,5 +399,7 @@ if __name__ == "__main__":
             teste_profissional_nao_entra_no_fluxo_cliente(browser, mobile=False)
             teste_profissional_nao_entra_no_fluxo_cliente(browser, mobile=True)
             teste_cliente_pode_continuar_na_busca(browser)
+            teste_rodape_contextual(browser, mobile=False)
+            teste_rodape_contextual(browser, mobile=True)
         finally:
             browser.close()
