@@ -1,0 +1,88 @@
+"""Smoke tests in real Chromium with desktop and mobile emulation.
+Next.js runs locally; every API call is intercepted, and no real account is touched.
+This is NOT a test on a physical phone or the production server.
+"""
+import json
+import os
+import time
+import urllib.request
+from playwright.sync_api import sync_playwright
+
+BASE = os.environ.get("LARTOP_BROWSER_URL", "http://127.0.0.1:3000")
+def wait_server():
+    for _ in range(50):
+        try:
+            with urllib.request.urlopen(BASE + "/entrar", timeout=3) as response:
+                if response.status == 200:
+                    return
+        except Exception:
+            time.sleep(1)
+    raise AssertionError("Next.js local não iniciou")
+
+def scenario(browser, mobile=False):
+    context = browser.new_context(
+        viewport={"width": 390 if mobile else 1366, "height": 844 if mobile else 768},
+        is_mobile=mobile,
+        has_touch=mobile,
+        device_scale_factor=2 if mobile else 1,
+    )
+    page = context.new_page()
+    request_log = []
+    logout_should_fail = True
+
+    def intercept(route):
+        nonlocal logout_should_fail
+        req = route.request
+        url = req.url
+        request_log.append((req.method, url.split("?")[0]))
+        if url.endswith("/api/auth/login"):
+            return route.fulfill(status=200, content_type="application/json",
+                headers={"Set-Cookie": "lartop_refresh=fake-for-browser-test; Path=/; HttpOnly; SameSite=Lax"},
+                body=json.dumps({"accessToken": "test-only-not-a-real-jwt"}))
+        if url.endswith("/api/usuarios/mim"):
+            return route.fulfill(status=200, content_type="application/json",
+                body=json.dumps({"id":"fake-user","nome":"Teste Navegador","tipo":"CLIENTE","email":"fake@example.test"}))
+        if url.endswith("/api/auth/logout"):
+            if logout_should_fail:
+                return route.fulfill(status=503, content_type="application/json",
+                    body='{"erro":"Simulação de falha"}')
+            return route.fulfill(status=200, content_type="application/json", body='{"ok":true}')
+        if url.endswith("/api/notificacoes"):
+            return route.fulfill(status=200, content_type="application/json",
+                body='{"itens":[],"naoLidas":0}')
+        if url.endswith("/api/push/chave-publica"):
+            return route.fulfill(status=503, content_type="application/json", body='{"erro":"disabled"}')
+        return route.fulfill(status=404, content_type="application/json",
+                             body='{"erro":"API mock: endpoint indisponível"}')
+
+    page.route("**/api/**", intercept)
+    page.goto(BASE + "/entrar", wait_until="domcontentloaded")
+    page.get_by_placeholder("E-mail").fill("fake@example.test")
+    page.get_by_placeholder("Senha").fill("Senha123!SomenteTeste")
+    page.locator('form button[type="submit"]').click()
+    page.wait_for_url(BASE + "/", timeout=20000)
+    assert page.evaluate("localStorage.getItem('lartop_access_token')") == "test-only-not-a-real-jwt"
+
+    if mobile:
+        page.get_by_role("button", name="Abrir menu").click()
+    sair = page.get_by_role("button", name="Sair")
+    sair.click()
+    page.get_by_role("alert").filter(has_text="Não foi possível encerrar sua sessão").wait_for(timeout=15000)
+    assert page.evaluate("localStorage.getItem('lartop_access_token')") is not None
+    logout_should_fail = False
+    sair.click()
+    page.wait_for_function("localStorage.getItem('lartop_access_token') === null")
+    page.get_by_role("link", name="Entrar").first.wait_for(timeout=15000)
+    assert sum(x[1].endswith("/api/auth/logout") for x in request_log) == 2
+    context.close()
+    print(("MOBILE" if mobile else "DESKTOP") + " Chromium: login, erro de logout e logout confirmado OK")
+
+if __name__ == "__main__":
+    wait_server()
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        try:
+            scenario(browser, mobile=False)
+            scenario(browser, mobile=True)
+        finally:
+            browser.close()
