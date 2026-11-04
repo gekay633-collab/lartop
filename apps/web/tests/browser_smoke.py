@@ -470,6 +470,81 @@ def teste_responsividade_central_notificacoes(browser):
         print(f"NOTIFICAÇÕES RESPONSIVAS: {largura}x{altura} OK")
 
 
+
+def teste_recuperacao_push_expirado(browser):
+    """Simula 410 removido no servidor e inscrição obsoleta ainda no navegador."""
+    context = browser.new_context(viewport={"width": 390, "height": 844},
+                                  is_mobile=True, has_touch=True)
+    context.add_init_script("""
+      localStorage.setItem('lartop_tipo_usuario', 'PROFISSIONAL');
+      localStorage.setItem('lartop_nome_usuario', 'Prestador Teste Push');
+      localStorage.setItem('lartop_access_token', 'token-mock-push');
+      window.__pushTeste = { removidas: 0, novas: 0 };
+      let inscricao = {
+        endpoint: 'https://fcm.googleapis.com/fcm/send/inscricao-antiga',
+        unsubscribe: async () => { window.__pushTeste.removidas++; inscricao = null; return true; },
+        toJSON: () => ({ endpoint: 'https://fcm.googleapis.com/fcm/send/inscricao-antiga',
+                        keys: { p256dh: 'a'.repeat(80), auth: 'b'.repeat(22) } }),
+      };
+      const registro = {
+        pushManager: {
+          getSubscription: async () => inscricao,
+          subscribe: async () => {
+            window.__pushTeste.novas++;
+            inscricao = {
+              endpoint: 'https://fcm.googleapis.com/fcm/send/inscricao-renovada',
+              toJSON: () => ({ endpoint: 'https://fcm.googleapis.com/fcm/send/inscricao-renovada',
+                              keys: { p256dh: 'c'.repeat(80), auth: 'd'.repeat(22) } }),
+              unsubscribe: async () => { inscricao = null; return true; },
+            };
+            return inscricao;
+          },
+        },
+      };
+      Object.defineProperty(window, 'PushManager', { configurable: true, value: function() {} });
+      Object.defineProperty(window, 'Notification', {
+        configurable: true, value: { permission: 'granted', requestPermission: async () => 'granted' }
+      });
+      Object.defineProperty(navigator, 'serviceWorker', {
+        configurable: true, value: {
+          getRegistration: async () => registro,
+          register: async () => registro,
+        },
+      });
+    """)
+    chamadas = []
+    def api(route):
+        url = route.request.url
+        if url.endswith("/api/push/assinaturas/verificar"):
+            chamadas.append("verificar")
+            return route.fulfill(status=200, content_type="application/json",
+                                 body='{"registrada":false}')
+        if url.endswith("/api/push/chave-publica"):
+            return route.fulfill(status=200, content_type="application/json",
+                                 body=json.dumps({"chave": "B" * 88}))
+        if url.endswith("/api/push/assinaturas"):
+            chamadas.append("registrar")
+            corpo = route.request.post_data_json
+            assert corpo["endpoint"].endswith("/inscricao-renovada")
+            return route.fulfill(status=201, content_type="application/json", body='{"ok":true}')
+        if url.endswith("/api/solicitacoes/recebidas"):
+            return route.fulfill(status=200, content_type="application/json", body='{"itens":[],"total":0}')
+        if "/api/notificacoes" in url:
+            return route.fulfill(status=200, content_type="application/json",
+                                 body='{"itens":[],"naoLidas":0}')
+        return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
+    context.route("**/api/**", api)
+    page = context.new_page()
+    page.goto(BASE + "/painel", wait_until="load")
+    page.get_by_text("Alertas ativados neste aparelho").wait_for(timeout=20000)
+    estado = page.evaluate("window.__pushTeste")
+    assert estado == {"removidas": 1, "novas": 1}, estado
+    assert chamadas == ["verificar", "registrar"], chamadas
+    page.get_by_role("button", name="Reparar alertas").wait_for()
+    context.close()
+    print("PUSH 410: reinscrição obsoleta recuperada e registrada novamente OK")
+
+
 if __name__ == "__main__":
     wait_server()
     with sync_playwright() as p:
@@ -486,5 +561,6 @@ if __name__ == "__main__":
             teste_rodape_contextual(browser, mobile=False)
             teste_rodape_contextual(browser, mobile=True)
             teste_responsividade_central_notificacoes(browser)
+            teste_recuperacao_push_expirado(browser)
         finally:
             browser.close()
