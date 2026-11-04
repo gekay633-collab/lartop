@@ -8,7 +8,22 @@ const parametrosLista = z.object({
 const parametrosId = z.object({ id: z.string().uuid() });
 
 export async function notificacaoRoutes(app: FastifyInstance) {
-  const autenticado = { preHandler: app.exigirAutenticacao };
+  // O token pode continuar válido por alguns minutos após um bloqueio.
+  // A central recusa o acesso de contas inexistentes ou desativadas.
+  const autenticado = {
+    preHandler: [
+      app.exigirAutenticacao,
+      async (request: import('fastify').FastifyRequest, reply: import('fastify').FastifyReply) => {
+        const usuario = await prisma.usuario.findUnique({
+          where: { id: request.usuario!.id },
+          select: { ativo: true },
+        });
+        if (!usuario?.ativo) {
+          return reply.status(403).send({ erro: 'Conta inativa' });
+        }
+      },
+    ],
+  };
 
   // A consulta usa o usuário extraído do token; não aceita IDs de terceiros.
   app.get('/notificacoes', autenticado, async (request, reply) => {
