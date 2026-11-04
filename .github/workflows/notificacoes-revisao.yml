@@ -59,7 +59,7 @@ jobs:
         run: pnpm --filter @lartop/api exec prisma migrate status
       - name: Testar regras e mensagens
         run: pnpm --filter @lartop/api test:notificacoes
-      - name: Integracao real: permissoes, pedidos e concorrencia
+      - name: "Integracao real: permissoes, pedidos e concorrencia"
         run: pnpm --filter @lartop/api test:notificacoes:integration
       - name: Verificar tipagem do frontend
         run: pnpm --filter @lartop/web exec tsc --noEmit
