@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { obterSessao, encerrarSessao, type SessaoLocal } from "@/lib/auth-client";
+import { obterSessao, observarSessao, encerrarSessao, type SessaoLocal } from "@/lib/auth-client";
 import { SinoNotificacoes } from "@/components/SinoNotificacoes";
 import { desativarPushNoDispositivo } from "@/lib/push-client";
 
@@ -16,8 +16,10 @@ export function Cabecalho() {
   const [erroSaida, setErroSaida] = useState("");
 
   useEffect(() => {
-    setSessao(obterSessao());
+    const atualizar = () => setSessao(obterSessao());
+    atualizar();
     setCarregado(true);
+    return observarSessao(atualizar);
   }, []);
 
   async function sair() {
@@ -26,10 +28,11 @@ export function Cabecalho() {
     setErroSaida("");
     const token = sessao?.accessToken;
     try {
-      await encerrarSessao(token);
+      // Remove a assinatura Push no servidor antes de revogar a credencial.
       if (token) {
         await desativarPushNoDispositivo(token).catch(() => undefined);
       }
+      await encerrarSessao(token);
       setSessao(null);
       setMenuAberto(false);
       router.push("/");
