@@ -60,7 +60,14 @@ def scenario(browser, mobile=False):
     page.get_by_placeholder("E-mail").fill("fake@example.test")
     page.get_by_placeholder("Senha").fill("Senha123!SomenteTeste")
     page.locator('form button[type="submit"]').click()
-    page.wait_for_url(BASE + "/", timeout=20000)
+    try:
+        page.wait_for_url(BASE + "/", timeout=15000, wait_until="domcontentloaded")
+    except Exception:
+        print("BROWSER DEBUG URL:", page.url)
+        print("BROWSER DEBUG CALLS:", request_log[-15:])
+        print("BROWSER DEBUG TEXT:", page.locator("body").inner_text()[-1200:])
+        page.screenshot(path="/tmp/lartop-browser-failure.png", full_page=True)
+        raise
     assert page.evaluate("localStorage.getItem('lartop_access_token')") == "test-only-not-a-real-jwt"
 
     if mobile:
