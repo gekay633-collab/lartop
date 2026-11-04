@@ -1,3 +1,4 @@
+import { fetchAutenticado } from "@/lib/auth-client";
 const TIPOS_PERMITIDOS = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 const TAMANHO_MAXIMO_BYTES = 5 * 1024 * 1024; // O servidor também aplica este limite.
 
@@ -10,7 +11,7 @@ export async function enviarImagem(arquivo: File, accessToken: string): Promise<
   }
 
   // Não há mais assinatura Cloudinary no navegador. A API valida tamanho e conteúdo.
-  const resposta = await fetch("/api/upload/imagem", {
+  const resposta = await fetchAutenticado("/api/upload/imagem", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
