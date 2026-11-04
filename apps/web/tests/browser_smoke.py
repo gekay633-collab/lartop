@@ -522,6 +522,11 @@ def teste_recuperacao_push_expirado(browser):
         if url.endswith("/api/push/chave-publica"):
             return route.fulfill(status=200, content_type="application/json",
                                  body=json.dumps({"chave": "B" * 88}))
+        if url.endswith("/api/push/assinaturas") and route.request.method == "DELETE":
+            chamadas.append("remover")
+            corpo = route.request.post_data_json
+            assert corpo["endpoint"].endswith("/inscricao-antiga")
+            return route.fulfill(status=200, content_type="application/json", body='{"ok":true}')
         if url.endswith("/api/push/assinaturas"):
             chamadas.append("registrar")
             corpo = route.request.post_data_json
@@ -539,7 +544,7 @@ def teste_recuperacao_push_expirado(browser):
     page.get_by_text("Alertas ativados neste aparelho").wait_for(timeout=20000)
     estado = page.evaluate("window.__pushTeste")
     assert estado == {"removidas": 1, "novas": 1}, estado
-    assert chamadas == ["verificar", "registrar"], chamadas
+    assert chamadas == ["verificar", "remover", "registrar"], chamadas
     page.get_by_role("button", name="Reparar alertas").wait_for()
     context.close()
     print("PUSH 410: reinscrição obsoleta recuperada e registrada novamente OK")
