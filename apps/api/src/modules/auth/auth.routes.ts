@@ -17,7 +17,7 @@ import {
   redefinirSenha,
   AuthError,
 } from './auth.service.js';
-import { verificarAccessToken } from '../../lib/jwt.js';
+import { verificarAccessToken, verificarRefreshToken } from '../../lib/jwt.js';
 import { limiteAutenticacao } from '../../plugins/seguranca.js';
 import {
   consultarBloqueioLogin,
@@ -149,14 +149,26 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   app.post('/auth/logout', async (request, reply) => {
+    // Revoga também quando o access token já expirou, usando o refresh cookie.
     const auth = request.headers.authorization;
-    if (auth?.startsWith('Bearer ')) {
+    const tokenRefresh = request.cookies[COOKIE_REFRESH_NOME];
+    let usuarioId: string | undefined;
+    if (tokenRefresh) {
       try {
-        const payload = verificarAccessToken(auth.slice(7));
-        await revogarSessao(payload.sub);
+        usuarioId = verificarRefreshToken(tokenRefresh).sub;
       } catch {
-        // token ja invalido, segue o logout mesmo assim
+        // Cookie inválido: tenta identificar a sessão pelo access token.
       }
+    }
+    if (!usuarioId && auth?.startsWith('Bearer ')) {
+      try {
+        usuarioId = verificarAccessToken(auth.slice(7)).sub;
+      } catch {
+        // Token inválido ou expirado: limpa o cookie mesmo assim.
+      }
+    }
+    if (usuarioId) {
+      await revogarSessao(usuarioId);
     }
     reply.clearCookie(COOKIE_REFRESH_NOME, { path: '/' });
     return reply.send({ ok: true });
