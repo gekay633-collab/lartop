@@ -11,13 +11,12 @@ import {
   registrarProfissional,
   autenticar,
   renovarTokens,
-  revogarSessao,
+  revogarTokenRefresh,
   emitirTokens,
   solicitarRecuperacaoSenha,
   redefinirSenha,
   AuthError,
 } from './auth.service.js';
-import { verificarAccessToken, verificarRefreshToken } from '../../lib/jwt.js';
 import { limiteAutenticacao } from '../../plugins/seguranca.js';
 import {
   consultarBloqueioLogin,
@@ -149,29 +148,18 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   app.post('/auth/logout', async (request, reply) => {
-    // Revoga também quando o access token já expirou, usando o refresh cookie.
-    const auth = request.headers.authorization;
     const tokenRefresh = request.cookies[COOKIE_REFRESH_NOME];
-    let usuarioId: string | undefined;
-    if (tokenRefresh) {
-      try {
-        usuarioId = verificarRefreshToken(tokenRefresh).sub;
-      } catch {
-        // Cookie inválido: tenta identificar a sessão pelo access token.
+    try {
+      if (tokenRefresh) {
+        await revogarTokenRefresh(tokenRefresh);
       }
+      reply.clearCookie(COOKIE_REFRESH_NOME, { path: '/' });
+      return reply.send({ ok: true });
+    } catch (err) {
+      request.log.error(err);
+      // Se Redis falhar, não apresentar logout como concluído.
+      return reply.status(503).send({ erro: 'Não foi possível encerrar a sessão. Tente novamente.' });
     }
-    if (!usuarioId && auth?.startsWith('Bearer ')) {
-      try {
-        usuarioId = verificarAccessToken(auth.slice(7)).sub;
-      } catch {
-        // Token inválido ou expirado: limpa o cookie mesmo assim.
-      }
-    }
-    if (usuarioId) {
-      await revogarSessao(usuarioId);
-    }
-    reply.clearCookie(COOKIE_REFRESH_NOME, { path: '/' });
-    return reply.send({ ok: true });
   });
 
   app.post('/auth/esqueci-senha', limiteAutenticacao, async (request, reply) => {
