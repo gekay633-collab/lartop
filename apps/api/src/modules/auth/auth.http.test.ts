@@ -130,6 +130,23 @@ describe('autenticação HTTP com duas sessões e recuperação de senha', () =>
     }
   });
 
+  it('responde 503 sem revogar o cookie quando o Redis falha durante o refresh', async () => {
+    const sessao = await emitirTokens(id, 'CLIENTE');
+    const getdelOriginal = redis.getdel;
+    try {
+      redis.getdel = async () => { throw new Error('Redis indisponível em teste isolado'); };
+      const resposta = await app.inject({
+        method: 'POST', url: '/api/auth/refresh',
+        headers: { cookie: `lartop_refresh=${sessao.refreshToken}` },
+      });
+      assert.equal(resposta.statusCode, 503);
+      assert.doesNotMatch(JSON.stringify(resposta.headers['set-cookie'] ?? ''), /Max-Age=0/);
+    } finally {
+      redis.getdel = getdelOriginal;
+      await revogarSessao(id);
+    }
+  });
+
   it('o mesmo link de recuperação de senha só pode ser utilizado uma vez', async () => {
     const token = randomUUID() + randomUUID();
     await prisma.tokenRecuperacaoSenha.create({
@@ -147,7 +164,7 @@ describe('autenticação HTTP com duas sessões e recuperação de senha', () =>
     })).statusCode, 400, 'reutilização do link deve falhar');
 
     await assert.rejects(renovarTokens(sessaoAntiga.refreshToken),
-      /Sessão expirada ou revogada/);
+      /Credenciais alteradas|Sessão expirada ou revogada/);
     assert.equal((await app.inject({
       method: 'GET', url: '/api/usuarios/mim',
       headers: { authorization: `Bearer ${sessaoAntiga.accessToken}` },
