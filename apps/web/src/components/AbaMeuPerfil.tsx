@@ -1,3 +1,4 @@
+import { fetchAutenticado } from "@/lib/auth-client";
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -43,7 +44,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
 
   async function carregarPerfil() {
     try {
-      const resposta = await fetch("/api/perfil/mim", {
+      const resposta = await fetchAutenticado("/api/perfil/mim", {
         headers: { Authorization: `Bearer ${accessToken}` },
         cache: "no-store",
       });
@@ -102,7 +103,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
     setErro("");
     setMensagem("");
     try {
-      const resposta = await fetch(`/api/perfil/mim`, {
+      const resposta = await fetchAutenticado(`/api/perfil/mim`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ bio }),
@@ -128,7 +129,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
 
     setSalvandoTelefone(true);
     try {
-      const resposta = await fetch("/api/perfil/mim/telefone", {
+      const resposta = await fetchAutenticado("/api/perfil/mim/telefone", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -190,7 +191,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
     }
     setSalvando(true);
     try {
-      const resposta = await fetch("/api/perfil/mim/categorias", {
+      const resposta = await fetchAutenticado("/api/perfil/mim/categorias", {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ categorias: categoriasValidas.map((categoriaId) => ({ categoriaId })) }),
@@ -218,7 +219,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
     setErro("");
     try {
       const acao = perfil.perfilPublicado ? "despublicar" : "publicar";
-      const resposta = await fetch(`/api/perfil/mim/${acao}`, {
+      const resposta = await fetchAutenticado(`/api/perfil/mim/${acao}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}` },
       });
@@ -241,7 +242,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
     setMensagem("");
     try {
       const url = await enviarImagem(arquivo, accessToken);
-      const resposta = await fetch(`/api/perfil/mim`, {
+      const resposta = await fetchAutenticado(`/api/perfil/mim`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ fotoPerfilUrl: url }),
@@ -266,7 +267,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
     setMensagem("");
     try {
       const url = await enviarImagem(arquivo, accessToken);
-      const resposta = await fetch(`/api/perfil/mim/fotos`, {
+      const resposta = await fetchAutenticado(`/api/perfil/mim/fotos`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ urlDepois: url }),
