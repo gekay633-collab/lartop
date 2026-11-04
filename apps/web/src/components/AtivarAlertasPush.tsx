@@ -86,6 +86,16 @@ export function AtivarAlertasPush({ accessToken }: { accessToken: string }) {
     }
 
     if (assinatura && substituir) {
+      // Remover o endpoint antigo também do servidor: reparos manuais
+      // repetidos não podem acumular inscrições e atingir o limite de 5.
+      const exclusao = await fetchAutenticado("/api/push/assinaturas", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: assinatura.endpoint }),
+      });
+      if (!exclusao.ok) {
+        throw new Error("Não foi possível liberar a inscrição anterior. Tente novamente.");
+      }
       // O próprio navegador pode continuar retornando o endpoint expirado.
       // Um unsubscribe explícito força a obtenção de uma inscrição nova.
       await assinatura.unsubscribe();
