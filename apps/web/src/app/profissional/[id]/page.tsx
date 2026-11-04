@@ -1,6 +1,7 @@
 import { Cabecalho } from "@/components/Cabecalho";
 import { Rodape } from "@/components/Rodape";
 import { RegistradorEvento } from "@/components/RegistradorEvento";
+import { AcaoPedirOrcamento } from "@/components/AcaoPedirOrcamento";
 import { obterPerfilPublico, listarAvaliacoes, ehErroApi } from "@/lib/api";
 
 function iniciais(nome: string): string {
@@ -119,7 +120,7 @@ export default async function PerfilProfissionalPage({ params }: PageProps) {
                   </li>
                 ))}
               </ul>
-              <a href={`/solicitar?profissionalId=${perfil.usuarioId}`} className="mt-5 block rounded-xl bg-relva-500 px-4 py-3 text-center font-semibold text-sauge-50 transition hover:bg-relva-600">Pedir orçamento</a>
+              <AcaoPedirOrcamento profissionalId={perfil.usuarioId} />
             </div>
           </aside>
         </div>
