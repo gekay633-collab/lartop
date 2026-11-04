@@ -165,8 +165,8 @@ async function invalidarCachePerfil(usuarioId: string) {
 export { PerfilError };
 
 export async function obterPerfilPublico(usuarioId: string) {
-  const perfil = await prisma.perfilProfissional.findUnique({
-    where: { usuarioId, perfilPublicado: true },
+  const perfil = await prisma.perfilProfissional.findFirst({
+    where: { usuarioId, perfilPublicado: true, usuario: { ativo: true } },
     include: {
       cidade: true,
       categorias: { include: { categoria: true } },
