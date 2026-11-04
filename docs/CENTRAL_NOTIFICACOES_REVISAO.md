@@ -23,6 +23,25 @@ por destinatário, solicitação e tipo para evitar avisos repetidos.
 A central permite ver somente notificações vinculadas ao ID obtido do
 token autenticado; nenhum cliente pode consultar notificações de outro.
 
+## Descobertas da inspeção do Supabase real (2026-11-03)
+
+- Projeto da organização Lartop: plano gratuito, **sem backup automático diário**
+  (documentação oficial recomenda `supabase db dump` para exportar off-site).
+- Os arquivos de migração Prisma estão no repositório, mas a tabela
+  `_prisma_migrations` **não existe** no banco atual. Portanto,
+  **NÃO EXECUTAR `prisma migrate deploy` no banco real**: ele tentaria
+  executar a migração inicial sobre tabelas existentes.
+- O schema atual tem 12 tabelas `public` com RLS desativado; o
+  Supabase confirmou permissões `anon` e `authenticated` de SELECT/INSERT.
+  Esse é um risco crítico pré-existente que deve ser tratado em plano próprio,
+  **sem ativar RLS em massa** antes de testar a compatibilidade da aplicação.
+- A nova tabela de notificações é criada **com RLS ativado e grants
+  revogados para PUBLIC, anon e authenticated**; só o backend com conexão
+  privilegiada deve acessá-la.
+- O conector atual não oferece download de backup nem recuperação
+  verificável. **Não aplicar nova migração nem mesclar esta PR sem um
+  backup externo recuperável** e sem comparar roles/estrutura com a API real.
+
 ## Migração do Supabase
 
 **Não aplicar em produção antes da revisão.** Nova migração:

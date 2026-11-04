@@ -104,6 +104,17 @@ describe('central de notificações com banco de testes', () => {
     await prisma.$disconnect();
   });
 
+  it('mantém RLS ativo na nova tabela de notificações', async () => {
+    const verificacao = await prisma.$queryRaw<Array<{ ativo: boolean }>>`
+      SELECT c.relrowsecurity AS ativo
+      FROM pg_catalog.pg_class c
+      JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relname = 'notificacoes'
+    `;
+    assert.equal(verificacao.length, 1);
+    assert.equal(verificacao[0]?.ativo, true);
+  });
+
   it('gera aviso de novo pedido somente para o prestador', async () => {
     const pedido = await criarSolicitacao(clienteId, entrada());
     assert.equal(pedido.status, 'PENDENTE');
