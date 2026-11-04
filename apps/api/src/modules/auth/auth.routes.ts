@@ -144,7 +144,11 @@ export async function authRoutes(app: FastifyInstance) {
       definirCookieRefresh(reply, refreshToken);
       return reply.send({ accessToken });
     } catch (err) {
-      return reply.status(401).send({ erro: 'Sessão inválida, faça login novamente' });
+      if (err instanceof AuthError) {
+        return reply.status(401).send({ erro: 'Sessão inválida, faça login novamente' });
+      }
+      request.log.error({ err }, 'Falha temporária ao renovar sessão');
+      return reply.status(503).send({ erro: 'Não foi possível renovar a sessão agora. Tente novamente.' });
     }
   });
 
