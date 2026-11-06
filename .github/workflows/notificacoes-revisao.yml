@@ -111,6 +111,8 @@ jobs:
         run: |
           python3 -m pip install --quiet playwright==1.56.0
           python3 -m playwright install --with-deps chromium
+      - name: Validar sintaxe do service worker de notificações
+        run: node --check apps/web/public/sw.js
       - name: Testar interface real Next.js em desktop e janela movel
         run: |
           pnpm --filter @lartop/web dev > /tmp/lartop-next.log 2>&1 &

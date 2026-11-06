@@ -487,6 +487,7 @@ def teste_recuperacao_push_expirado(browser):
                         keys: { p256dh: 'a'.repeat(80), auth: 'b'.repeat(22) } }),
       };
       const registro = {
+        update: async () => undefined,
         pushManager: {
           getSubscription: async () => inscricao,
           subscribe: async () => {
@@ -519,6 +520,16 @@ def teste_recuperacao_push_expirado(browser):
             chamadas.append("verificar")
             return route.fulfill(status=200, content_type="application/json",
                                  body='{"registrada":false}')
+        if url.endswith("/api/push/teste") and route.request.method == "POST":
+            chamadas.append("agendar_teste")
+            corpo = route.request.post_data_json
+            assert corpo["endpoint"].endswith("/inscricao-renovada")
+            return route.fulfill(status=202, content_type="application/json",
+                                 body='{"id":"11111111-1111-4111-8111-111111111111","atrasoSegundos":12}')
+        if "/api/push/teste/" in url and route.request.method == "GET":
+            chamadas.append("consultar_teste")
+            return route.fulfill(status=200, content_type="application/json",
+                                 body='{"provedor":"aceito","worker":"showNotification_ok"}')
         if url.endswith("/api/push/chave-publica"):
             return route.fulfill(status=200, content_type="application/json",
                                  body=json.dumps({"chave": "B" * 88}))
@@ -546,8 +557,12 @@ def teste_recuperacao_push_expirado(browser):
     assert estado == {"removidas": 1, "novas": 1}, estado
     assert chamadas == ["verificar", "remover", "registrar"], chamadas
     page.get_by_role("button", name="Reparar alertas").wait_for()
+    page.get_by_role("button", name="Enviar teste em 12 segundos").click()
+    page.get_by_text("O navegador recebeu o Push e executou showNotification.", exact=False).wait_for(timeout=15000)
+    assert "agendar_teste" in chamadas
+    assert "consultar_teste" in chamadas
     context.close()
-    print("PUSH 410: reinscrição obsoleta recuperada e registrada novamente OK")
+    print("PUSH 410 + DIAGNÓSTICO: recuperação e status privado do teste no painel OK")
 
 
 

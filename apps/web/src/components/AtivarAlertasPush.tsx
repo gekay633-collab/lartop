@@ -56,6 +56,10 @@ export function AtivarAlertasPush({ accessToken }: { accessToken: string }) {
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState("");
   const [instrucaoIphone, setInstrucaoIphone] = useState(false);
+  const [testeId, setTesteId] = useState<string | null>(null);
+  const [resultadoTeste, setResultadoTeste] = useState<{ provedor: string; worker: string } | null>(null);
+  const [erroTeste, setErroTeste] = useState("");
+  const [testando, setTestando] = useState(false);
 
   /** Confirma a inscrição no servidor, e não apenas a permissão do Android. */
   async function registradaNoServidor(assinatura: PushSubscription): Promise<boolean> {
@@ -183,6 +187,78 @@ export function AtivarAlertasPush({ accessToken }: { accessToken: string }) {
     }
   }
 
+  async function iniciarTeste() {
+    if (testando) return;
+    setTestando(true);
+    setErroTeste("");
+    setResultadoTeste(null);
+    setTesteId(null);
+    try {
+      const registro = await navigator.serviceWorker.getRegistration("/");
+      // Verifica a versão do service worker antes de testar a confirmação;
+      // o PWA pode ter sido instalado antes dessa funcionalidade existir.
+      await registro?.update();
+      const assinatura = await registro?.pushManager.getSubscription();
+      if (!assinatura || Notification.permission !== "granted") {
+        throw new Error("Ative os alertas deste aparelho antes de testar.");
+      }
+
+      const resposta = await fetchAutenticado("/api/push/teste", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: assinatura.endpoint }),
+      });
+      const dados: unknown = await resposta.json().catch(() => null);
+      if (!resposta.ok) throw new Error(mensagemErro(resposta, dados));
+      if (!dados || typeof dados !== "object" || !("id" in dados) ||
+          typeof dados.id !== "string") {
+        throw new Error("O servidor não confirmou o agendamento do teste.");
+      }
+      setTesteId(dados.id);
+    } catch (e) {
+      setErroTeste(e instanceof Error ? e.message : "Não foi possível iniciar o teste.");
+    } finally {
+      setTestando(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!testeId) return;
+    let ativo = true;
+    async function consultar() {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const resposta = await fetchAutenticado(`/api/push/teste/${testeId}`, {
+          cache: "no-store",
+        });
+        const dados: unknown = await resposta.json().catch(() => null);
+        if (!resposta.ok || !dados || typeof dados !== "object" ||
+            !("provedor" in dados) || typeof dados.provedor !== "string" ||
+            !("worker" in dados) || typeof dados.worker !== "string") {
+          throw new Error("Não foi possível consultar o teste.");
+        }
+        if (ativo) {
+          setResultadoTeste({ provedor: dados.provedor, worker: dados.worker });
+          setErroTeste("");
+        }
+      } catch {
+        if (ativo) setErroTeste("Não foi possível consultar o resultado. Abra o painel novamente.");
+      }
+    }
+    void consultar();
+    const intervalo = window.setInterval(() => void consultar(), 3000);
+    const aoRetomar = () => { if (document.visibilityState === "visible") void consultar(); };
+    window.addEventListener("visibilitychange", aoRetomar);
+    window.addEventListener("focus", aoRetomar);
+    return () => {
+      ativo = false;
+      window.clearInterval(intervalo);
+      window.removeEventListener("visibilitychange", aoRetomar);
+      window.removeEventListener("focus", aoRetomar);
+    };
+  }, [testeId]);
+
   async function desativar() {
     if (ocupado) return;
     setOcupado(true);
@@ -226,6 +302,35 @@ export function AtivarAlertasPush({ accessToken }: { accessToken: string }) {
             className="rounded-lg border border-areia-300 px-3 py-2 text-pinho-700 disabled:opacity-50">
             {ocupado ? "Desativando..." : "Desativar"}
           </button>
+        </div>
+      )}
+      {estado === "ativo" && (
+        <div className="mt-4 border-t border-areia-300 pt-3">
+          <p className="font-semibold">Teste de notificação com a tela bloqueada</p>
+          <p className="mt-1 text-xs text-pinho-700">
+            Toque no botão e bloqueie o celular. O servidor enviará um aviso em 12 segundos.
+            Depois, desbloqueie e consulte o resultado aqui. Nenhum pedido será criado.
+          </p>
+          <button type="button" onClick={() => void iniciarTeste()} disabled={testando}
+            className="mt-2 rounded-lg border border-pinho-900 px-4 py-2 font-medium text-pinho-900 disabled:opacity-50">
+            {testando ? "Preparando teste..." : "Enviar teste em 12 segundos"}
+          </button>
+          {testeId && (
+            <div role="status" className="mt-2 rounded-lg bg-sauge-100 p-3 text-xs text-pinho-900">
+              {resultadoTeste?.worker === "showNotification_ok"
+                ? "O navegador recebeu o Push e executou showNotification. Confirme se o Android exibiu o aviso na tela bloqueada."
+                : resultadoTeste?.worker === "showNotification_falhou"
+                  ? "O navegador recebeu o Push, mas não conseguiu apresentar a notificação. Verifique as permissões do aplicativo no Android."
+                  : resultadoTeste?.provedor === "expirado"
+                    ? "O provedor informou que a inscrição expirou. Use Reparar alertas e faça um novo teste."
+                    : resultadoTeste?.provedor === "erro" || resultadoTeste?.provedor === "indisponivel"
+                      ? "O provedor não conseguiu aceitar o teste. Confira os alertas e tente novamente."
+                      : resultadoTeste?.provedor === "aceito"
+                        ? "O provedor aceitou o aviso; ainda não há confirmação do service worker. Caso não tenha aparecido, verifique as restrições de segundo plano."
+                        : "Teste agendado. Bloqueie a tela e aguarde o aviso; volte aqui para consultar o resultado."}
+            </div>
+          )}
+          {erroTeste && <p role="alert" className="mt-2 text-xs text-terra-600">{erroTeste}</p>}
         </div>
       )}
       {erro && <p role="alert" className="mt-2 text-terra-600">{erro}</p>}

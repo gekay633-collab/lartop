@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma.js';
 import {
   cadastrarAssinaturaPush, chavePublicaPush,
   removerAssinaturaPush, PushError,
+  agendarPushTeste, consultarPushTeste, confirmarPushTeste,
 } from './push.service.js';
 
 const assinaturaSchema = z.object({
@@ -14,6 +15,11 @@ const assinaturaSchema = z.object({
   }),
 });
 const removerSchema = z.object({ endpoint: z.string().url().max(1500) });
+const idTesteSchema = z.object({ id: z.string().uuid() });
+const reciboTesteSchema = z.object({
+  segredo: z.string().regex(/^[a-f0-9]{64}$/),
+  estado: z.enum(['exibida', 'falha']),
+});
 
 export async function pushRoutes(app: FastifyInstance) {
   // Só a chave pública é exposta. A privada reside exclusivamente no Railway.
@@ -60,6 +66,52 @@ export async function pushRoutes(app: FastifyInstance) {
     } catch (e) {
       request.log.error(e);
       return reply.status(503).send({ erro: 'Não foi possível verificar alertas agora' });
+    }
+  });
+
+  const guardProfissional = [...guard, app.exigirTipo(['PROFISSIONAL'])];
+
+  // Dispara apenas para a inscrição que pertence à pessoa conectada.
+  // Atraso de 12 segundos permite bloquear a tela antes do Push sair da API.
+  app.post('/push/teste', { preHandler: guardProfissional }, async (request, reply) => {
+    const parsed = removerSchema.safeParse(request.body);
+    if (!parsed.success) return reply.status(400).send({ erro: 'Inscrição inválida' });
+    try {
+      const resultado = await agendarPushTeste(request.usuario!.id, parsed.data.endpoint);
+      return reply.header('Cache-Control', 'no-store').status(202).send(resultado);
+    } catch (e) {
+      if (e instanceof PushError) return reply.status(e.status).send({ erro: e.message });
+      request.log.error({ err: e instanceof Error ? e.name : 'desconhecido' }, 'Erro no teste Push');
+      return reply.status(503).send({ erro: 'Teste Push indisponível. Tente novamente.' });
+    }
+  });
+
+  app.get('/push/teste/:id', { preHandler: guardProfissional }, async (request, reply) => {
+    const parsed = idTesteSchema.safeParse(request.params);
+    if (!parsed.success) return reply.status(400).send({ erro: 'Identificador inválido' });
+    try {
+      const resultado = await consultarPushTeste(request.usuario!.id, parsed.data.id);
+      return reply.header('Cache-Control', 'no-store').send(resultado);
+    } catch (e) {
+      if (e instanceof PushError) return reply.status(e.status).send({ erro: e.message });
+      request.log.error({ err: e instanceof Error ? e.name : 'desconhecido' }, 'Erro ao consultar teste Push');
+      return reply.status(503).send({ erro: 'Teste Push indisponível.' });
+    }
+  });
+
+  // Endpoint sem JWT porque service workers em segundo plano não acessam
+  // o localStorage. O segredo é aleatório, por teste, entregue no Push criptografado.
+  app.post('/push/teste/:id/confirmar', async (request, reply) => {
+    const params = idTesteSchema.safeParse(request.params);
+    const body = reciboTesteSchema.safeParse(request.body);
+    if (!params.success || !body.success) return reply.status(400).send({ erro: 'Confirmação inválida' });
+    try {
+      await confirmarPushTeste(params.data.id, body.data.segredo, body.data.estado);
+      return reply.header('Cache-Control', 'no-store').send({ ok: true });
+    } catch (e) {
+      if (e instanceof PushError) return reply.status(e.status).send({ erro: e.message });
+      request.log.error({ err: e instanceof Error ? e.name : 'desconhecido' }, 'Erro ao confirmar teste Push');
+      return reply.status(503).send({ erro: 'Não foi possível registrar a confirmação.' });
     }
   });
 

@@ -1,5 +1,7 @@
 import webpush from 'web-push';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { prisma } from '../../lib/prisma.js';
+import { redis } from '../../lib/redis.js';
 
 export interface DadosAssinatura {
   endpoint: string;
@@ -143,4 +145,124 @@ export async function enviarPushNotificacao(destinatarioId: string, aviso: Mensa
       console.error('[push] falha de entrega', { statusCode: codigo ?? 'rede' });
     }
   }));
+}
+
+
+/**
+ * Diagnóstico isolado, sem gerar solicitação ou notificação interna.
+ * A mensagem é disparada pelo SERVIDOR 12 segundos após o toque, permitindo
+ * bloquear o celular e conferir se o service worker foi realmente acordado.
+ *
+ * Dados efêmeros ficam em Redis por 15 minutos. Nada do endpoint/chaves do
+ * dispositivo é persistido na telemetria ou devolvido pelo status.
+ */
+const ATRASO_TESTE_MS = 12_000;
+const VALIDADE_TESTE_SEGUNDOS = 900;
+
+function chaveTeste(id: string) {
+  return `lartop:push-diagnostico:${id}`;
+}
+
+function hashConfirmacao(segredo: string) {
+  return createHash('sha256').update(segredo).digest('hex');
+}
+
+async function executarEnvioTeste(
+  id: string,
+  assinatura: { id: string; usuarioId: string; endpoint: string; chaveP256dh: string; chaveAuth: string },
+  segredo: string,
+) {
+  const vapid = configVapid();
+  if (!vapid) {
+    await redis.hset(chaveTeste(id), 'provedor', 'indisponivel');
+    return;
+  }
+  try {
+    const resultado = await webpush.sendNotification({
+      endpoint: assinatura.endpoint,
+      keys: { p256dh: assinatura.chaveP256dh, auth: assinatura.chaveAuth },
+    }, JSON.stringify({
+      title: 'Teste de notificações Lartop',
+      body: 'O aviso de teste chegou ao seu celular? Ele não é um pedido real.',
+      url: '/painel',
+      tag: id,
+      diagnostico: { id, segredo },
+    }), { vapidDetails: vapid, TTL: 180, urgency: 'high', timeout: 8000 });
+    await redis.hset(chaveTeste(id), 'provedor', resultado.statusCode >= 200 && resultado.statusCode < 300 ? 'aceito' : 'erro');
+    // Aceitação não significa apresentação pelo Android.
+    console.info('[push-teste] resposta do provedor', { statusCode: resultado.statusCode });
+  } catch (erro) {
+    const codigo = (erro as { statusCode?: number }).statusCode;
+    if (codigo === 404 || codigo === 410) {
+      await prisma.assinaturaPush.deleteMany({
+        where: { id: assinatura.id, usuarioId: assinatura.usuarioId },
+      }).catch(() => undefined);
+    }
+    await redis.hset(chaveTeste(id), 'provedor', codigo === 404 || codigo === 410 ? 'expirado' : 'erro').catch(() => undefined);
+    console.error('[push-teste] falha do provedor', { statusCode: codigo ?? 'rede' });
+  }
+}
+
+export async function agendarPushTeste(usuarioId: string, endpoint: string) {
+  if (!configVapid()) throw new PushError('Notificações Push não estão configuradas', 503);
+
+  const assinatura = await prisma.assinaturaPush.findFirst({
+    where: { usuarioId, endpoint },
+  });
+  if (!assinatura) {
+    throw new PushError('Este aparelho não está registrado. Repare os alertas antes do teste.', 409);
+  }
+
+  // Previne spam mesmo se houver muitas inscrições da mesma conta.
+  const permitido = await redis.set(`lartop:push-teste:limite:${usuarioId}`, '1', 'EX', 60, 'NX');
+  if (permitido !== 'OK') {
+    throw new PushError('Aguarde um minuto antes de iniciar outro teste.', 429);
+  }
+
+  const id = randomUUID();
+  const segredo = randomBytes(32).toString('hex');
+  const key = chaveTeste(id);
+  await redis.hset(key,
+    'usuarioId', usuarioId,
+    'segredoHash', hashConfirmacao(segredo),
+    'provedor', 'agendado',
+    'worker', 'aguardando',
+  );
+  await redis.expire(key, VALIDADE_TESTE_SEGUNDOS);
+
+  // O envio roda no servidor, independente de o celular estar em primeiro
+  // plano. Um reinício durante os 12s pode cancelar ESTE teste; não pedidos.
+  setTimeout(() => {
+    void executarEnvioTeste(id, assinatura, segredo).catch(() => {
+      console.error('[push-teste] falha inesperada no diagnóstico');
+    });
+  }, ATRASO_TESTE_MS);
+
+  return { id, atrasoSegundos: ATRASO_TESTE_MS / 1000 };
+}
+
+export async function consultarPushTeste(usuarioId: string, id: string) {
+  const dados = await redis.hgetall(chaveTeste(id));
+  if (!dados.usuarioId || dados.usuarioId !== usuarioId) {
+    throw new PushError('Teste não encontrado', 404);
+  }
+  return {
+    provedor: dados.provedor ?? 'agendado',
+    worker: dados.worker ?? 'aguardando',
+  };
+}
+
+/** Recebimento autenticado por segredo aleatório transportado DENTRO do Push. */
+export async function confirmarPushTeste(id: string, segredo: string, estado: 'exibida' | 'falha') {
+  const key = chaveTeste(id);
+  const dados = await redis.hgetall(key);
+  if (!dados.segredoHash || !/^[a-f0-9]{64}$/.test(dados.segredoHash)) {
+    throw new PushError('Teste não encontrado', 404);
+  }
+  const esperado = Buffer.from(dados.segredoHash, 'hex');
+  const recebido = Buffer.from(hashConfirmacao(segredo), 'hex');
+  if (!timingSafeEqual(esperado, recebido)) {
+    throw new PushError('Confirmação inválida', 403);
+  }
+  await redis.hset(key, 'worker', estado === 'exibida' ? 'showNotification_ok' : 'showNotification_falhou');
 }
