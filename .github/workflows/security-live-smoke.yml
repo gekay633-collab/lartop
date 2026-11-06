@@ -1,0 +1,50 @@
+name: Security smoke — live read-only checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/security-live-smoke.yml"
+      - "docs/AUDITORIA_SEGURANCA_LARTOP_2026-11-04.md"
+
+permissions:
+  contents: read
+
+jobs:
+  producao-readonly:
+    name: Verificar API e frontend sem alterar dados
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: API health (Railway)
+        run: |
+          curl --fail --silent --show-error --retry 2 --retry-delay 1 --max-time 20 \
+            "https://lartop-production.up.railway.app/health" \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["status"]=="ok"'
+
+      - name: Categorias públicas consultadas via Prisma e Supabase
+        run: |
+          curl --fail --silent --show-error --retry 2 --retry-delay 1 --max-time 20 \
+            "https://lartop-production.up.railway.app/api/categorias" \
+            | python3 -c 'import json,sys; a=json.load(sys.stdin); assert isinstance(a,list); assert all("id" in o and "nome" in o for o in a)'
+
+      - name: Chave pública Web Push disponível
+        run: |
+          curl --fail --silent --show-error --retry 2 --max-time 20 \
+            "https://lartop-production.up.railway.app/api/push/chave-publica" \
+            | python3 -c 'import json,sys; a=json.load(sys.stdin); assert isinstance(a["chave"],str) and len(a["chave"])>40'
+
+      - name: Sessões privadas e notificações exigem autenticação
+        run: |
+          for path in usuarios/mim notificacoes; do
+            status="$(curl --silent --show-error --output /dev/null --max-time 20 \
+              --write-out "%{http_code}" \
+              "https://lartop-production.up.railway.app/api/$path")"
+            test "$status" = "401" || { echo "Autenticação falhou em $path (HTTP $status)"; exit 1; }
+          done
+
+      - name: Frontend Lartop disponível
+        run: |
+          status="$(curl --silent --show-error --location --output /dev/null --max-time 20 \
+            --write-out "%{http_code}" "https://lartop-ats6.vercel.app/")"
+          test "$status" = "200" || { echo "Site indisponível (HTTP $status)"; exit 1; }
