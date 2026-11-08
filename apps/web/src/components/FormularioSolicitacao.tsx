@@ -139,7 +139,7 @@ function FormularioPedido({ profissionalId, profissionalNome, categorias, access
     setCarregando(true);
     try {
       const corpo = JSON.stringify({
-        profissionalId, categoriaId, cep: cep.replace(/\\D/g, ""),
+        profissionalId, categoriaId, cep: cep.replace(/\D/g, ""),
         endereco, tamanhoM2: Number(tamanhoM2), descricao: descricao || undefined,
       });
       const chave = await chaveDaTentativa(corpo);
