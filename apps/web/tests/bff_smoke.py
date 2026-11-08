@@ -60,6 +60,10 @@ class FakeRailway(BaseHTTPRequestHandler):
         auth = self.headers.get("Authorization", "")
         cookie = self.headers.get("Cookie", "")
         eventos.append(("POST", path, auth, cookie))
+        if path == "/api/solicitacoes":
+            if auth in (f"Bearer {ACCESS_INICIAL}", f"Bearer {ACCESS_NOVO}") and not cookie:
+                return self.responder(200, {"ok":True, "tipo": self.headers.get("Content-Type", "")})
+            return self.responder(401, {"erro":"Sem autorizacao segura"})
         if path == "/api/auth/login":
             return self.responder(200, {"accessToken":ACCESS_INICIAL},
                 "lartop_refresh=refresh-inicial; HttpOnly; SameSite=Lax; Path=/")
@@ -153,6 +157,19 @@ def main():
             assert resposta.status == 200, resposta.text()
             assert eventos[-1][2] == f"Bearer {ACCESS_INICIAL}", eventos[-1]
             assert eventos[-1][3] == "", "O Proxy não pode encaminhar cookies HttpOnly a APIs comuns"
+
+            # O mesmo gateway precisa enviar um JSON protegido e não pode
+            # aceitar Authorization fornecido por JavaScript ou propagar cookie.
+            novo_pedido = context.request.post(BASE + "/api/solicitacoes", headers={
+                "Origin": BASE,
+                "Sec-Fetch-Site": "same-origin",
+                "Content-Type": "application/json",
+                "Authorization": "Bearer falso-injetado-pelo-navegador",
+            }, data=json.dumps({"categoriaId": "categoria-teste"}))
+            assert novo_pedido.status == 200, novo_pedido.text()
+            assert eventos[-1][1] == "/api/solicitacoes"
+            assert eventos[-1][2] == f"Bearer {ACCESS_INICIAL}", eventos[-1]
+            assert eventos[-1][3] == "", eventos[-1]
 
             # Origin cross-site não pode modificar nenhum estado com cookies.
             qtd_logout_antes = sum(x[1] == "/api/auth/logout" for x in eventos)

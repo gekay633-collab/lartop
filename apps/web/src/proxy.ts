@@ -1,11 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import {
-  CHAVE_COOKIE_ACESSO_LOCAL,
-  CHAVE_COOKIE_ACESSO_PRODUCAO,
-  ehMetodoMutavel,
-  origemConfiavel,
-} from "@/lib/seguranca-bff";
+import { ehMetodoMutavel, origemConfiavel } from "@/lib/seguranca-bff";
 
 function politicaConteudo(nonce: string): string {
   const dev = process.env.NODE_ENV !== "production";
@@ -34,9 +29,9 @@ function responderErro(status: number, texto: string) {
 }
 
 /**
- * Next Proxy executa ANTES do rewrite público /api -> Railway.
- * Apenas o servidor lê o JWT HttpOnly e o injeta para a API Fastify.
- * Nunca aceitar Authorization fornecido por JavaScript do navegador.
+ * Next Proxy validates request origin. All /api/* paths are handled by a
+ * same-origin Route Handler that reads the HttpOnly cookie on the server and
+ * calls Railway directly; no external rewrites or browser-provided Bearer.
  */
 export function proxy(request: NextRequest) {
   const caminho = request.nextUrl.pathname;
@@ -62,31 +57,9 @@ export function proxy(request: NextRequest) {
       return responderErro(403, "Origem não autorizada");
     }
 
-    if (api) {
-      // Somente o gateway de autenticação BFF pode receber refresh cookie.
-      // Nenhuma outra API (inclusive uploads) recebe cookies diretamente.
-      headers.delete("cookie");
-      const jwt = request.cookies.get(CHAVE_COOKIE_ACESSO_PRODUCAO)?.value ||
-        request.cookies.get(CHAVE_COOKIE_ACESSO_LOCAL)?.value;
-      if (jwt && jwt.length <= 4096) headers.set("Authorization", `Bearer ${jwt}`);
-    }
-    // Vercel must receive the authenticated header on the SAME rewrite that
-    // proxies the request to Railway. A separate next.config rewrite can
-    // lose Proxy's request header overrides on the external-hop path.
-    if (api) {
-      const backend = (process.env.API_BACKEND_URL?.trim() ||
-        (process.env.NODE_ENV === "production"
-          ? "https://lartop-production.up.railway.app"
-          : "http://localhost:3333")).replace(/[/]+$/, "");
-      const destino = new URL(backend);
-      // Assign pathname rather than resolving a client-provided // path as a host.
-      destino.pathname = caminho;
-      destino.search = request.nextUrl.search;
-      headers.delete("host");
-      const response = NextResponse.rewrite(destino, { request: { headers } });
-      response.headers.set("Cache-Control", "private, no-store");
-      return response;
-    }
+    // Keep HttpOnly cookies on the internal Next Route Handler request.
+    // The handler strips cookies and builds Authorization on the server
+    // before making its separate HTTP request to Railway.
 
     const response = NextResponse.next({ request: { headers } });
     response.headers.set("Cache-Control", "private, no-store");
