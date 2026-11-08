@@ -132,6 +132,9 @@ let renovacaoPendente: Promise<void> | null = null;
 async function renovarSessao(): Promise<void> {
   if (renovacaoPendente) return renovacaoPendente;
   const promessa = comBloqueioSessao(async () => {
+    // Uma segunda aba pode ter acabado de renovar os cookies dentro do lock.
+    // Nesse caso não consumir novamente o token refresh rotativo.
+    if (await usuarioAtual()) return;
     // Nunca solicitar ou ler um JWT no JavaScript. O BFF usa o refresh
     // HttpOnly e devolve somente metadados, definindo novo access HttpOnly.
     let resposta: Response;
