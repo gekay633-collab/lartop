@@ -45,13 +45,18 @@ def scenario(browser, mobile=False):
                 headers={"Set-Cookie": "lartop_refresh=fake-for-browser-test; Path=/; HttpOnly; SameSite=Lax"},
                 body=json.dumps({"accessToken": "test-only-not-a-real-jwt"}))
         if url.endswith("/api/usuarios/mim"):
+            if "lartop_refresh=fake-for-browser-test" not in req.headers.get("cookie", ""):
+                return route.fulfill(status=401, content_type="application/json",
+                    body='{"erro":"sem sessão"}')
             return route.fulfill(status=200, content_type="application/json",
                 body=json.dumps({"id":"fake-user","nome":"Teste Navegador","tipo":"CLIENTE","email":"fake@example.test"}))
         if url.endswith("/api/auth/logout"):
             if logout_should_fail:
                 return route.fulfill(status=503, content_type="application/json",
                     body='{"erro":"Simulação de falha"}')
-            return route.fulfill(status=200, content_type="application/json", body='{"ok":true}')
+            return route.fulfill(status=200, content_type="application/json",
+                headers={"Set-Cookie":"lartop_refresh=; Path=/; Max-Age=0; HttpOnly"},
+                body='{"ok":true}')
         if url.endswith("/api/notificacoes"):
             return route.fulfill(status=200, content_type="application/json",
                 body='{"itens":[],"naoLidas":0}')
