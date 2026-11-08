@@ -1,16 +1,16 @@
 import { z } from 'zod';
 
 export const listarPrestadoresQuerySchema = z.object({
-  busca: z.string().optional(),
+  busca: z.string().trim().max(120).optional(),
   status: z.enum(['publicado', 'nao_publicado']).optional(),
-  pagina: z.coerce.number().min(1).default(1),
-  porPagina: z.coerce.number().min(1).max(100).default(20),
+  pagina: z.coerce.number().int().min(1).max(100000).default(1),
+  porPagina: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 export const listarClientesQuerySchema = z.object({
-  busca: z.string().optional(),
-  pagina: z.coerce.number().min(1).default(1),
-  porPagina: z.coerce.number().min(1).max(100).default(20),
+  busca: z.string().trim().max(120).optional(),
+  pagina: z.coerce.number().int().min(1).max(100000).default(1),
+  porPagina: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 export const alternarBloqueioSchema = z.object({
