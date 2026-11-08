@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { obterSessao, observarSessao, encerrarSessao, type SessaoLocal } from "@/lib/auth-client";
+import { obterSessao, restaurarSessao, observarSessao, encerrarSessao, type SessaoLocal } from "@/lib/auth-client";
 import { SinoNotificacoes } from "@/components/SinoNotificacoes";
 import { desativarPushNoDispositivo } from "@/lib/push-client";
 
@@ -16,10 +16,26 @@ export function Cabecalho() {
   const [erroSaida, setErroSaida] = useState("");
 
   useEffect(() => {
-    const atualizar = () => setSessao(obterSessao());
-    atualizar();
-    setCarregado(true);
-    return observarSessao(atualizar);
+    let ativo = true;
+    async function inicializar() {
+      try {
+        const validada = await restaurarSessao();
+        if (ativo) setSessao(validada);
+      } catch {
+        // Não exibir automaticamente área autenticada em erro temporário.
+        if (ativo) setSessao(null);
+      } finally {
+        if (ativo) setCarregado(true);
+      }
+    }
+    void inicializar();
+    const atualizar = () => {
+      const dica = obterSessao();
+      setSessao(dica);
+      if (dica) void inicializar();
+    };
+    const parar = observarSessao(atualizar);
+    return () => { ativo = false; parar(); };
   }, []);
 
   async function sair() {
