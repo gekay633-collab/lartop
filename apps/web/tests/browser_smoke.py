@@ -424,9 +424,9 @@ def teste_responsividade_central_notificacoes(browser):
         acoes = []
 
         def api(route):
-        if route.request.url.endswith("/api/usuarios/mim"):
-            return route.fulfill(status=200, content_type="application/json",
-                body=json.dumps({"id":"conta-teste","nome":"Conta Teste","tipo":"PROFISSIONAL"}))
+            if route.request.url.endswith("/api/usuarios/mim"):
+                return route.fulfill(status=200, content_type="application/json",
+                    body=json.dumps({"id":"conta-teste","nome":"Conta Teste","tipo":"PROFISSIONAL"}))
             url = route.request.url
             if "/api/notificacoes?" in url:
                 itens = [
