@@ -66,6 +66,8 @@ jobs:
           cache: pnpm
       - name: Instalar dependencias sem alteracao de lockfile
         run: pnpm install --frozen-lockfile
+      - name: Auditar vulnerabilidades altas e críticas das dependências de produção
+        run: pnpm audit --prod --audit-level high
       - name: Validar Prisma e compilar API
         run: pnpm --filter @lartop/api build
       - name: Aplicar migracoes APENAS no Postgres temporario de CI
