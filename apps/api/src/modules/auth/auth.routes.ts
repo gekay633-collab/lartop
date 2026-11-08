@@ -38,6 +38,30 @@ function definirCookieRefresh(reply: any, refreshToken: string) {
 }
 
 export async function authRoutes(app: FastifyInstance) {
+  // Authentication responses must never be stored by browsers or intermediary caches.
+  app.addHook('onSend', async (_request, reply, payload) => {
+    reply.header('Cache-Control', 'no-store');
+    reply.header('Pragma', 'no-cache');
+    return payload;
+  });
+
+  // Cookie-authenticated endpoints must not accept cross-origin browser requests.
+  // Missing Origin is allowed for native clients; browser cross-site requests send it.
+  app.addHook('onRequest', async (request, reply) => {
+    if (request.url.split('?')[0] !== '/auth/refresh' &&
+        request.url.split('?')[0] !== '/auth/logout') return;
+    const origin = request.headers.origin;
+    if (!origin) return;
+    const configured = process.env.FRONTEND_URL?.trim() ||
+      (process.env.NODE_ENV === 'production'
+        ? 'https://lartop-ats6.vercel.app' : 'http://localhost:3000');
+    let allowed: string;
+    try { allowed = new URL(configured).origin; }
+    catch { return reply.status(503).send({ erro: 'Origem oficial não configurada' }); }
+    if (origin !== allowed) {
+      return reply.status(403).send({ erro: 'Origem não autorizada' });
+    }
+  });
   app.post('/auth/registrar/cliente', limiteAutenticacao, async (request, reply) => {
     const parse = registrarClienteSchema.safeParse(request.body);
     if (!parse.success) {
