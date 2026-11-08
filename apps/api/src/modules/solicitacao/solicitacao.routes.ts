@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { redis } from '../../lib/redis.js';
 import {
   criarSolicitacaoSchema,
   atualizarStatusSchema,
@@ -13,6 +14,23 @@ import {
   SolicitacaoError,
 } from './solicitacao.service.js';
 
+// Evita que uma conta gratuita inunde um prestador com pedidos e Push.
+// A contagem é atômica entre réplicas. Não usa IP, que pode ser compartilhado
+// por usuários legítimos atrás de proxies ou redes móveis.
+const MAX_PEDIDOS_JANELA = 12;
+const SCRIPT_LIMITE_PEDIDOS = `
+  local quantidade = redis.call('INCR', KEYS[1])
+  if quantidade == 1 then redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1])) end
+  return quantidade
+`;
+
+async function aceitarMaisUmPedido(clienteId: string): Promise<boolean> {
+  const quantidade = Number(await redis.eval(
+    SCRIPT_LIMITE_PEDIDOS, 1, `limite:solicitacoes:${clienteId}`, '900',
+  ));
+  return quantidade <= MAX_PEDIDOS_JANELA;
+}
+
 export async function solicitacaoRoutes(app: FastifyInstance) {
   const somenteCliente = [app.exigirAutenticacao, app.exigirTipo(['CLIENTE'])];
   const somenteProfissional = [app.exigirAutenticacao, app.exigirTipo(['PROFISSIONAL'])];
@@ -24,6 +42,11 @@ export async function solicitacaoRoutes(app: FastifyInstance) {
     }
 
     try {
+      if (!(await aceitarMaisUmPedido(request.usuario!.id))) {
+        return reply.status(429).send({
+          erro: 'Muitos pedidos em pouco tempo. Aguarde 15 minutos para tentar novamente.',
+        });
+      }
       const solicitacao = await criarSolicitacao(request.usuario!.id, parse.data);
       return reply.status(201).send(solicitacao);
     } catch (err) {
