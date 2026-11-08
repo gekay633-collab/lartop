@@ -91,15 +91,33 @@ export async function POST(request: NextRequest, { params }: Contexto): Promise<
     return enviarErro(502, "Sessão não confirmada pelo servidor");
   }
 
+  // Não copiar Set-Cookie cru: NextResponse.cookies.set pode substituir
+  // headers Set-Cookie anexados manualmente, perdendo o refresh HttpOnly.
+  // Reemitir somente a credencial de renovação conhecida, com os mesmos
+  // atributos seguros definidos pela API Fastify.
+  const cookieDoServidor = upstream.headers.getSetCookie()
+    .find(cookie => cookie.startsWith("lartop_refresh="));
+  const refreshAtualizado = cookieDoServidor
+    ? cookieDoServidor.split(";", 1)[0].slice("lartop_refresh=".length)
+    : null;
+  const exigeRefresh = sucesso && ["login", "refresh", "registrar/cliente", "registrar/profissional"].includes(acao);
+  if (exigeRefresh && (!refreshAtualizado || refreshAtualizado.length > 4096)) {
+    return enviarErro(502, "O servidor não confirmou o cookie de renovação.");
+  }
+
   const resposta = NextResponse.json(sanitizado, { status: upstream.status });
   resposta.headers.set("Cache-Control", "no-store, private");
   resposta.headers.set("Pragma", "no-cache");
 
-  // Copiar apenas o cookie de renovação emitido pelo Railway.
-  for (const cookie of upstream.headers.getSetCookie()) {
-    if (cookie.startsWith("lartop_refresh=")) {
-      resposta.headers.append("Set-Cookie", cookie);
-    }
+  const secure = request.nextUrl.protocol === "https:";
+  if (sucesso && refreshAtualizado && acao !== "logout") {
+    resposta.cookies.set("lartop_refresh", refreshAtualizado, {
+      httpOnly: true,
+      secure,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 30 * 24 * 60 * 60,
+    });
   }
 
   const nome = cookieAcessoParaUrl(request.nextUrl);
@@ -113,6 +131,7 @@ export async function POST(request: NextRequest, { params }: Contexto): Promise<
     });
   }
   if (sucesso && acao === "logout") {
+    resposta.cookies.delete("lartop_refresh");
     resposta.cookies.delete(nome);
     // Rotação de contexto (http local/https): limpar nome de desenvolvimento.
     if (nome !== "lartop_access") resposta.cookies.delete("lartop_access");
