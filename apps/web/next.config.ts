@@ -18,6 +18,8 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Content-Security-Policy", value: "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'" },
+          // Monitor scripts before enforcing a nonce-based policy in Next.js.
+          { key: "Content-Security-Policy-Report-Only", value: "script-src 'self'; script-src-attr 'none'; object-src 'none'; base-uri 'self'" },
         ],
       },
       {
