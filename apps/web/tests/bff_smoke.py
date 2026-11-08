@@ -52,7 +52,11 @@ class FakeRailway(BaseHTTPRequestHandler):
     def do_POST(self):
         path = urlparse(self.path).path
         size = min(int(self.headers.get("Content-Length", "0")), 32768)
-        _ = self.rfile.read(size)
+        body = self.rfile.read(size)
+        # Reproduce Fastify's JSON parser: an empty JSON POST is rejected
+        # before the refresh/logout handler runs (HTTP 400).
+        if not body and self.headers.get("Content-Type", "").lower().startswith("application/json"):
+            return self.responder(400, {"erro": "JSON body vazio"})
         auth = self.headers.get("Authorization", "")
         cookie = self.headers.get("Cookie", "")
         eventos.append(("POST", path, auth, cookie))
