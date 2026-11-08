@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useGuardaAdmin } from "@/components/GuardaAdmin";
+import { ErroValidacaoSessao } from "@/components/ErroValidacaoSessao";
 import { encerrarSessao } from "@/lib/auth-client";
 
 const ITENS_MENU = [
@@ -15,12 +16,16 @@ const ITENS_MENU = [
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { sessao, carregando } = useGuardaAdmin();
+  const { sessao, carregando, erroSessao } = useGuardaAdmin();
   const pathname = usePathname();
   const router = useRouter();
   const [menuAberto, setMenuAberto] = useState(false);
   const [saindo, setSaindo] = useState(false);
   const [erroSaida, setErroSaida] = useState("");
+
+  if (erroSessao) {
+    return <ErroValidacaoSessao mensagem={erroSessao} />;
+  }
 
   if (carregando || !sessao) {
     return <div className="flex min-h-screen items-center justify-center text-pinho-700">Carregando...</div>;
