@@ -192,7 +192,8 @@ export async function listarSolicitacoesRecebidas(
         categoria: true,
         cliente: { select: { id: true, nome: true, telefone: true, telefoneVerificado: true } },
       },
-      orderBy: { criadoEm: 'desc' },
+      // Desempate por ID evita itens repetidos entre páginas com mesmo timestamp.
+      orderBy: [{ criadoEm: 'desc' }, { id: 'desc' }],
       skip: (query.pagina - 1) * query.porPagina,
       take: query.porPagina,
     }),
@@ -216,7 +217,8 @@ export async function listarMinhasSolicitacoes(clienteId: string, query: ListarS
         profissional: { select: { nomeExibicao: true, fotoPerfilUrl: true } },
         avaliacoes: { where: { avaliadorId: clienteId }, select: { id: true } },
       },
-      orderBy: { criadoEm: 'desc' },
+      // Desempate por ID evita itens repetidos entre páginas com mesmo timestamp.
+      orderBy: [{ criadoEm: 'desc' }, { id: 'desc' }],
       skip: (query.pagina - 1) * query.porPagina,
       take: query.porPagina,
     }),
