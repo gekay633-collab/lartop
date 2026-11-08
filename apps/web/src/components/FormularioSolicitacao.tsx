@@ -1,9 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { restaurarSessao, entrar, registrarComoCliente, fetchAutenticado, type SessaoLocal } from "@/lib/auth-client";
 
 
+
+// O armazenamento contém somente UUID e SHA-256 dos dados, nunca endereço,
+// descrição ou credenciais. A tentativa sobrevive a timeout/reload da aba.
+const CHAVE_REENVIO = "lartop:solicitacao-pendente:v1";
+async function chaveDaTentativa(corpo: string): Promise<string> {
+  const hashBytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(corpo));
+  const resumo = [...new Uint8Array(hashBytes)].map(b => b.toString(16).padStart(2, "0")).join("");
+  try {
+    const anterior: unknown = JSON.parse(sessionStorage.getItem(CHAVE_REENVIO) || "null");
+    if (anterior && typeof anterior === "object" &&
+        "resumo" in anterior && anterior.resumo === resumo &&
+        "chave" in anterior && typeof anterior.chave === "string" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(anterior.chave)) {
+      return anterior.chave;
+    }
+  } catch { /* storage desabilitado: a proteção no servidor permanece */ }
+  const chave = crypto.randomUUID();
+  try { sessionStorage.setItem(CHAVE_REENVIO, JSON.stringify({ resumo, chave })); } catch { /* opcional */ }
+  return chave;
+}
+function finalizarTentativa(chave: string): void {
+  try {
+    const salvo: unknown = JSON.parse(sessionStorage.getItem(CHAVE_REENVIO) || "null");
+    if (salvo && typeof salvo === "object" && "chave" in salvo && salvo.chave === chave) {
+      sessionStorage.removeItem(CHAVE_REENVIO);
+    }
+  } catch { /* opcional */ }
+}
 
 interface Categoria {
   id: string;
@@ -93,6 +121,7 @@ function AcessoRapido({ onEntrou }: { onEntrou: (s: SessaoLocal) => void }) {
 }
 
 function FormularioPedido({ profissionalId, profissionalNome, categorias, accessToken }: { profissionalId: string; profissionalNome: string; categorias: Categoria[]; accessToken: string }) {
+  const enviandoRef = useRef(false);
   const [categoriaId, setCategoriaId] = useState(categorias[0]?.categoria.id ?? "");
   const [cep, setCep] = useState("");
   const [endereco, setEndereco] = useState("");
@@ -104,22 +133,37 @@ function FormularioPedido({ profissionalId, profissionalNome, categorias, access
 
   async function aoSubmeter(evento: React.FormEvent) {
     evento.preventDefault();
+    if (enviandoRef.current) return;
+    enviandoRef.current = true;
     setErro("");
     setCarregando(true);
     try {
-      const resposta = await fetchAutenticado(`/api/solicitacoes`, {
+      const corpo = JSON.stringify({
+        profissionalId, categoriaId, cep: cep.replace(/\\D/g, ""),
+        endereco, tamanhoM2: Number(tamanhoM2), descricao: descricao || undefined,
+      });
+      const chave = await chaveDaTentativa(corpo);
+      const resposta = await fetchAutenticado("/api/solicitacoes", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ profissionalId, categoriaId, cep: cep.replace(/\D/g, ""), endereco, tamanhoM2: Number(tamanhoM2), descricao: descricao || undefined }),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": chave,
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: corpo,
       });
       const dados = await resposta.json();
       if (!resposta.ok) {
         throw new Error(dados.erro ?? "Não foi possível enviar a solicitação");
       }
+      finalizarTentativa(chave);
       setLinkWhatsapp(dados.linkWhatsapp);
     } catch (err) {
+      // Um timeout pode ocorrer DEPOIS do commit no banco. Retemos a chave
+      // para que a próxima tentativa recupere o mesmo pedido, sem novo Push.
       setErro(err instanceof Error ? err.message : "Algo deu errado");
     } finally {
+      enviandoRef.current = false;
       setCarregando(false);
     }
   }
