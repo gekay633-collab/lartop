@@ -131,6 +131,16 @@ def main():
             assert antigo_refresh.status == 410, antigo_refresh.text()
             assert "accessToken" not in antigo_refresh.text()
 
+            # Dados excessivos devem ser rejeitados antes da API Fastify,
+            # sem alocar o corpo inteiro em memória nem gerar log de senha.
+            qtd_login_antes_limite = sum(x[1] == "/api/auth/login" for x in eventos)
+            grande = context.request.post(BASE + "/bff/auth/login", headers={
+                "Origin": BASE, "Sec-Fetch-Site": "same-origin",
+                "Content-Type": "application/json",
+            }, data="x" * 20_000)
+            assert grande.status == 413, grande.text()
+            assert sum(x[1] == "/api/auth/login" for x in eventos) == qtd_login_antes_limite
+
             # Browser tenta injetar um Bearer malicioso: o Proxy deve ignorar
             # esse header e entregar à API só o JWT do cookie HttpOnly.
             resposta = context.request.get(BASE + "/api/usuarios/mim", headers={
