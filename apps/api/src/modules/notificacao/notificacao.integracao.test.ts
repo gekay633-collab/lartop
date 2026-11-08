@@ -225,6 +225,23 @@ describe('central de notificações com banco de testes', () => {
     }
   });
 
+  it('limita criação abusiva de solicitações por cliente sem gerar pedido ou Push', async () => {
+    const chave = `limite:solicitacoes:${clienteId}`;
+    const antes = await prisma.solicitacaoOrcamento.count({ where: { clienteId } });
+    await redis.set(chave, '12', 'EX', 900);
+    try {
+      const resposta = await app.inject({
+        method: 'POST', url: '/api/solicitacoes',
+        headers: { authorization: `Bearer ${clienteToken}` },
+        payload: entrada(),
+      });
+      assert.equal(resposta.statusCode, 429);
+      assert.equal(await prisma.solicitacaoOrcamento.count({ where: { clienteId } }), antes);
+    } finally {
+      await redis.del(chave);
+    }
+  });
+
   it('mantém RLS ativo na nova tabela de notificações', async () => {
     const verificacao = await prisma.$queryRaw<Array<{ ativo: boolean }>>`
       SELECT c.relrowsecurity AS ativo
