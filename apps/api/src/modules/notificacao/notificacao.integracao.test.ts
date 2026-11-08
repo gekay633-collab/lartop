@@ -10,6 +10,8 @@ import { emitirTokens } from '../auth/auth.service.js';
 import { solicitacaoRoutes } from '../solicitacao/solicitacao.routes.js';
 import { notificacaoRoutes } from './notificacao.routes.js';
 import { pushRoutes } from '../push/push.routes.js';
+import { perfilRoutes } from '../perfil/perfil.routes.js';
+import { avaliacaoRoutes } from '../avaliacao/avaliacao.routes.js';
 import {
   criarSolicitacao,
   atualizarStatusComoProfissional,
@@ -59,6 +61,8 @@ describe('central de notificações com banco de testes', () => {
     await app.register(notificacaoRoutes, { prefix: '/api' });
     await app.register(solicitacaoRoutes, { prefix: '/api' });
     await app.register(pushRoutes, { prefix: '/api' });
+    await app.register(perfilRoutes, { prefix: '/api' });
+    await app.register(avaliacaoRoutes, { prefix: '/api' });
     await app.ready();
 
     const cidade = await prisma.cidade.create({
@@ -128,6 +132,113 @@ describe('central de notificações com banco de testes', () => {
       assert.equal(acessoContaBloqueada.statusCode, 401);
     } finally {
       await prisma.usuario.update({ where: { id: clienteId }, data: { ativo: true } });
+    }
+  });
+
+  it('API pública não revela CEP-base, coordenadas ou informações internas do prestador', async () => {
+    const resposta = await app.inject({
+      method: 'GET', url: `/api/profissionais/${profissionalId}`,
+    });
+    assert.equal(resposta.statusCode, 200);
+    const perfil = resposta.json() as Record<string, any>;
+    assert.equal(perfil.usuarioId, profissionalId);
+    assert.equal(perfil.nomeExibicao, 'Profissional teste');
+    assert.equal(perfil.cidade?.nome, 'Cidade teste');
+
+    // Nenhuma informação que permita localizar o domicílio do prestador
+    // nem campos financeiros/operacionais internos na API pública.
+    for (const campo of ['cepBase', 'lat', 'lng', 'plano', 'perfilPublicado',
+                         'atualizadoEm', 'usuario']) {
+      assert.equal(Object.hasOwn(perfil, campo), false, `campo privado: ${campo}`);
+    }
+    for (const campo of ['lat', 'lng']) {
+      assert.equal(Object.hasOwn(perfil.cidade, campo), false, `cidade privada: ${campo}`);
+    }
+    const privadoSemAutenticacao = await app.inject({
+      method: 'GET', url: '/api/perfil/mim',
+    });
+    assert.equal(privadoSemAutenticacao.statusCode, 401);
+    const privadoAutenticado = await app.inject({
+      method: 'GET', url: '/api/perfil/mim',
+      headers: { authorization: `Bearer ${profissionalToken}` },
+    });
+    assert.equal(privadoAutenticado.statusCode, 200);
+    assert.equal(privadoAutenticado.json().cepBase, '24900000');
+
+    await prisma.perfilProfissional.update({
+      where: { usuarioId: profissionalId },
+      data: { perfilPublicado: false },
+    });
+    try {
+      const despublicado = await app.inject({
+        method: 'GET', url: `/api/profissionais/${profissionalId}`,
+      });
+      assert.equal(despublicado.statusCode, 404);
+    } finally {
+      await prisma.perfilProfissional.update({
+        where: { usuarioId: profissionalId },
+        data: { perfilPublicado: true },
+      });
+    }
+  });
+
+  it('avaliações públicas desaparecem se perfil é despublicado ou conta inativada', async () => {
+    const pedido = await prisma.solicitacaoOrcamento.create({
+      data: {
+        clienteId, profissionalId, categoriaId, cep: '24900000',
+        endereco: 'Pedido de avaliação reservado ao CI',
+        tamanhoM2: 10, status: 'CONCLUIDA',
+      },
+    });
+    try {
+      await prisma.avaliacao.create({
+        data: {
+          solicitacaoId: pedido.id, avaliadorId: clienteId,
+          avaliadoId: profissionalId, tipo: 'CLIENTE_AVALIA_PROFISSIONAL',
+          nota: 5, comentario: 'Avaliação do banco descartável',
+        },
+      });
+      const caminho = `/api/profissionais/${profissionalId}/avaliacoes`;
+      const publico = await app.inject({ method: 'GET', url: caminho });
+      assert.equal(publico.statusCode, 200);
+      assert.ok((publico.json() as { id: string }[]).length > 0);
+
+      await prisma.perfilProfissional.update({
+        where: { usuarioId: profissionalId }, data: { perfilPublicado: false },
+      });
+      const oculto = await app.inject({ method: 'GET', url: caminho });
+      assert.deepEqual(oculto.json(), []);
+      await prisma.perfilProfissional.update({
+        where: { usuarioId: profissionalId }, data: { perfilPublicado: true },
+      });
+
+      await prisma.usuario.update({ where: { id: profissionalId }, data: { ativo: false } });
+      const bloqueado = await app.inject({ method: 'GET', url: caminho });
+      assert.deepEqual(bloqueado.json(), []);
+    } finally {
+      await prisma.usuario.update({ where: { id: profissionalId }, data: { ativo: true } });
+      await prisma.perfilProfissional.update({
+        where: { usuarioId: profissionalId }, data: { perfilPublicado: true },
+      });
+      await prisma.avaliacao.deleteMany({ where: { solicitacaoId: pedido.id } });
+      await prisma.solicitacaoOrcamento.delete({ where: { id: pedido.id } });
+    }
+  });
+
+  it('limita criação abusiva de solicitações por cliente sem gerar pedido ou Push', async () => {
+    const chave = `limite:solicitacoes:${clienteId}`;
+    const antes = await prisma.solicitacaoOrcamento.count({ where: { clienteId } });
+    await redis.set(chave, '12', 'EX', 900);
+    try {
+      const resposta = await app.inject({
+        method: 'POST', url: '/api/solicitacoes',
+        headers: { authorization: `Bearer ${clienteToken}` },
+        payload: entrada(),
+      });
+      assert.equal(resposta.statusCode, 429);
+      assert.equal(await prisma.solicitacaoOrcamento.count({ where: { clienteId } }), antes);
+    } finally {
+      await redis.del(chave);
     }
   });
 

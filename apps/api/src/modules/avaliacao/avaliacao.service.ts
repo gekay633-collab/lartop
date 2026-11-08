@@ -86,9 +86,19 @@ export async function avaliarComoProfissional(profissionalId: string, input: Cri
 }
 
 export async function listarAvaliacoesDoProfissional(profissionalId: string) {
+  // Perfis despublicados ou contas bloqueadas não podem ter histórico e
+  // nomes de avaliadores divulgados por um endpoint público avulso.
+  const visivel = await prisma.perfilProfissional.findFirst({
+    where: { usuarioId: profissionalId, perfilPublicado: true, usuario: { ativo: true } },
+    select: { usuarioId: true },
+  });
+  if (!visivel) return [];
   return prisma.avaliacao.findMany({
     where: { avaliadoId: profissionalId, tipo: 'CLIENTE_AVALIA_PROFISSIONAL' },
-    include: { avaliador: { select: { nome: true } } },
+    select: {
+      id: true, nota: true, comentario: true, criadoEm: true,
+      avaliador: { select: { nome: true } },
+    },
     orderBy: { criadoEm: 'desc' },
   });
 }

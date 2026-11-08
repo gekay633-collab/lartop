@@ -210,13 +210,12 @@ export async function solicitarRecuperacaoSenha(email: string) {
   const expiraEm = new Date();
   expiraEm.setHours(expiraEm.getHours() + 1);
 
+  const { gerarLinkRecuperacao, enviarEmailRecuperacaoSenha } = await import('../../lib/email.js');
+  const link = gerarLinkRecuperacao(usuario.id, tokenBruto);
+
   await prisma.tokenRecuperacaoSenha.create({
     data: { usuarioId: usuario.id, tokenHash, expiraEm },
   });
-
-  const link = `${process.env.FRONTEND_URL}/redefinir-senha?token=${tokenBruto}&id=${usuario.id}`;
-
-  const { enviarEmailRecuperacaoSenha } = await import('../../lib/email.js');
   await enviarEmailRecuperacaoSenha(usuario.email, usuario.nome, link);
 }
 

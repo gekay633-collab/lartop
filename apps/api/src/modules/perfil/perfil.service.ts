@@ -165,12 +165,31 @@ async function invalidarCachePerfil(usuarioId: string) {
 export { PerfilError };
 
 export async function obterPerfilPublico(usuarioId: string) {
+  // Nunca retornar o modelo completo. CEP-base, coordenadas exatas, plano,
+  // flags internas e dados de conta são privados, mesmo se o perfil é público.
   const perfil = await prisma.perfilProfissional.findFirst({
     where: { usuarioId, perfilPublicado: true, usuario: { ativo: true } },
-    include: {
-      cidade: true,
-      categorias: { include: { categoria: true } },
-      fotos: { orderBy: { criadoEm: 'desc' } },
+    select: {
+      usuarioId: true,
+      nomeExibicao: true,
+      bio: true,
+      fotoPerfilUrl: true,
+      raioAtendimentoKm: true,
+      seloVerificado: true,
+      notaMedia: true,
+      totalAvaliacoes: true,
+      cidade: { select: { id: true, nome: true, estado: true } },
+      categorias: {
+        select: {
+          id: true,
+          valorReferencia: true,
+          categoria: { select: { id: true, nome: true, slug: true } },
+        },
+      },
+      fotos: {
+        orderBy: { criadoEm: 'desc' },
+        select: { id: true, urlAntes: true, urlDepois: true, descricao: true },
+      },
     },
   });
 

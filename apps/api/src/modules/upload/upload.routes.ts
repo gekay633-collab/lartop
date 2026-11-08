@@ -69,29 +69,5 @@ export async function uploadRoutes(app: FastifyInstance) {
     }
   });
 
-  // Compatibilidade para uma publicação em duas etapas: primeiro API, depois web.
-  // Desligar após validar o novo frontend. Sem a flag, a API deixa de emitir assinaturas diretas.
-  app.post('/upload/assinatura', { preHandler: app.exigirAutenticacao }, async (request, reply) => {
-    if (process.env.UPLOAD_ASSINATURA_LEGADO !== 'true') {
-      return reply.status(410).send({ erro: 'Atualize o site para enviar novas imagens' });
-    }
-    try {
-      if (!(await permitirUpload(request.usuario!.id))) {
-        return reply.status(429).send({ erro: 'Limite de uploads atingido. Tente novamente em uma hora.' });
-      }
-      const timestamp = Math.floor(Date.now() / 1000);
-      const folder = `lartop/${request.usuario!.id}`;
-      const parametrosAssinados = { timestamp, folder, allowed_formats: 'jpg,jpeg,png,webp' };
-      const assinatura = cloudinary.utils.api_sign_request(
-        parametrosAssinados, process.env.CLOUDINARY_API_SECRET as string
-      );
-      return reply.send({
-        timestamp, folder, allowedFormats: 'jpg,jpeg,png,webp',
-        signature: assinatura, apiKey: process.env.CLOUDINARY_API_KEY,
-        cloudName: process.env.CLOUDINARY_CLOUD_NAME,
-      });
-    } catch {
-      return reply.status(503).send({ erro: 'Não foi possível iniciar o upload' });
-    }
-  });
+
 }
