@@ -114,9 +114,13 @@ def admin_logout(browser, mobile=False):
     page = context.new_page()
     pedidos_logout = []
     falhar_logout = True
+    sessao_ativa = [True]
 
     def mock_api(route):
         if route.request.url.endswith("/api/usuarios/mim"):
+            if not sessao_ativa[0]:
+                return route.fulfill(status=401, content_type="application/json",
+                    body='{"erro":"Sem sessão"}')
             return route.fulfill(status=200, content_type="application/json",
                 body=json.dumps({"id":"conta-teste","nome":"Conta Teste","tipo":"ADMIN"}))
         nonlocal falhar_logout
@@ -126,6 +130,7 @@ def admin_logout(browser, mobile=False):
             if falhar_logout:
                 return route.fulfill(status=503, content_type="application/json",
                                      body='{"erro":"falha-simulada"}')
+            sessao_ativa[0] = False
             return route.fulfill(status=200, content_type="application/json",
                                  body='{"ok":true}')
         if url.endswith("/api/admin/dashboard"):
