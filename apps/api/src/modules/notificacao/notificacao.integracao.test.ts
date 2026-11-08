@@ -429,7 +429,7 @@ describe('central de notificações com banco de testes', () => {
       app.inject({ method: 'POST', url: '/api/solicitacoes', headers, payload: entrada() }),
     ]);
     assert.ok(respostas.every(r => [200, 201].includes(r.statusCode)),
-      respostas.map(r => [r.statusCode, r.body]));
+      JSON.stringify(respostas.map(r => [r.statusCode, r.body])));
     assert.equal(respostas[0].json().id, respostas[1].json().id);
     assert.equal(await pedidosCriados(), antes + 1);
     assert.equal(await prisma.notificacao.count({ where: { destinatarioId: profissionalId } }), avisosAntes + 1);
