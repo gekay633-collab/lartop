@@ -89,6 +89,12 @@ async function encaminhar(request: NextRequest, contexto: Contexto): Promise<Res
   if (body && tipo) headers.set("Content-Type", tipo);
   const etag = request.headers.get("if-none-match");
   if (etag) headers.set("If-None-Match", etag);
+  // Allow only the idempotency token for the request-creation endpoint.
+  // Never forward arbitrary client headers to Railway.
+  if (request.method === "POST" && path.length === 1 && path[0] === "solicitacoes") {
+    const chave = request.headers.get("idempotency-key");
+    if (chave) headers.set("Idempotency-Key", chave);
+  }
   const acesso = request.cookies.get(cookieAcessoParaUrl(request.nextUrl))?.value;
   if (acesso && acesso.length <= 4096) headers.set("Authorization", `Bearer ${acesso}`);
 
