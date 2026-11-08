@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { InicializadorSessao } from "@/components/InicializadorSessao";
 import "@fontsource-variable/fraunces";
 import "@fontsource-variable/work-sans";
 import "@fontsource/ibm-plex-mono/400.css";
@@ -26,7 +27,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="pt-BR" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col"><InicializadorSessao>{children}</InicializadorSessao></body>
     </html>
   );
 }
