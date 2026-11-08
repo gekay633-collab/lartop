@@ -1,4 +1,6 @@
 import { test } from 'node:test';
+import jwt from 'jsonwebtoken';
+import { verificarAccessToken } from './jwt.js';
 import assert from 'node:assert/strict';
 import { imagemDaContaLartop } from './imagem-segura.js';
 import { atualizarPerfilSchema, adicionarFotoPortfolioSchema } from '../modules/perfil/perfil.schemas.js';
@@ -79,4 +81,14 @@ test('contas são normalizadas e entradas de autenticação têm tamanho máximo
     usuarioId: '11111111-1111-4111-8111-111111111111',
     token: 'x'.repeat(257), novaSenha: 'SenhaSegura1234',
   }).success, false);
+});
+
+test('rejeita JWT assinado com algoritmo diferente de HS256', () => {
+  const chave = process.env.JWT_ACCESS_SECRET;
+  assert.ok(chave, 'CI exige segredo JWT descartável, não produção');
+  const token = jwt.sign({
+    sub: '11111111-1111-4111-8111-111111111111',
+    tipo: 'CLIENTE', credenciaisVersao: 'versao-teste',
+  }, chave, { algorithm: 'HS384', expiresIn: '10m' });
+  assert.throws(() => verificarAccessToken(token));
 });
