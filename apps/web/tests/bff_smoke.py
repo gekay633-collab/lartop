@@ -138,6 +138,7 @@ def main():
             })
             assert resposta.status == 200, resposta.text()
             assert eventos[-1][2] == f"Bearer {ACCESS_INICIAL}", eventos[-1]
+            assert eventos[-1][3] == "", "O Proxy não pode encaminhar cookies HttpOnly a APIs comuns"
 
             # Origin cross-site não pode modificar nenhum estado com cookies.
             qtd_logout_antes = sum(x[1] == "/api/auth/logout" for x in eventos)
