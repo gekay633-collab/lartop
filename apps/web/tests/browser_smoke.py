@@ -298,6 +298,18 @@ def teste_cliente_pode_continuar_na_busca(browser):
     for tipo in (None, "CLIENTE"):
         context = browser.new_context()
         page = context.new_page()
+        def api(route):
+            if route.request.url.endswith("/api/usuarios/mim"):
+                if tipo == "CLIENTE":
+                    return route.fulfill(status=200, content_type="application/json",
+                        body='{"id":"cliente","nome":"Cliente Teste","tipo":"CLIENTE"}')
+                return route.fulfill(status=401, content_type="application/json",
+                    body='{"erro":"Não autenticado"}')
+            if route.request.url.endswith("/api/auth/refresh"):
+                return route.fulfill(status=401, content_type="application/json",
+                    body='{"erro":"Sem refresh"}')
+            return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
+        page.route("**/api/**", api)
         page.goto(BASE + "/", wait_until="load")
         if tipo:
             page.evaluate("""() => {
