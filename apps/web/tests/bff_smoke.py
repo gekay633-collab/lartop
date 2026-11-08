@@ -59,7 +59,7 @@ class FakeRailway(BaseHTTPRequestHandler):
             return self.responder(400, {"erro": "JSON body vazio"})
         auth = self.headers.get("Authorization", "")
         cookie = self.headers.get("Cookie", "")
-        eventos.append(("POST", path, auth, cookie))
+        eventos.append(("POST", path, auth, cookie, self.headers.get("Idempotency-Key", "")))
         if path == "/api/solicitacoes":
             if auth in (f"Bearer {ACCESS_INICIAL}", f"Bearer {ACCESS_NOVO}") and not cookie:
                 return self.responder(200, {"ok":True, "tipo": self.headers.get("Content-Type", "")})
@@ -160,16 +160,19 @@ def main():
 
             # O mesmo gateway precisa enviar um JSON protegido e não pode
             # aceitar Authorization fornecido por JavaScript ou propagar cookie.
+            chave_pedido = "11111111-1111-4111-8111-111111111111"
             novo_pedido = context.request.post(BASE + "/api/solicitacoes", headers={
                 "Origin": BASE,
                 "Sec-Fetch-Site": "same-origin",
                 "Content-Type": "application/json",
+                "Idempotency-Key": chave_pedido,
                 "Authorization": "Bearer falso-injetado-pelo-navegador",
             }, data=json.dumps({"categoriaId": "categoria-teste"}))
             assert novo_pedido.status == 200, novo_pedido.text()
             assert eventos[-1][1] == "/api/solicitacoes"
             assert eventos[-1][2] == f"Bearer {ACCESS_INICIAL}", eventos[-1]
             assert eventos[-1][3] == "", eventos[-1]
+            assert eventos[-1][4] == chave_pedido, "BFF descartou o identificador de retry"
 
             # Origin cross-site não pode modificar nenhum estado com cookies.
             qtd_logout_antes = sum(x[1] == "/api/auth/logout" for x in eventos)
