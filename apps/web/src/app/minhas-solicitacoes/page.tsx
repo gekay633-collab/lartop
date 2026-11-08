@@ -8,6 +8,7 @@ import { Rodape } from "@/components/Rodape";
 import { AtivarAlertasPush } from "@/components/AtivarAlertasPush";
 import { CardMinhaSolicitacao } from "@/components/CardMinhaSolicitacao";
 import { useGuardaCliente } from "@/components/GuardaCliente";
+import { ErroValidacaoSessao } from "@/components/ErroValidacaoSessao";
 
 
 
@@ -22,7 +23,7 @@ interface Solicitacao {
 }
 
 export default function MinhasSolicitacoesPage() {
-  const { sessao, carregando } = useGuardaCliente();
+  const { sessao, carregando, erroSessao } = useGuardaCliente();
   const [solicitacoes, setSolicitacoes] = useState<Solicitacao[] | null>(null);
   const [erro, setErro] = useState("");
 
@@ -49,6 +50,16 @@ export default function MinhasSolicitacoesPage() {
         setSolicitacoes([]);
       });
   }, [sessao]);
+
+  if (erroSessao) {
+    return (
+      <>
+        <Cabecalho />
+        <main className="flex-1"><ErroValidacaoSessao mensagem={erroSessao} /></main>
+        <Rodape />
+      </>
+    );
+  }
 
   if (carregando || !sessao) {
     return (

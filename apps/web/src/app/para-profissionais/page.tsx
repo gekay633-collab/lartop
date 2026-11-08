@@ -23,20 +23,21 @@ export default function ParaProfissionaisPage() {
     setErro("");
     setCarregando(true);
     try {
-      const resposta = await fetch(`/api/auth/registrar/profissional`, {
+      const resposta = await fetch(`/bff/auth/registrar/profissional`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ nome, email, senha, telefone, cepBase: cepBase.replace(/\D/g, "") }),
       });
       const dados = await lerRespostaAutenticacao<{
-        accessToken: string;
         usuario: { tipo: SessaoLocal["tipo"]; nome: string };
       }>(resposta, "Não foi possível cadastrar");
-      if (!dados.accessToken || !dados.usuario?.tipo || !dados.usuario?.nome) {
+      if (!dados.usuario?.tipo || !dados.usuario?.nome) {
         throw new Error("Resposta incompleta do servidor ao cadastrar.");
       }
-      const sessao: SessaoLocal = { accessToken: dados.accessToken, tipo: dados.usuario.tipo, nome: dados.usuario.nome };
+      // O BFF gravou a credencial em cookie HttpOnly; o cliente armazena
+      // apenas o papel/nome para exibir a interface.
+      const sessao: SessaoLocal = { accessToken: "cookie-httponly", tipo: dados.usuario.tipo, nome: dados.usuario.nome };
       salvarSessao(sessao);
       router.push("/painel");
     } catch (err) {

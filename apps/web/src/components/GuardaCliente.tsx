@@ -2,29 +2,43 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { obterSessao, observarSessao, type SessaoLocal } from "@/lib/auth-client";
+import { restaurarSessao, observarSessao, type SessaoLocal } from "@/lib/auth-client";
 
 export function useGuardaCliente() {
   const router = useRouter();
   const [sessao, setSessao] = useState<SessaoLocal | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [erroSessao, setErroSessao] = useState("");
 
   useEffect(() => {
-    const validar = () => {
-      const atual = obterSessao();
-      if (!atual || atual.tipo !== "CLIENTE") {
-        setSessao(null);
+    let ativo = true;
+    async function validar() {
+      try {
+        setErroSessao("");
+        // Nunca confiar apenas em tipo/nome do localStorage para decidir papel.
+        // O BFF adiciona o JWT HttpOnly e a API verifica conta/papel.
+        const atual = await restaurarSessao();
+        if (!ativo) return;
+        if (!atual || atual.tipo !== "CLIENTE") {
+          setSessao(null);
+          setCarregando(false);
+          router.replace("/entrar");
+          return;
+        }
+        setSessao(atual);
         setCarregando(false);
-        router.replace("/entrar");
-        return;
+      } catch {
+        if (!ativo) return;
+        // Erro de rede não apaga cookies válidos nem causa logout falso.
+        setSessao(null);
+        setErroSessao("Não foi possível verificar sua sessão. Confira a conexão e tente novamente.");
+        setCarregando(false);
       }
-      setSessao(atual);
-      setCarregando(false);
-    };
-    validar();
-    // Expiração, renovação e logout em outra aba atualizam o painel.
-    return observarSessao(validar);
+    }
+    void validar();
+    const parar = observarSessao(() => { void validar(); });
+    return () => { ativo = false; parar(); };
   }, [router]);
 
-  return { sessao, carregando };
+  return { sessao, carregando, erroSessao };
 }

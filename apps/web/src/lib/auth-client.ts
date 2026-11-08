@@ -1,20 +1,40 @@
 "use client";
 
-const CHAVE_TOKEN = "lartop_access_token";
+/**
+ * Sessão da interface. Nenhum JWT ou segredo fica em localStorage, sessionStorage
+ * ou em variáveis globais. A API é acessada por cookie HttpOnly via BFF/Proxy.
+ */
+const CHAVE_TOKEN_LEGADO = "lartop_access_token";
+const CHAVE_ATIVA = "lartop_sessao_ativa";
 const CHAVE_TIPO = "lartop_tipo_usuario";
 const CHAVE_NOME = "lartop_nome_usuario";
 const EVENTO_SESSAO = "lartop:sessao-alterada";
-const LIMIAR_RENOVACAO_SEGUNDOS = 60;
-const NOME_BLOQUEIO_RENOVACAO = "lartop:renovacao-sessao";
+const BLOQUEIO_RENOVACAO = "lartop:renovacao-sessao";
 
-function avisarMudancaSessao() {
+// Compatibilidade interna com componentes que ainda usam o nome accessToken.
+// O valor é SEMPRE um marcador estático, nunca uma credencial JWT.
+const MARCADOR_SESSAO = "cookie-httponly";
+
+export interface SessaoLocal {
+  /** @deprecated Marcador de interface, não é um token. */
+  accessToken: string;
+  tipo: "CLIENTE" | "PROFISSIONAL" | "ADMIN";
+  nome: string;
+}
+
+function apagarTokenLegado(): void {
+  if (typeof window !== "undefined") localStorage.removeItem(CHAVE_TOKEN_LEGADO);
+}
+
+function notificarSessao(): void {
   if (typeof window !== "undefined") window.dispatchEvent(new Event(EVENTO_SESSAO));
 }
 
-/** Atualiza cabeçalho e painéis em outra aba sem propagar tokens por mensagens. */
 export function observarSessao(callback: () => void): () => void {
   const aoArmazenar = (evento: StorageEvent) => {
-    if (!evento.key || [CHAVE_TOKEN, CHAVE_TIPO, CHAVE_NOME].includes(evento.key)) callback();
+    if (!evento.key || [CHAVE_TOKEN_LEGADO, CHAVE_ATIVA, CHAVE_TIPO, CHAVE_NOME].includes(evento.key)) {
+      callback();
+    }
   };
   window.addEventListener("storage", aoArmazenar);
   window.addEventListener(EVENTO_SESSAO, callback);
@@ -24,8 +44,6 @@ export function observarSessao(callback: () => void): () => void {
   };
 }
 
-// A API pode retornar texto/HTML quando o proxy ou backend falha.
-// Não converter cegamente esse tipo de resposta para JSON.
 export async function lerRespostaAutenticacao<T>(
   resposta: Response,
   mensagemPadrao: string
@@ -45,60 +63,180 @@ export async function lerRespostaAutenticacao<T>(
   if (!dados || typeof dados !== "object" || Array.isArray(dados)) {
     throw new Error("Resposta inesperada do servidor. Tente novamente.");
   }
-
   if (!resposta.ok) {
-    const mensagem = "erro" in dados && typeof dados.erro === "string"
-      ? dados.erro
-      : mensagemPadrao;
+    const mensagem = "erro" in dados && typeof dados.erro === "string" ? dados.erro : mensagemPadrao;
     throw new Error(`${mensagem} (HTTP ${resposta.status}).`);
   }
-
   return dados as T;
 }
 
-export interface SessaoLocal {
-  accessToken: string;
-  tipo: "CLIENTE" | "PROFISSIONAL" | "ADMIN";
-  nome: string;
+function tipoValido(tipo: unknown): tipo is SessaoLocal["tipo"] {
+  return tipo === "CLIENTE" || tipo === "PROFISSIONAL" || tipo === "ADMIN";
 }
 
+/** Apenas dicas visuais NÃO confidenciais; o backend sempre verifica o acesso. */
 export function obterSessao(): SessaoLocal | null {
   if (typeof window === "undefined") return null;
-  const accessToken = localStorage.getItem(CHAVE_TOKEN);
-  const tipo = localStorage.getItem(CHAVE_TIPO) as SessaoLocal["tipo"] | null;
+  apagarTokenLegado();
+  if (localStorage.getItem(CHAVE_ATIVA) !== "1") return null;
+  const tipo = localStorage.getItem(CHAVE_TIPO);
   const nome = localStorage.getItem(CHAVE_NOME);
-  if (!accessToken || !tipo || !nome) return null;
-  return { accessToken, tipo, nome };
+  if (!tipoValido(tipo) || !nome) return null;
+  return { accessToken: MARCADOR_SESSAO, tipo, nome };
 }
 
-export function salvarSessao(sessao: SessaoLocal) {
-  // O access token é o marcador final de atualização entre abas.
+export function salvarSessao(sessao: SessaoLocal): void {
+  apagarTokenLegado();
+  if (!tipoValido(sessao.tipo) || !sessao.nome) {
+    throw new Error("Resposta de autenticação incompleta");
+  }
   localStorage.setItem(CHAVE_TIPO, sessao.tipo);
   localStorage.setItem(CHAVE_NOME, sessao.nome);
-  localStorage.setItem(CHAVE_TOKEN, sessao.accessToken);
-  avisarMudancaSessao();
+  // Sinalizar login por último para outras abas não lerem dados incompletos.
+  localStorage.setItem(CHAVE_ATIVA, "1");
+  notificarSessao();
 }
 
-export function limparSessao() {
-  localStorage.removeItem(CHAVE_TOKEN);
+export function limparSessao(): void {
+  apagarTokenLegado();
+  localStorage.removeItem(CHAVE_ATIVA);
   localStorage.removeItem(CHAVE_TIPO);
   localStorage.removeItem(CHAVE_NOME);
-  avisarMudancaSessao();
+  notificarSessao();
 }
 
-/**
- * Encerra a sessão primeiro no servidor (cookie refresh + access JWT) e
- * somente depois apaga o estado local. Isso evita logout falso se o Redis
- * estiver temporariamente indisponível.
- */
-export async function encerrarSessao(accessToken?: string): Promise<void> {
-  // Logout aguarda qualquer refresh em outra aba antes de invalidar o cookie.
+async function usuarioAtual(): Promise<{ nome: string; tipo: SessaoLocal["tipo"] } | null> {
+  const resposta = await fetch("/api/usuarios/mim", {
+    credentials: "same-origin", cache: "no-store",
+  });
+  if (resposta.status === 401) return null;
+  const dados = await lerRespostaAutenticacao<{ nome: string; tipo: SessaoLocal["tipo"] }>(
+    resposta, "Não foi possível verificar sua sessão",
+  );
+  if (!tipoValido(dados.tipo) || typeof dados.nome !== "string" || !dados.nome.trim()) {
+    throw new Error("Dados de conta incompletos");
+  }
+  return { nome: dados.nome, tipo: dados.tipo };
+}
+
+/** Web Locks serializa refresh/logout entre abas do mesmo perfil Chrome/PWA. */
+async function comBloqueioSessao<T>(operacao: () => Promise<T>): Promise<T> {
+  if (typeof navigator !== "undefined" && navigator.locks?.request) {
+    return navigator.locks.request(BLOQUEIO_RENOVACAO, operacao);
+  }
+  return operacao();
+}
+
+let renovacaoPendente: Promise<void> | null = null;
+
+async function renovarSessao(): Promise<void> {
+  if (renovacaoPendente) return renovacaoPendente;
+  const promessa = comBloqueioSessao(async () => {
+    // Uma segunda aba pode ter acabado de renovar os cookies dentro do lock.
+    // Nesse caso não consumir novamente o token refresh rotativo.
+    if (await usuarioAtual()) return;
+    // Nunca solicitar ou ler um JWT no JavaScript. O BFF usa o refresh
+    // HttpOnly e devolve somente metadados, definindo novo access HttpOnly.
+    let resposta: Response;
+    try {
+      resposta = await fetch("/bff/auth/refresh", {
+        method: "POST", credentials: "same-origin", cache: "no-store",
+      });
+    } catch {
+      throw new Error("Sem conexão para renovar a sessão. Tente novamente.");
+    }
+    if (resposta.status === 401) {
+      limparSessao();
+      throw new Error("Sua sessão expirou. Entre novamente.");
+    }
+    if (!resposta.ok) {
+      throw new Error("Não foi possível renovar a sessão agora. Tente novamente.");
+    }
+  });
+  renovacaoPendente = promessa;
+  try {
+    await promessa;
+  } finally {
+    if (renovacaoPendente === promessa) renovacaoPendente = null;
+  }
+}
+
+let restauracaoPendente: Promise<SessaoLocal | null> | null = null;
+
+/** Ao atualizar o PWA, migra sessões anteriores pelo refresh HttpOnly. */
+export async function restaurarSessao(): Promise<SessaoLocal | null> {
+  if (restauracaoPendente) return restauracaoPendente;
+  const promise = (async () => {
+    apagarTokenLegado();
+    let usuario = await usuarioAtual();
+    if (!usuario) {
+      try {
+        await renovarSessao();
+      } catch (e) {
+        // 401 é ausência/expiração definitiva. Falha 5xx/rede deve ser
+        // visível ao usuário em vez de aparentar logout.
+        if (e instanceof Error &&
+            (e.message.includes("expirou") || e.message.includes("Entre novamente"))) {
+          return null;
+        }
+        throw e;
+      }
+      usuario = await usuarioAtual();
+    }
+    if (!usuario) {
+      limparSessao();
+      return null;
+    }
+    const sessao = { ...usuario, accessToken: MARCADOR_SESSAO };
+    const anterior = obterSessao();
+    if (!anterior || anterior.nome !== sessao.nome || anterior.tipo !== sessao.tipo) {
+      salvarSessao(sessao);
+    }
+    return sessao;
+  })();
+  restauracaoPendente = promise;
+  try {
+    return await promise;
+  } finally {
+    if (restauracaoPendente === promise) restauracaoPendente = null;
+  }
+}
+
+export async function entrar(email: string, senha: string): Promise<SessaoLocal> {
+  const resposta = await fetch("/bff/auth/login", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    credentials: "same-origin", body: JSON.stringify({ email, senha }),
+  });
+  await lerRespostaAutenticacao<Record<string, unknown>>(resposta, "Não foi possível entrar");
+  const usuario = await usuarioAtual();
+  if (!usuario) throw new Error("O servidor não confirmou a nova sessão.");
+  const sessao = { ...usuario, accessToken: MARCADOR_SESSAO };
+  salvarSessao(sessao);
+  return sessao;
+}
+
+export async function registrarComoCliente(input: {
+  nome: string; email: string; senha: string; telefone?: string;
+}): Promise<SessaoLocal> {
+  const resposta = await fetch("/bff/auth/registrar/cliente", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    credentials: "same-origin", body: JSON.stringify(input),
+  });
+  const dados = await lerRespostaAutenticacao<{
+    usuario: { tipo: SessaoLocal["tipo"]; nome: string };
+  }>(resposta, "Não foi possível cadastrar");
+  if (!tipoValido(dados.usuario?.tipo) || !dados.usuario?.nome) {
+    throw new Error("Resposta incompleta do servidor ao cadastrar.");
+  }
+  const sessao = { tipo: dados.usuario.tipo, nome: dados.usuario.nome, accessToken: MARCADOR_SESSAO };
+  salvarSessao(sessao);
+  return sessao;
+}
+
+export async function encerrarSessao(_accessToken?: string): Promise<void> {
   await comBloqueioSessao(async () => {
-    const tokenAtual = obterSessao()?.accessToken ?? accessToken;
-    const resposta = await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "include",
-      headers: tokenAtual ? { Authorization: `Bearer ${tokenAtual}` } : {},
+    const resposta = await fetch("/bff/auth/logout", {
+      method: "POST", credentials: "same-origin", cache: "no-store",
     });
     if (!resposta.ok) {
       throw new Error("O servidor não confirmou o encerramento da sessão.");
@@ -107,173 +245,31 @@ export async function encerrarSessao(accessToken?: string): Promise<void> {
   });
 }
 
-async function buscarUsuarioLogado(accessToken: string): Promise<{ nome: string; tipo: SessaoLocal["tipo"] }> {
-  const resposta = await fetch(`/api/usuarios/mim`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  const dados = await lerRespostaAutenticacao<{ nome: string; tipo: SessaoLocal["tipo"] }>(
-    resposta,
-    "Não foi possível consultar sua conta"
-  );
-  if (!dados.nome || !dados.tipo) throw new Error("Dados da conta incompletos.");
-  return { nome: dados.nome, tipo: dados.tipo };
-}
-
-export async function entrar(email: string, senha: string): Promise<SessaoLocal> {
-  const resposta = await fetch(`/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ email, senha }),
-  });
-
-  const dados = await lerRespostaAutenticacao<{ accessToken: string }>(
-    resposta,
-    "Não foi possível entrar"
-  );
-  if (typeof dados.accessToken !== "string" || !dados.accessToken) {
-    throw new Error("O servidor não retornou um token de acesso válido.");
-  }
-
-  const usuario = await buscarUsuarioLogado(dados.accessToken);
-  const sessao: SessaoLocal = { accessToken: dados.accessToken, tipo: usuario.tipo, nome: usuario.nome };
-  salvarSessao(sessao);
-  return sessao;
-}
-
-export async function registrarComoCliente(input: { nome: string; email: string; senha: string; telefone?: string }): Promise<SessaoLocal> {
-  const resposta = await fetch(`/api/auth/registrar/cliente`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(input),
-  });
-
-  const dados = await lerRespostaAutenticacao<{
-    accessToken: string;
-    usuario: { tipo: SessaoLocal["tipo"]; nome: string };
-  }>(resposta, "Não foi possível cadastrar");
-  if (!dados.accessToken || !dados.usuario?.nome || !dados.usuario?.tipo) {
-    throw new Error("Resposta incompleta do servidor ao cadastrar.");
-  }
-
-  const sessao: SessaoLocal = { accessToken: dados.accessToken, tipo: dados.usuario.tipo, nome: dados.usuario.nome };
-  salvarSessao(sessao);
-  return sessao;
-}
-
-
 /**
- * O JWT é decodificado apenas para antecipar a renovação; sua autenticidade
- * continua sendo verificada exclusivamente pela API.
- */
-function tokenPrestesAExpirar(token: string): boolean {
-  try {
-    const parte = token.split(".")[1];
-    if (!parte) return false;
-    const base64 = parte.replace(/-/g, "+").replace(/_/g, "/");
-    const payload: unknown = JSON.parse(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "=")));
-    return Boolean(payload && typeof payload === "object" && "exp" in payload &&
-      typeof payload.exp === "number" &&
-      payload.exp <= Date.now() / 1000 + LIMIAR_RENOVACAO_SEGUNDOS);
-  } catch {
-    return false;
-  }
-}
-
-/** O Web Locks garante que só uma aba use o refresh cookie rotativo por vez. */
-async function comBloqueioSessao<T>(operacao: () => Promise<T>): Promise<T> {
-  if (typeof navigator !== "undefined" && navigator.locks?.request) {
-    return navigator.locks.request(NOME_BLOQUEIO_RENOVACAO, operacao);
-  }
-  // Sem Web Locks, o logout continua possível; a renovação é recusada abaixo.
-  return operacao();
-}
-
-let renovacaoPendente: Promise<string> | null = null;
-
-async function renovarTokenUmaVez(tokenAnterior: string): Promise<string> {
-  if (renovacaoPendente) return renovacaoPendente;
-
-  const promessa = (async () => {
-    if (!navigator.locks?.request) {
-      // Melhor pedir novo login em navegadores antigos do que revogar um cookie
-      // válido por duas renovações concorrentes em abas diferentes.
-      throw new Error("Este navegador não suporta renovação segura. Entre novamente.");
-    }
-
-    return comBloqueioSessao(async () => {
-      const sessao = obterSessao();
-      if (!sessao) throw new Error("Sua sessão terminou. Entre novamente.");
-      if (sessao.accessToken !== tokenAnterior) return sessao.accessToken;
-
-      let resposta: Response;
-      try {
-        resposta = await fetch("/api/auth/refresh", {
-          method: "POST",
-          credentials: "include",
-          cache: "no-store",
-        });
-      } catch {
-        throw new Error("Sem conexão para renovar a sessão. Tente novamente.");
-      }
-
-      if (!resposta.ok) {
-        const novoToken = obterSessao()?.accessToken;
-        if (novoToken && novoToken !== tokenAnterior) return novoToken;
-        if (resposta.status === 401) {
-          limparSessao();
-          throw new Error("Sua sessão expirou. Entre novamente.");
-        }
-        throw new Error("Não foi possível renovar a sessão agora. Tente novamente.");
-      }
-
-      const dados: unknown = await resposta.json().catch(() => null);
-      if (!dados || typeof dados !== "object" || !("accessToken" in dados) ||
-          typeof dados.accessToken !== "string" || !dados.accessToken) {
-        throw new Error("Resposta de renovação inválida. Tente novamente.");
-      }
-
-      const atual = obterSessao();
-      if (!atual) throw new Error("Sessão encerrada em outra aba. Entre novamente.");
-      // Outra conta pode ter feito login durante o pedido de refresh.
-      if (atual.accessToken !== tokenAnterior) return atual.accessToken;
-      localStorage.setItem(CHAVE_TOKEN, dados.accessToken);
-      avisarMudancaSessao();
-      return dados.accessToken;
-    });
-  })();
-
-  renovacaoPendente = promessa;
-  try {
-    return await promessa;
-  } finally {
-    if (renovacaoPendente === promessa) renovacaoPendente = null;
-  }
-}
-
-/**
- * Ponto único para chamadas protegidas do frontend.
- * Renova antes da expiração ou após HTTP 401, tenta novamente uma vez
- * e nunca apaga a sessão por falha transitória HTTP 5xx / rede.
+ * Encaminha requests protegidas via Proxy, sem expor JWT em JS nem
+ * adicionar Authorization manipulável pelo frontend.
  */
 export async function fetchAutenticado(caminho: string, opcoes: RequestInit = {}): Promise<Response> {
-  const sessao = obterSessao();
-  if (!sessao) throw new Error("Sua sessão terminou. Entre novamente.");
-
-  let token = sessao.accessToken;
-  if (tokenPrestesAExpirar(token)) token = await renovarTokenUmaVez(token);
-
-  const executar = (tokenAtual: string) => {
+  if (!caminho.startsWith("/api/") || caminho.startsWith("//")) {
+    throw new Error("Somente APIs internas podem usar a sessão autenticada.");
+  }
+  if (!obterSessao()) {
+    const recuperada = await restaurarSessao();
+    if (!recuperada) throw new Error("Sua sessão terminou. Entre novamente.");
+  }
+  const executar = () => {
     const headers = new Headers(opcoes.headers);
-    headers.set("Authorization", `Bearer ${tokenAtual}`);
-    return fetch(caminho, { ...opcoes, headers, credentials: "include" });
+    headers.delete("Authorization");
+    return fetch(caminho, { ...opcoes, headers, credentials: "same-origin" });
   };
-
-  let resposta = await executar(token);
+  let resposta = await executar();
   if (resposta.status === 401) {
-    token = await renovarTokenUmaVez(token);
-    resposta = await executar(token);
+    await renovarSessao();
+    resposta = await executar();
+    if (resposta.status === 401) {
+      limparSessao();
+      throw new Error("Sua sessão terminou. Entre novamente.");
+    }
   }
   return resposta;
 }

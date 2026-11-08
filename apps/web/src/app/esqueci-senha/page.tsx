@@ -17,7 +17,7 @@ export default function EsqueciSenhaPage() {
     setCarregando(true);
     setErro("");
     try {
-      const resposta = await fetch("/api/auth/esqueci-senha", {
+      const resposta = await fetch("/bff/auth/esqueci-senha", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),

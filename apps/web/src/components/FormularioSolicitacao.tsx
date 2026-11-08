@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { obterSessao, entrar, registrarComoCliente, fetchAutenticado, type SessaoLocal } from "@/lib/auth-client";
+import { restaurarSessao, entrar, registrarComoCliente, fetchAutenticado, type SessaoLocal } from "@/lib/auth-client";
 
 
 
@@ -15,8 +15,12 @@ export function FormularioSolicitacao({ profissionalId, profissionalNome, catego
   const [carregandoSessao, setCarregandoSessao] = useState(true);
 
   useEffect(() => {
-    setSessao(obterSessao());
-    setCarregandoSessao(false);
+    let ativo = true;
+    void restaurarSessao()
+      .then(sessao => { if (ativo) setSessao(sessao); })
+      .catch(() => { if (ativo) setSessao(null); })
+      .finally(() => { if (ativo) setCarregandoSessao(false); });
+    return () => { ativo = false; };
   }, []);
 
   if (carregandoSessao) {

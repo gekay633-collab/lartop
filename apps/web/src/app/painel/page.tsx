@@ -7,10 +7,21 @@ import { AbaLeads } from "@/components/AbaLeads";
 import { AbaMeuPerfil } from "@/components/AbaMeuPerfil";
 import { AtivarAlertasPush } from "@/components/AtivarAlertasPush";
 import { useGuardaProfissional } from "@/components/GuardaProfissional";
+import { ErroValidacaoSessao } from "@/components/ErroValidacaoSessao";
 
 export default function PainelPage() {
-  const { sessao, carregando } = useGuardaProfissional();
+  const { sessao, carregando, erroSessao } = useGuardaProfissional();
   const [aba, setAba] = useState<"leads" | "perfil">("leads");
+
+  if (erroSessao) {
+    return (
+      <>
+        <Cabecalho />
+        <main className="flex-1"><ErroValidacaoSessao mensagem={erroSessao} /></main>
+        <Rodape />
+      </>
+    );
+  }
 
   if (carregando || !sessao) {
     return (

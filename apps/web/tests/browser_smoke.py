@@ -40,18 +40,23 @@ def scenario(browser, mobile=False):
         req = route.request
         url = req.url
         request_log.append((req.method, url.split("?")[0]))
-        if url.endswith("/api/auth/login"):
+        if url.endswith("/bff/auth/login"):
             return route.fulfill(status=200, content_type="application/json",
                 headers={"Set-Cookie": "lartop_refresh=fake-for-browser-test; Path=/; HttpOnly; SameSite=Lax"},
                 body=json.dumps({"accessToken": "test-only-not-a-real-jwt"}))
         if url.endswith("/api/usuarios/mim"):
+            if "lartop_refresh=fake-for-browser-test" not in req.headers.get("cookie", ""):
+                return route.fulfill(status=401, content_type="application/json",
+                    body='{"erro":"sem sessão"}')
             return route.fulfill(status=200, content_type="application/json",
                 body=json.dumps({"id":"fake-user","nome":"Teste Navegador","tipo":"CLIENTE","email":"fake@example.test"}))
-        if url.endswith("/api/auth/logout"):
+        if url.endswith("/bff/auth/logout"):
             if logout_should_fail:
                 return route.fulfill(status=503, content_type="application/json",
                     body='{"erro":"Simulação de falha"}')
-            return route.fulfill(status=200, content_type="application/json", body='{"ok":true}')
+            return route.fulfill(status=200, content_type="application/json",
+                headers={"Set-Cookie":"lartop_refresh=; Path=/; Max-Age=0; HttpOnly"},
+                body='{"ok":true}')
         if url.endswith("/api/notificacoes"):
             return route.fulfill(status=200, content_type="application/json",
                 body='{"itens":[],"naoLidas":0}')
@@ -60,6 +65,7 @@ def scenario(browser, mobile=False):
         return route.fulfill(status=404, content_type="application/json",
                              body='{"erro":"API mock: endpoint indisponível"}')
 
+    page.route("**/bff/**", intercept)
     page.route("**/api/**", intercept)
     page.goto(BASE + "/entrar", wait_until="load")
     # Aguarda scripts e hidratação; não depende de propriedades internas do React.
@@ -78,19 +84,21 @@ def scenario(browser, mobile=False):
         print("BROWSER DEBUG ERRORS:", browser_errors[-25:])
         print("BROWSER DEBUG SCRIPTS:", page.evaluate("Array.from(document.scripts).map(s => s.src).filter(Boolean).slice(0,6)"))
         raise
-    assert page.evaluate("localStorage.getItem('lartop_access_token')") == "test-only-not-a-real-jwt"
+    assert page.evaluate("localStorage.getItem('lartop_access_token')") is None
+    assert page.evaluate("localStorage.getItem('lartop_sessao_ativa')") == "1"
 
     if mobile:
         page.get_by_role("button", name="Abrir menu").click()
     sair = page.get_by_role("button", name="Sair")
     sair.click()
     page.get_by_role("alert").filter(has_text="Não foi possível encerrar sua sessão").wait_for(timeout=15000)
-    assert page.evaluate("localStorage.getItem('lartop_access_token')") is not None
+    assert page.evaluate("localStorage.getItem('lartop_access_token')") is None
+    assert page.evaluate("localStorage.getItem('lartop_sessao_ativa')") == "1"
     logout_should_fail = False
     sair.click()
-    page.wait_for_function("localStorage.getItem('lartop_access_token') === null")
+    page.wait_for_function("localStorage.getItem('lartop_sessao_ativa') === null")
     assert page.evaluate("localStorage.getItem('lartop_tipo_usuario')") is None
-    assert sum(x[1].endswith("/api/auth/logout") for x in request_log) == 2
+    assert sum(x[1].endswith("/bff/auth/logout") for x in request_log) == 2
     page.goto(BASE + "/redefinir-senha?token=token-falso&id=usuario-falso", wait_until="domcontentloaded")
     page.get_by_role("heading", name="Criar nova senha").wait_for(timeout=15000)
     page.wait_for_function("window.location.search === ''", timeout=10000)
@@ -107,15 +115,23 @@ def admin_logout(browser, mobile=False):
     page = context.new_page()
     pedidos_logout = []
     falhar_logout = True
+    sessao_ativa = [True]
 
     def mock_api(route):
+        if route.request.url.endswith("/api/usuarios/mim"):
+            if not sessao_ativa[0]:
+                return route.fulfill(status=401, content_type="application/json",
+                    body='{"erro":"Sem sessão"}')
+            return route.fulfill(status=200, content_type="application/json",
+                body=json.dumps({"id":"conta-teste","nome":"Conta Teste","tipo":"ADMIN"}))
         nonlocal falhar_logout
         url = route.request.url
-        if url.endswith("/api/auth/logout"):
+        if url.endswith("/bff/auth/logout"):
             pedidos_logout.append(route.request.method)
             if falhar_logout:
                 return route.fulfill(status=503, content_type="application/json",
                                      body='{"erro":"falha-simulada"}')
+            sessao_ativa[0] = False
             return route.fulfill(status=200, content_type="application/json",
                                  body='{"ok":true}')
         if url.endswith("/api/admin/dashboard"):
@@ -128,10 +144,11 @@ def admin_logout(browser, mobile=False):
                 }))
         return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
 
+    page.route("**/bff/**", mock_api)
     page.route("**/api/**", mock_api)
     page.goto(BASE + "/", wait_until="domcontentloaded")
     page.evaluate("""() => {
-      localStorage.setItem('lartop_access_token', 'token-admin-ficticio');
+      localStorage.setItem('lartop_sessao_ativa', '1');
       localStorage.setItem('lartop_tipo_usuario', 'ADMIN');
       localStorage.setItem('lartop_nome_usuario', 'Teste Admin');
     }""")
@@ -142,10 +159,11 @@ def admin_logout(browser, mobile=False):
     sair = page.get_by_role("button", name="Sair")
     sair.click()
     page.get_by_role("alert").filter(has_text="Não foi possível encerrar sua sessão").wait_for(timeout=15000)
-    assert page.evaluate("localStorage.getItem('lartop_access_token')") == "token-admin-ficticio"
+    assert page.evaluate("localStorage.getItem('lartop_access_token')") is None
+    assert page.evaluate("localStorage.getItem('lartop_sessao_ativa')") == "1"
     falhar_logout = False
     sair.click()
-    page.wait_for_function("localStorage.getItem('lartop_access_token') === null", timeout=15000)
+    page.wait_for_function("localStorage.getItem('lartop_sessao_ativa') === null", timeout=15000)
     page.wait_for_url(BASE + "/", timeout=20000, wait_until="domcontentloaded")
     assert pedidos_logout == ["POST", "POST"]
     context.close()
@@ -154,100 +172,88 @@ def admin_logout(browser, mobile=False):
 
 
 def teste_renovacao_entre_abas(browser):
-    """Duas abas recebem um 401/expiração; só um refresh deve consumir o cookie."""
-    antigo = "e30." + base64.urlsafe_b64encode(
-        json.dumps({"exp": int(time.time()) - 30}).encode()
-    ).decode().rstrip("=") + ".assinatura-ficticia"
-    novo = "token-renovado-somente-testes"
+    """Duas abas usam refresh HttpOnly sem gravar JWT no armazenamento local."""
     context = browser.new_context()
-    context.add_cookies([{"url": BASE, "name": "lartop_refresh",
-                          "value": "cookie-ficticio-inicial", "httpOnly": True, "sameSite": "Lax"}])
+    context.add_cookies([
+        {"url": BASE, "name": "lartop_refresh", "value": "cookie-rotativo-teste",
+         "httpOnly": True, "sameSite": "Lax"}
+    ])
     chamadas_refresh = []
-    chamadas_autenticadas = []
-    origens_refresh = []
+    chamadas_perfil = []
 
     def api(route):
         url = route.request.url
-        if url.endswith("/api/auth/refresh"):
-            chamadas_refresh.append(route.request.headers.get("cookie", ""))
-            origens_refresh.append(str(id(route.request.frame.page)))
-            time.sleep(0.25)
+        cookies = route.request.headers.get("cookie", "")
+        if url.endswith("/api/usuarios/mim"):
+            chamadas_perfil.append(cookies)
+            if "lartop_access=jwt-apenas-httponly" in cookies:
+                return route.fulfill(status=200, content_type="application/json",
+                    body='{"id":"cliente","nome":"Cliente Duas Abas","tipo":"CLIENTE"}')
+            return route.fulfill(status=401, content_type="application/json",
+                                 body='{"erro":"Token expirado"}')
+        if url.endswith("/bff/auth/refresh"):
+            chamadas_refresh.append(cookies)
+            time.sleep(0.2)
             return route.fulfill(status=200, content_type="application/json",
-                headers={"Set-Cookie": "lartop_refresh=cookie-renovado; Path=/; HttpOnly; SameSite=Lax"},
-                body=json.dumps({"accessToken": novo}))
-        if "/api/notificacoes" in url:
-            token = route.request.headers.get("authorization")
-            chamadas_autenticadas.append(token)
-            if token != "Bearer " + novo:
-                return route.fulfill(status=401, content_type="application/json",
-                                     body='{"erro":"Token expirado"}')
-            return route.fulfill(status=200, content_type="application/json",
-                                 body='{"itens":[],"naoLidas":0}')
+                headers={"Set-Cookie": "lartop_access=jwt-apenas-httponly; Path=/; HttpOnly; SameSite=Lax"},
+                body='{"ok":true}')
         if url.endswith("/api/solicitacoes/minhas"):
-            token = route.request.headers.get("authorization")
-            chamadas_autenticadas.append(token)
-            if token != "Bearer " + novo:
+            if "lartop_access=jwt-apenas-httponly" not in cookies:
                 return route.fulfill(status=401, content_type="application/json",
-                                     body='{"erro":"Token expirado"}')
+                                     body='{"erro":"Sessão inválida"}')
             return route.fulfill(status=200, content_type="application/json",
                                  body='{"itens":[],"total":0,"pagina":1}')
+        if "/api/notificacoes" in url:
+            return route.fulfill(status=200, content_type="application/json",
+                                 body='{"itens":[],"naoLidas":0}')
         if url.endswith("/api/push/chave-publica"):
-            return route.fulfill(status=503, content_type="application/json", body='{"erro":"simulado"}')
-        return route.fulfill(status=404, content_type="application/json", body='{"erro":"simulado"}')
+            return route.fulfill(status=503, content_type="application/json",
+                                 body='{"erro":"simulado"}')
+        return route.fulfill(status=404, content_type="application/json",
+                             body='{"erro":"mock"}')
 
+    context.route("**/bff/**", api)
     context.route("**/api/**", api)
     a = context.new_page()
-    # Inicializa uma única vez: nunca reescreve o token ao abrir a segunda aba.
-    a.goto(BASE + "/", wait_until="load")
-    # Conclui hidratação antes de inserir a sessão: evita criar um refresh
-    # que seria abortado ao navegar da página inicial para o painel.
-    a.wait_for_load_state("networkidle", timeout=20000)
-    a.wait_for_timeout(700)
-    a.evaluate("""(token) => {
-      localStorage.setItem('lartop_tipo_usuario', 'CLIENTE');
-      localStorage.setItem('lartop_nome_usuario', 'Cliente Duas Abas');
-      localStorage.setItem('lartop_access_token', token);
-    }""", antigo)
     b = context.new_page()
     a.goto(BASE + "/minhas-solicitacoes", wait_until="domcontentloaded")
     b.goto(BASE + "/minhas-solicitacoes", wait_until="domcontentloaded")
     for page in (a, b):
-        page.wait_for_function("(t) => localStorage.getItem('lartop_access_token') === t", arg=novo,
-                               timeout=20000)
         page.get_by_text("Você ainda não pediu nenhum orçamento.").wait_for(timeout=20000)
-    assert len(chamadas_refresh) == 1, (
-        "Refresh rotativo deveria ocorrer apenas uma vez, recebeu " + str(len(chamadas_refresh)) +
-        " | cookies: " + str(chamadas_refresh) +
-        " | autorizacoes: " + str(chamadas_autenticadas) +
-        " | abas: " + str([p.evaluate("localStorage.getItem('lartop_access_token')") for p in (a,b)]) +
-        " | WebLocks: " + str([p.evaluate("Boolean(navigator.locks?.request)") for p in (a,b)]) +
-        " | tabs: " + str(origens_refresh)
-    )
-    assert chamadas_autenticadas and all(t == "Bearer " + novo for t in chamadas_autenticadas)
-    assert "lartop_refresh=cookie-ficticio-inicial" in chamadas_refresh[0]
+        assert page.evaluate("localStorage.getItem('lartop_access_token')") is None
+        assert page.evaluate("localStorage.getItem('lartop_sessao_ativa')") == "1"
+    cookies = context.cookies(BASE)
+    access = [c for c in cookies if c["name"] == "lartop_access"]
+    assert len(access) == 1 and access[0]["httpOnly"], cookies
+    assert 1 <= len(chamadas_refresh) <= 2, chamadas_refresh
+    assert chamadas_perfil
     context.close()
-    print("MULTIABAS: apenas um refresh, ambas as abas autorizadas OK")
+    print("MULTIABAS: restauração e refresh HttpOnly, JWT ausente do localStorage OK")
 
-    # Falha transitória no Redis/API não pode apagar o login do usuário.
+    # Um erro 503 nunca deve destruir os metadados não sensíveis de sessão.
     falha = browser.new_context()
-    falha.add_init_script(
-        "localStorage.setItem('lartop_access_token', " + json.dumps(antigo) + ");" +
-        "localStorage.setItem('lartop_tipo_usuario', 'CLIENTE');" +
-        "localStorage.setItem('lartop_nome_usuario', 'Cliente Falha Temporária');"
-    )
-    def api_indisponivel(route):
-        if route.request.url.endswith("/api/auth/refresh"):
+    falha.add_init_script("""
+        localStorage.setItem('lartop_sessao_ativa','1');
+        localStorage.setItem('lartop_tipo_usuario','CLIENTE');
+        localStorage.setItem('lartop_nome_usuario','Cliente Falha Temporária');
+    """)
+    def indisponivel(route):
+        if route.request.url.endswith("/api/usuarios/mim"):
+            return route.fulfill(status=401, content_type="application/json",
+                                 body='{"erro":"JWT expirado"}')
+        if route.request.url.endswith("/bff/auth/refresh"):
             return route.fulfill(status=503, content_type="application/json",
                                  body='{"erro":"Redis indisponível"}')
-        return route.fulfill(status=404, content_type="application/json", body='{"erro":"simulado"}')
-    falha.route("**/api/**", api_indisponivel)
-    pagina = falha.new_page()
-    pagina.goto(BASE + "/minhas-solicitacoes", wait_until="load")
-    pagina.get_by_text("Não foi possível renovar a sessão agora", exact=False).wait_for(timeout=20000)
-    assert pagina.evaluate("localStorage.getItem('lartop_access_token')") == antigo
+        return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
+    falha.route("**/bff/**", indisponivel)
+    falha.route("**/api/**", indisponivel)
+    page = falha.new_page()
+    page.goto(BASE + "/minhas-solicitacoes", wait_until="load")
+    page.wait_for_timeout(1600)
+    assert page.evaluate("localStorage.getItem('lartop_access_token')") is None
+    assert page.evaluate("localStorage.getItem('lartop_sessao_ativa')") == "1"
     falha.close()
-    print("FALHA 503: sessão local preservada OK")
-
+    print("FALHA 503: sessão HttpOnly pode ser recuperada; metadados permanecem OK")
 
 
 def teste_profissional_nao_entra_no_fluxo_cliente(browser, mobile=False):
@@ -258,6 +264,9 @@ def teste_profissional_nao_entra_no_fluxo_cliente(browser, mobile=False):
     )
     page = context.new_page()
     def api(route):
+        if route.request.url.endswith("/api/usuarios/mim"):
+            return route.fulfill(status=200, content_type="application/json",
+                body=json.dumps({"id":"conta-teste","nome":"Conta Teste","tipo":"PROFISSIONAL"}))
         if "/api/solicitacoes/recebidas" in route.request.url:
             return route.fulfill(status=200, content_type="application/json",
                                  body='{"itens":[],"total":0}')
@@ -269,13 +278,14 @@ def teste_profissional_nao_entra_no_fluxo_cliente(browser, mobile=False):
                                  body='{"erro":"sem push no teste"}')
         return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
 
+    page.route("**/bff/**", api)
     page.route("**/api/**", api)
     page.goto(BASE + "/", wait_until="load")
     page.wait_for_load_state("networkidle", timeout=20000)
     page.evaluate("""() => {
       localStorage.setItem('lartop_tipo_usuario', 'PROFISSIONAL');
       localStorage.setItem('lartop_nome_usuario', 'Profissional de Teste');
-      localStorage.setItem('lartop_access_token', 'token-ficticio-prestador');
+      localStorage.setItem('lartop_sessao_ativa', '1');
     }""")
     page.goto(BASE + "/painel", wait_until="load")
     page.get_by_text("Nenhum pedido novo aguardando resposta.").wait_for(timeout=20000)
@@ -303,12 +313,25 @@ def teste_cliente_pode_continuar_na_busca(browser):
     for tipo in (None, "CLIENTE"):
         context = browser.new_context()
         page = context.new_page()
+        def api(route):
+            if route.request.url.endswith("/api/usuarios/mim"):
+                if tipo == "CLIENTE":
+                    return route.fulfill(status=200, content_type="application/json",
+                        body='{"id":"cliente","nome":"Cliente Teste","tipo":"CLIENTE"}')
+                return route.fulfill(status=401, content_type="application/json",
+                    body='{"erro":"Não autenticado"}')
+            if route.request.url.endswith("/bff/auth/refresh"):
+                return route.fulfill(status=401, content_type="application/json",
+                    body='{"erro":"Sem refresh"}')
+            return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
+        page.route("**/bff/**", api)
+        page.route("**/api/**", api)
         page.goto(BASE + "/", wait_until="load")
         if tipo:
             page.evaluate("""() => {
               localStorage.setItem('lartop_tipo_usuario', 'CLIENTE');
               localStorage.setItem('lartop_nome_usuario', 'Cliente Teste');
-              localStorage.setItem('lartop_access_token', 'token-ficticio-cliente');
+              localStorage.setItem('lartop_sessao_ativa', '1');
             }""")
         page.goto(BASE + "/buscar", wait_until="domcontentloaded")
         page.get_by_role("heading", name="Digite um CEP para começar").wait_for(timeout=15000)
@@ -325,8 +348,15 @@ def teste_rodape_contextual(browser, mobile=False):
         is_mobile=mobile, has_touch=mobile,
     )
     page = context.new_page()
+    papel_atual = [None]
 
     def api(route):
+        if route.request.url.endswith("/api/usuarios/mim"):
+            if papel_atual[0]:
+                return route.fulfill(status=200, content_type="application/json",
+                    body=json.dumps({"id":"conta-rodape","nome":"Conta de Teste","tipo":papel_atual[0]}))
+            return route.fulfill(status=401, content_type="application/json",
+                body='{"erro":"Não autenticado"}')
         path = route.request.url
         if path.endswith("/api/solicitacoes/recebidas"):
             return route.fulfill(status=200, content_type="application/json", body='{"itens":[],"total":0}')
@@ -336,6 +366,7 @@ def teste_rodape_contextual(browser, mobile=False):
             return route.fulfill(status=200, content_type="application/json", body='[]')
         return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
 
+    page.route("**/bff/**", api)
     page.route("**/api/**", api)
     page.goto(BASE + "/", wait_until="load")
     footer = page.locator("footer")
@@ -343,8 +374,9 @@ def teste_rodape_contextual(browser, mobile=False):
     assert footer.get_by_text("Tipos de serviço").count() == 1
 
     def alterar_papel(papel):
+        papel_atual[0] = papel
         page.evaluate("""(papel) => {
-          localStorage.setItem('lartop_access_token', 'token-ficticio-para-teste');
+          localStorage.setItem('lartop_sessao_ativa', '1');
           localStorage.setItem('lartop_tipo_usuario', papel);
           localStorage.setItem('lartop_nome_usuario', 'Conta de Teste');
           window.dispatchEvent(new Event('lartop:sessao-alterada'));
@@ -374,8 +406,9 @@ def teste_rodape_contextual(browser, mobile=False):
     footer.get_by_role("link", name="Painel administrativo").wait_for(timeout=15000)
     assert footer.get_by_role("link", name="Buscar profissionais").count() == 0
 
+    papel_atual[0] = None
     page.evaluate("""() => {
-      localStorage.removeItem('lartop_access_token');
+      localStorage.removeItem('lartop_sessao_ativa');
       localStorage.removeItem('lartop_tipo_usuario');
       localStorage.removeItem('lartop_nome_usuario');
       window.dispatchEvent(new Event('lartop:sessao-alterada'));
@@ -397,12 +430,15 @@ def teste_responsividade_central_notificacoes(browser):
         context.add_init_script("""
           localStorage.setItem('lartop_tipo_usuario', 'PROFISSIONAL');
           localStorage.setItem('lartop_nome_usuario', 'Prestador de Teste');
-          localStorage.setItem('lartop_access_token', 'token-testes-interface');
+          localStorage.setItem('lartop_sessao_ativa', '1');
         """)
         page = context.new_page()
         acoes = []
 
         def api(route):
+            if route.request.url.endswith("/api/usuarios/mim"):
+                return route.fulfill(status=200, content_type="application/json",
+                    body=json.dumps({"id":"conta-teste","nome":"Conta Teste","tipo":"PROFISSIONAL"}))
             url = route.request.url
             if "/api/notificacoes?" in url:
                 itens = [
@@ -428,6 +464,7 @@ def teste_responsividade_central_notificacoes(browser):
                                      body='{"erro":"mock"}')
             return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
 
+        page.route("**/bff/**", api)
         page.route("**/api/**", api)
         page.goto(BASE + "/painel", wait_until="load")
         page.get_by_text("Nenhum pedido novo aguardando resposta.").wait_for(timeout=20000)
@@ -478,7 +515,7 @@ def teste_recuperacao_push_expirado(browser):
     context.add_init_script("""
       localStorage.setItem('lartop_tipo_usuario', 'PROFISSIONAL');
       localStorage.setItem('lartop_nome_usuario', 'Prestador Teste Push');
-      localStorage.setItem('lartop_access_token', 'token-mock-push');
+      localStorage.setItem('lartop_sessao_ativa', '1');
       window.__pushTeste = { removidas: 0, novas: 0 };
       let inscricao = {
         endpoint: 'https://fcm.googleapis.com/fcm/send/inscricao-antiga',
@@ -514,6 +551,9 @@ def teste_recuperacao_push_expirado(browser):
     """)
     chamadas = []
     def api(route):
+        if route.request.url.endswith("/api/usuarios/mim"):
+            return route.fulfill(status=200, content_type="application/json",
+                body=json.dumps({"id":"conta-teste","nome":"Conta Teste","tipo":"PROFISSIONAL"}))
         url = route.request.url
         if url.endswith("/api/push/assinaturas/verificar"):
             chamadas.append("verificar")
@@ -538,6 +578,7 @@ def teste_recuperacao_push_expirado(browser):
             return route.fulfill(status=200, content_type="application/json",
                                  body='{"itens":[],"naoLidas":0}')
         return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
+    context.route("**/bff/**", api)
     context.route("**/api/**", api)
     page = context.new_page()
     page.goto(BASE + "/painel", wait_until="load")
@@ -562,7 +603,7 @@ def teste_filtros_pedidos_prestador(browser, mobile=False):
     context.add_init_script("""
       localStorage.setItem('lartop_tipo_usuario', 'PROFISSIONAL');
       localStorage.setItem('lartop_nome_usuario', 'Prestador de teste');
-      localStorage.setItem('lartop_access_token', 'token-testes-paginacao');
+      localStorage.setItem('lartop_sessao_ativa', '1');
     """)
     page = context.new_page()
     chamadas = []
@@ -572,6 +613,9 @@ def teste_filtros_pedidos_prestador(browser, mobile=False):
                for i in range(1, 21)}
 
     def api(route):
+        if route.request.url.endswith("/api/usuarios/mim"):
+            return route.fulfill(status=200, content_type="application/json",
+                body=json.dumps({"id":"conta-teste","nome":"Conta Teste","tipo":"PROFISSIONAL"}))
         url = route.request.url
         path = urlsplit(url).path
         if path.endswith("/api/solicitacoes/recebidas"):
@@ -615,6 +659,7 @@ def teste_filtros_pedidos_prestador(browser, mobile=False):
         return route.fulfill(status=404, content_type="application/json",
                              body='{"erro":"API simulada"}')
 
+    page.route("**/bff/**", api)
     page.route("**/api/**", api)
     page.goto(BASE + "/painel", wait_until="load")
     page.get_by_role("button", name="Novos", exact=True).wait_for(timeout=15000)

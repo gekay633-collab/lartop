@@ -23,6 +23,10 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+// Um nonce CSP exige renderização dinâmica: páginas HTML não podem carregar
+// um nonce fixo reutilizado entre visitantes.
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="pt-BR" className="h-full antialiased">
