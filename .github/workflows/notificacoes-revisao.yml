@@ -123,3 +123,6 @@ jobs:
           APP_PID=$!
           trap 'STATUS=$?; if [ $STATUS -ne 0 ]; then echo ---NEXT SERVER LOG---; tail -n 80 /tmp/lartop-next.log; fi; kill $APP_PID 2>/dev/null || true; exit $STATUS' EXIT
           python3 apps/web/tests/browser_smoke.py
+          # Exercita route handler + Proxy reais (sem page.route), usando
+          # apenas um mock Railway local descartável em localhost:3333.
+          python3 apps/web/tests/bff_smoke.py
