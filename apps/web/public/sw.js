@@ -9,8 +9,10 @@ self.addEventListener("push", event => {
 
   event.waitUntil(self.registration.showNotification(titulo, {
     body: corpo,
+    // Android uses the badge as a small MONOCHROME glyph. The full-color
+    // launcher icon has a solid background, so it can appear as a blank dot.
     icon: "/icon-192.png",
-    badge: "/icon-192.png",
+    badge: "/badge-notificacao-96.png",
     tag,
     renotify: true,
     data: { url: caminho },
