@@ -23,7 +23,7 @@ export default function ParaProfissionaisPage() {
     setErro("");
     setCarregando(true);
     try {
-      const resposta = await fetch(`/api/auth/registrar/profissional`, {
+      const resposta = await fetch(`/bff/auth/registrar/profissional`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
