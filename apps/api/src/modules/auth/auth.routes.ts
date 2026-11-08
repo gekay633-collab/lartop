@@ -180,7 +180,10 @@ export async function authRoutes(app: FastifyInstance) {
     try {
       await solicitarRecuperacaoSenha(parse.data.email);
     } catch (err) {
-      request.log.error(err);
+      // Não registrar URLs de reset, tokens nem endereços de e-mail
+      // em logs de erros do provedor ou do banco.
+      request.log.warn({ tipo: err instanceof Error ? err.name : 'desconhecido' },
+        'Não foi possível enviar a recuperação de senha');
     }
 
     return reply.send({ ok: true, mensagem: 'Se o e-mail existir, enviamos um link de recuperação.' });
