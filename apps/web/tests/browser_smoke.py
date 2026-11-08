@@ -320,8 +320,15 @@ def teste_rodape_contextual(browser, mobile=False):
         is_mobile=mobile, has_touch=mobile,
     )
     page = context.new_page()
+    papel_atual = [None]
 
     def api(route):
+        if route.request.url.endswith("/api/usuarios/mim"):
+            if papel_atual[0]:
+                return route.fulfill(status=200, content_type="application/json",
+                    body=json.dumps({"id":"conta-rodape","nome":"Conta de Teste","tipo":papel_atual[0]}))
+            return route.fulfill(status=401, content_type="application/json",
+                body='{"erro":"Não autenticado"}')
         path = route.request.url
         if path.endswith("/api/solicitacoes/recebidas"):
             return route.fulfill(status=200, content_type="application/json", body='{"itens":[],"total":0}')
@@ -338,6 +345,7 @@ def teste_rodape_contextual(browser, mobile=False):
     assert footer.get_by_text("Tipos de serviço").count() == 1
 
     def alterar_papel(papel):
+        papel_atual[0] = papel
         page.evaluate("""(papel) => {
           localStorage.setItem('lartop_sessao_ativa', '1');
           localStorage.setItem('lartop_tipo_usuario', papel);
@@ -369,8 +377,9 @@ def teste_rodape_contextual(browser, mobile=False):
     footer.get_by_role("link", name="Painel administrativo").wait_for(timeout=15000)
     assert footer.get_by_role("link", name="Buscar profissionais").count() == 0
 
+    papel_atual[0] = None
     page.evaluate("""() => {
-      localStorage.removeItem('lartop_access_token');
+      localStorage.removeItem('lartop_sessao_ativa');
       localStorage.removeItem('lartop_tipo_usuario');
       localStorage.removeItem('lartop_nome_usuario');
       window.dispatchEvent(new Event('lartop:sessao-alterada'));
