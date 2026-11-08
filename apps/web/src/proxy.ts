@@ -41,12 +41,19 @@ function responderErro(status: number, texto: string) {
 export function proxy(request: NextRequest) {
   const caminho = request.nextUrl.pathname;
   const api = caminho === "/api" || caminho.startsWith("/api/");
+  const bffAuth = caminho.startsWith("/bff/auth/");
   const headers = new Headers(request.headers);
   headers.delete("authorization");
   headers.delete("x-nonce");
   headers.delete("content-security-policy");
 
-  if (api) {
+  // Nunca deixar o rewrite genérico /api/:path* devolver um JWT bruto.
+  // Bundles antigos do PWA devem ser atualizados para /bff/auth/*.
+  if (caminho.startsWith("/api/auth/")) {
+    return responderErro(410, "Atualize a página do Lartop para continuar com segurança.");
+  }
+
+  if (api || bffAuth) {
     if (ehMetodoMutavel(request.method) && !origemConfiavel(
       request.nextUrl.origin,
       request.headers.get("origin"),
@@ -55,10 +62,9 @@ export function proxy(request: NextRequest) {
       return responderErro(403, "Origem não autorizada");
     }
 
-    if (caminho.startsWith("/api/auth/")) {
-      // BFF fará o repasse controlado do cookie refresh.
-      // A rota de autenticação precisa conseguir ler os cookies originais.
-    } else {
+    if (api) {
+      // Somente o gateway de autenticação BFF pode receber refresh cookie.
+      // Nenhuma outra API (inclusive uploads) recebe cookies diretamente.
       headers.delete("cookie");
       const jwt = request.cookies.get(CHAVE_COOKIE_ACESSO_PRODUCAO)?.value ||
         request.cookies.get(CHAVE_COOKIE_ACESSO_LOCAL)?.value;
