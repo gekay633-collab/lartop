@@ -103,7 +103,7 @@ def main():
             assert "accessToken" not in resposta.json(), resposta.json()
             assert ACCESS_INICIAL not in resposta.text()
             page.wait_for_url(BASE + "/", timeout=20000)
-            page.get_by_text("Cliente BFF", exact=False).first.wait_for(timeout=15000)
+            page.get_by_text("Olá, Cliente", exact=False).first.wait_for(timeout=15000)
 
             assert page.evaluate("localStorage.getItem('lartop_access_token')") is None
             assert page.evaluate("sessionStorage.getItem('lartop_access_token')") is None
