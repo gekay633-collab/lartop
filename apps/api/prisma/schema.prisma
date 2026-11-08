@@ -176,6 +176,10 @@ model SolicitacaoOrcamento {
   tamanhoM2      Float             @map("tamanho_m2")
   descricao      String?
   fotos          String[]          @default([])
+  // Hash SHA-256(clienteId + UUID do pedido). Nulo para clientes PWA legados.
+  // A unicidade evita pedidos e Push duplicados mesmo entre replicas.
+  idempotencyKey  String?          @unique(map: "solicitacoes_orcamento_idempotency_key_key") @map("idempotency_key")
+  idempotencyHash String?          @map("idempotency_hash")
   status         StatusSolicitacao @default(PENDENTE)
   criadoEm       DateTime          @default(now()) @map("criado_em")
   atualizadoEm   DateTime          @updatedAt @map("atualizado_em")

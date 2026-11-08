@@ -368,6 +368,73 @@ describe('central de notificações com banco de testes', () => {
     assert.equal(await prisma.notificacao.count({ where: { solicitacaoId: pedido.id, destinatarioId: clienteId } }), 1);
   });
 
+  it('reenvio após timeout mantém o mesmo pedido e uma única notificação', async () => {
+    const chave = randomUUID();
+    const chaveLimite = `limite:solicitacoes:${clienteId}`;
+    const contagemAntes = Number(await redis.get(chaveLimite) ?? '0');
+    const antes = await pedidosCriados();
+    const totalAvisos = await prisma.notificacao.count({ where: { destinatarioId: profissionalId } });
+    const headers = { authorization: `Bearer ${clienteToken}`, 'idempotency-key': chave };
+    const primeira = await app.inject({
+      method: 'POST', url: '/api/solicitacoes', headers, payload: entrada(),
+    });
+    assert.equal(primeira.statusCode, 201, primeira.body);
+    const reenvio = await app.inject({
+      method: 'POST', url: '/api/solicitacoes', headers, payload: entrada(),
+    });
+    assert.equal(reenvio.statusCode, 200, reenvio.body);
+    assert.equal(primeira.json().id, reenvio.json().id);
+    assert.equal(primeira.json().linkWhatsapp, reenvio.json().linkWhatsapp);
+    assert.equal(Object.hasOwn(primeira.json(), 'idempotencyKey'), false);
+    assert.equal(Object.hasOwn(reenvio.json(), 'idempotencyHash'), false);
+    assert.equal(await pedidosCriados(), antes + 1);
+    assert.equal(await prisma.notificacao.count({ where: { destinatarioId: profissionalId } }), totalAvisos + 1);
+    assert.equal(Number(await redis.get(chaveLimite)), contagemAntes + 1, 'retry não consome cota novamente');
+
+    const payloadDiferente = { ...entrada(), endereco: 'Outro endereco de teste, 100' };
+    const conflito = await app.inject({
+      method: 'POST', url: '/api/solicitacoes', headers, payload: payloadDiferente,
+    });
+    assert.equal(conflito.statusCode, 409);
+    assert.equal(await pedidosCriados(), antes + 1);
+
+    const malformada = await app.inject({
+      method: 'POST', url: '/api/solicitacoes',
+      headers: { authorization: `Bearer ${clienteToken}`, 'idempotency-key': 'nao-e-uuid' },
+      payload: entrada(),
+    });
+    assert.equal(malformada.statusCode, 400);
+
+    // Mesmo com a cota do cliente esgotada, a API deve recuperar o pedido
+    // original, não devolver 429 nem tentar criar outro.
+    await redis.set(chaveLimite, '12', 'EX', 900);
+    try {
+      const recuperado = await app.inject({
+        method: 'POST', url: '/api/solicitacoes', headers, payload: entrada(),
+      });
+      assert.equal(recuperado.statusCode, 200, recuperado.body);
+      assert.equal(recuperado.json().id, primeira.json().id);
+    } finally {
+      await redis.del(chaveLimite);
+    }
+  });
+
+  it('duas requisições concorrentes da mesma tentativa criam só um pedido e Push', async () => {
+    const chave = randomUUID();
+    const headers = { authorization: `Bearer ${clienteToken}`, 'idempotency-key': chave };
+    const antes = await pedidosCriados();
+    const avisosAntes = await prisma.notificacao.count({ where: { destinatarioId: profissionalId } });
+    const respostas = await Promise.all([
+      app.inject({ method: 'POST', url: '/api/solicitacoes', headers, payload: entrada() }),
+      app.inject({ method: 'POST', url: '/api/solicitacoes', headers, payload: entrada() }),
+    ]);
+    assert.ok(respostas.every(r => [200, 201].includes(r.statusCode)),
+      JSON.stringify(respostas.map(r => [r.statusCode, r.body])));
+    assert.equal(respostas[0].json().id, respostas[1].json().id);
+    assert.equal(await pedidosCriados(), antes + 1);
+    assert.equal(await prisma.notificacao.count({ where: { destinatarioId: profissionalId } }), avisosAntes + 1);
+  });
+
   it('impede notificação com referência a outro usuário e reverte a operação', async () => {
     const antes = await pedidosCriados();
     await assert.rejects(prisma.$transaction(async tx => {
