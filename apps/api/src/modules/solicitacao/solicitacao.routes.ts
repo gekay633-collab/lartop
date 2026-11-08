@@ -59,7 +59,7 @@ export async function solicitacaoRoutes(app: FastifyInstance) {
     if (chaveValidada && !chaveValidada.success) {
       return reply.status(400).send({ erro: 'Idempotency-Key deve ser um UUID válido.' });
     }
-    const chave = chaveValidada?.data;
+    const chave = chaveValidada?.success ? chaveValidada.data : undefined;
     try {
       if (chave) {
         const reenviado = await consultarPedidoReenviado(request.usuario!.id, parse.data, chave);
