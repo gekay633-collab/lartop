@@ -139,7 +139,7 @@ async function renovarSessao(): Promise<void> {
     // HttpOnly e devolve somente metadados, definindo novo access HttpOnly.
     let resposta: Response;
     try {
-      resposta = await fetch("/api/auth/refresh", {
+      resposta = await fetch("/bff/auth/refresh", {
         method: "POST", credentials: "same-origin", cache: "no-store",
       });
     } catch {
@@ -203,7 +203,7 @@ export async function restaurarSessao(): Promise<SessaoLocal | null> {
 }
 
 export async function entrar(email: string, senha: string): Promise<SessaoLocal> {
-  const resposta = await fetch("/api/auth/login", {
+  const resposta = await fetch("/bff/auth/login", {
     method: "POST", headers: { "Content-Type": "application/json" },
     credentials: "same-origin", body: JSON.stringify({ email, senha }),
   });
@@ -218,7 +218,7 @@ export async function entrar(email: string, senha: string): Promise<SessaoLocal>
 export async function registrarComoCliente(input: {
   nome: string; email: string; senha: string; telefone?: string;
 }): Promise<SessaoLocal> {
-  const resposta = await fetch("/api/auth/registrar/cliente", {
+  const resposta = await fetch("/bff/auth/registrar/cliente", {
     method: "POST", headers: { "Content-Type": "application/json" },
     credentials: "same-origin", body: JSON.stringify(input),
   });
@@ -235,7 +235,7 @@ export async function registrarComoCliente(input: {
 
 export async function encerrarSessao(_accessToken?: string): Promise<void> {
   await comBloqueioSessao(async () => {
-    const resposta = await fetch("/api/auth/logout", {
+    const resposta = await fetch("/bff/auth/logout", {
       method: "POST", credentials: "same-origin", cache: "no-store",
     });
     if (!resposta.ok) {
