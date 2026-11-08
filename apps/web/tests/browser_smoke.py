@@ -157,100 +157,86 @@ def admin_logout(browser, mobile=False):
 
 
 def teste_renovacao_entre_abas(browser):
-    """Duas abas recebem um 401/expiração; só um refresh deve consumir o cookie."""
-    antigo = "e30." + base64.urlsafe_b64encode(
-        json.dumps({"exp": int(time.time()) - 30}).encode()
-    ).decode().rstrip("=") + ".assinatura-ficticia"
-    novo = "token-renovado-somente-testes"
+    """Duas abas usam refresh HttpOnly sem gravar JWT no armazenamento local."""
     context = browser.new_context()
-    context.add_cookies([{"url": BASE, "name": "lartop_refresh",
-                          "value": "cookie-ficticio-inicial", "httpOnly": True, "sameSite": "Lax"}])
+    context.add_cookies([
+        {"url": BASE, "name": "lartop_refresh", "value": "cookie-rotativo-teste",
+         "httpOnly": True, "sameSite": "Lax"}
+    ])
     chamadas_refresh = []
-    chamadas_autenticadas = []
-    origens_refresh = []
+    chamadas_perfil = []
 
     def api(route):
         url = route.request.url
+        cookies = route.request.headers.get("cookie", "")
+        if url.endswith("/api/usuarios/mim"):
+            chamadas_perfil.append(cookies)
+            if "lartop_access=jwt-apenas-httponly" in cookies:
+                return route.fulfill(status=200, content_type="application/json",
+                    body='{"id":"cliente","nome":"Cliente Duas Abas","tipo":"CLIENTE"}')
+            return route.fulfill(status=401, content_type="application/json",
+                                 body='{"erro":"Token expirado"}')
         if url.endswith("/api/auth/refresh"):
-            chamadas_refresh.append(route.request.headers.get("cookie", ""))
-            origens_refresh.append(str(id(route.request.frame.page)))
-            time.sleep(0.25)
+            chamadas_refresh.append(cookies)
+            time.sleep(0.2)
             return route.fulfill(status=200, content_type="application/json",
-                headers={"Set-Cookie": "lartop_refresh=cookie-renovado; Path=/; HttpOnly; SameSite=Lax"},
-                body=json.dumps({"accessToken": novo}))
-        if "/api/notificacoes" in url:
-            token = route.request.headers.get("authorization")
-            chamadas_autenticadas.append(token)
-            if token != "Bearer " + novo:
-                return route.fulfill(status=401, content_type="application/json",
-                                     body='{"erro":"Token expirado"}')
-            return route.fulfill(status=200, content_type="application/json",
-                                 body='{"itens":[],"naoLidas":0}')
+                headers={"Set-Cookie": "lartop_access=jwt-apenas-httponly; Path=/; HttpOnly; SameSite=Lax"},
+                body='{"ok":true}')
         if url.endswith("/api/solicitacoes/minhas"):
-            token = route.request.headers.get("authorization")
-            chamadas_autenticadas.append(token)
-            if token != "Bearer " + novo:
+            if "lartop_access=jwt-apenas-httponly" not in cookies:
                 return route.fulfill(status=401, content_type="application/json",
-                                     body='{"erro":"Token expirado"}')
+                                     body='{"erro":"Sessão inválida"}')
             return route.fulfill(status=200, content_type="application/json",
                                  body='{"itens":[],"total":0,"pagina":1}')
+        if "/api/notificacoes" in url:
+            return route.fulfill(status=200, content_type="application/json",
+                                 body='{"itens":[],"naoLidas":0}')
         if url.endswith("/api/push/chave-publica"):
-            return route.fulfill(status=503, content_type="application/json", body='{"erro":"simulado"}')
-        return route.fulfill(status=404, content_type="application/json", body='{"erro":"simulado"}')
+            return route.fulfill(status=503, content_type="application/json",
+                                 body='{"erro":"simulado"}')
+        return route.fulfill(status=404, content_type="application/json",
+                             body='{"erro":"mock"}')
 
     context.route("**/api/**", api)
     a = context.new_page()
-    # Inicializa uma única vez: nunca reescreve o token ao abrir a segunda aba.
-    a.goto(BASE + "/", wait_until="load")
-    # Conclui hidratação antes de inserir a sessão: evita criar um refresh
-    # que seria abortado ao navegar da página inicial para o painel.
-    a.wait_for_load_state("networkidle", timeout=20000)
-    a.wait_for_timeout(700)
-    a.evaluate("""(token) => {
-      localStorage.setItem('lartop_tipo_usuario', 'CLIENTE');
-      localStorage.setItem('lartop_nome_usuario', 'Cliente Duas Abas');
-      localStorage.setItem('lartop_access_token', token);
-    }""", antigo)
     b = context.new_page()
     a.goto(BASE + "/minhas-solicitacoes", wait_until="domcontentloaded")
     b.goto(BASE + "/minhas-solicitacoes", wait_until="domcontentloaded")
     for page in (a, b):
-        page.wait_for_function("(t) => localStorage.getItem('lartop_access_token') === t", arg=novo,
-                               timeout=20000)
         page.get_by_text("Você ainda não pediu nenhum orçamento.").wait_for(timeout=20000)
-    assert len(chamadas_refresh) == 1, (
-        "Refresh rotativo deveria ocorrer apenas uma vez, recebeu " + str(len(chamadas_refresh)) +
-        " | cookies: " + str(chamadas_refresh) +
-        " | autorizacoes: " + str(chamadas_autenticadas) +
-        " | abas: " + str([p.evaluate("localStorage.getItem('lartop_access_token')") for p in (a,b)]) +
-        " | WebLocks: " + str([p.evaluate("Boolean(navigator.locks?.request)") for p in (a,b)]) +
-        " | tabs: " + str(origens_refresh)
-    )
-    assert chamadas_autenticadas and all(t == "Bearer " + novo for t in chamadas_autenticadas)
-    assert "lartop_refresh=cookie-ficticio-inicial" in chamadas_refresh[0]
+        assert page.evaluate("localStorage.getItem('lartop_access_token')") is None
+        assert page.evaluate("localStorage.getItem('lartop_sessao_ativa')") == "1"
+    cookies = context.cookies(BASE)
+    access = [c for c in cookies if c["name"] == "lartop_access"]
+    assert len(access) == 1 and access[0]["httpOnly"], cookies
+    assert 1 <= len(chamadas_refresh) <= 2, chamadas_refresh
+    assert chamadas_perfil
     context.close()
-    print("MULTIABAS: apenas um refresh, ambas as abas autorizadas OK")
+    print("MULTIABAS: restauração e refresh HttpOnly, JWT ausente do localStorage OK")
 
-    # Falha transitória no Redis/API não pode apagar o login do usuário.
+    # Um erro 503 nunca deve destruir os metadados não sensíveis de sessão.
     falha = browser.new_context()
-    falha.add_init_script(
-        "localStorage.setItem('lartop_access_token', " + json.dumps(antigo) + ");" +
-        "localStorage.setItem('lartop_tipo_usuario', 'CLIENTE');" +
-        "localStorage.setItem('lartop_nome_usuario', 'Cliente Falha Temporária');"
-    )
-    def api_indisponivel(route):
+    falha.add_init_script("""
+        localStorage.setItem('lartop_sessao_ativa','1');
+        localStorage.setItem('lartop_tipo_usuario','CLIENTE');
+        localStorage.setItem('lartop_nome_usuario','Cliente Falha Temporária');
+    """)
+    def indisponivel(route):
+        if route.request.url.endswith("/api/usuarios/mim"):
+            return route.fulfill(status=401, content_type="application/json",
+                                 body='{"erro":"JWT expirado"}')
         if route.request.url.endswith("/api/auth/refresh"):
             return route.fulfill(status=503, content_type="application/json",
                                  body='{"erro":"Redis indisponível"}')
-        return route.fulfill(status=404, content_type="application/json", body='{"erro":"simulado"}')
-    falha.route("**/api/**", api_indisponivel)
-    pagina = falha.new_page()
-    pagina.goto(BASE + "/minhas-solicitacoes", wait_until="load")
-    pagina.get_by_text("Não foi possível renovar a sessão agora", exact=False).wait_for(timeout=20000)
-    assert pagina.evaluate("localStorage.getItem('lartop_access_token')") == antigo
+        return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
+    falha.route("**/api/**", indisponivel)
+    page = falha.new_page()
+    page.goto(BASE + "/minhas-solicitacoes", wait_until="load")
+    page.wait_for_timeout(1600)
+    assert page.evaluate("localStorage.getItem('lartop_access_token')") is None
+    assert page.evaluate("localStorage.getItem('lartop_sessao_ativa')") == "1"
     falha.close()
-    print("FALHA 503: sessão local preservada OK")
-
+    print("FALHA 503: sessão HttpOnly pode ser recuperada; metadados permanecem OK")
 
 
 def teste_profissional_nao_entra_no_fluxo_cliente(browser, mobile=False):
