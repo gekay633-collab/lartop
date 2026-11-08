@@ -115,6 +115,22 @@ def main():
             assert len(refresh) == 1 and refresh[0]["httpOnly"], cookies
             assert access[0]["value"] == ACCESS_INICIAL
 
+            # O rewrite legado /api/auth não pode retornar accessToken nem
+            # permitir login antigo diretamente pelo Railway.
+            qtd_login = sum(x[1] == "/api/auth/login" for x in eventos)
+            antigo = context.request.post(BASE + "/api/auth/login", headers={
+                "Origin": BASE, "Content-Type": "application/json",
+                "Sec-Fetch-Site": "same-origin",
+            }, data=json.dumps({"email":"cliente@example.test", "senha":"senha-ficticia"}))
+            assert antigo.status == 410, antigo.text()
+            assert "accessToken" not in antigo.text()
+            assert sum(x[1] == "/api/auth/login" for x in eventos) == qtd_login
+            antigo_refresh = context.request.post(BASE + "/api/auth/refresh", headers={
+                "Origin": BASE, "Sec-Fetch-Site": "same-origin",
+            })
+            assert antigo_refresh.status == 410, antigo_refresh.text()
+            assert "accessToken" not in antigo_refresh.text()
+
             # Browser tenta injetar um Bearer malicioso: o Proxy deve ignorar
             # esse header e entregar à API só o JWT do cookie HttpOnly.
             resposta = context.request.get(BASE + "/api/usuarios/mim", headers={
