@@ -28,7 +28,7 @@ const MAX_CORPO_BYTES = 16_384;
 
 async function lerCorpoComLimite(request: NextRequest): Promise<string | null> {
   const declarado = request.headers.get("content-length");
-  if (declarado !== null && (!/^\\d+$/.test(declarado) || Number(declarado) > MAX_CORPO_BYTES)) {
+  if (declarado !== null && (!/^\d+$/.test(declarado) || Number(declarado) > MAX_CORPO_BYTES)) {
     return null;
   }
   if (!request.body) return "";
