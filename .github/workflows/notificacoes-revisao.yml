@@ -15,39 +15,6 @@ permissions:
   contents: read
 
 jobs:
-  # Job de migração temporário, restrito à própria branch da auditoria.
-  lockfile-seguranca:
-    name: Regenerar lockfiles após correção de dependências API
-    if: github.head_ref == 'security/mvp-auditoria-20261108'
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          persist-credentials: true
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.17.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: Atualizar lockfile raiz
-        run: pnpm install --lockfile-only --no-frozen-lockfile --ignore-scripts
-      - name: Atualizar lockfile standalone frontend
-        run: pnpm --dir apps/web --ignore-workspace install --lockfile-only --no-frozen-lockfile --ignore-scripts
-      - name: Commit apenas de dependências travadas
-        run: |
-          git add pnpm-lock.yaml apps/web/pnpm-lock.yaml
-          if git diff --cached --quiet; then
-            echo "Lockfiles sincronizados"
-          else
-            git config user.name "lartop-security-bot"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "security(lockfiles): patch Fastify Zod fast-uri and source-map-js"
-            git push origin HEAD:${{ github.head_ref }}
-          fi
   revisao-sem-producao:
     name: API + Prisma + testes + tipos Web (banco descartavel)
     runs-on: ubuntu-latest
