@@ -39,7 +39,7 @@ function FormularioRedefinirSenha() {
 
     setCarregando(true);
     try {
-      const resposta = await fetch(`/api/auth/redefinir-senha`, {
+      const resposta = await fetch(`/bff/auth/redefinir-senha`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ usuarioId, token, novaSenha }),
