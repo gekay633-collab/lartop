@@ -1,12 +1,7 @@
 import type { NextConfig } from "next";
 
-// O navegador chama /api/* no mesmo dominio do site.
-// Em producao, o Next.js encaminha ao backend publicado no Railway.
-const BACKEND_PADRAO =
-  process.env.NODE_ENV === "production"
-    ? "https://lartop-production.up.railway.app"
-    : "http://localhost:3333";
-const backendUrl = (process.env.API_BACKEND_URL?.trim() || BACKEND_PADRAO).replace(/\/+$/, "");
+// As rotas /api/* sao encaminhadas pelo Proxy para aplicar a sessao HttpOnly.
+// Nao criar um rewrite externo paralelo aqui: poderia descartar Authorization.
 
 const nextConfig: NextConfig = {
   async headers() {
@@ -26,14 +21,6 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "no-referrer" },
           { key: "Cache-Control", value: "no-store" },
         ],
-      },
-    ];
-  },
-  async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${backendUrl}/api/:path*`,
       },
     ];
   },
