@@ -1,6 +1,8 @@
 "use client";
 
-const CHAVE_TOKEN = "lartop_access_token";
+const CHAVE_TOKEN_LEGADO = "lartop_access_token";
+let tokenEmMemoria: string | null = null;
+let inicializacao: Promise<void> | null = null;
 const CHAVE_TIPO = "lartop_tipo_usuario";
 const CHAVE_NOME = "lartop_nome_usuario";
 const EVENTO_SESSAO = "lartop:sessao-alterada";
@@ -14,7 +16,7 @@ function avisarMudancaSessao() {
 /** Atualiza cabeçalho e painéis em outra aba sem propagar tokens por mensagens. */
 export function observarSessao(callback: () => void): () => void {
   const aoArmazenar = (evento: StorageEvent) => {
-    if (!evento.key || [CHAVE_TOKEN, CHAVE_TIPO, CHAVE_NOME].includes(evento.key)) callback();
+    if (!evento.key || [CHAVE_TOKEN_LEGADO, CHAVE_TIPO, CHAVE_NOME].includes(evento.key)) callback();
   };
   window.addEventListener("storage", aoArmazenar);
   window.addEventListener(EVENTO_SESSAO, callback);
@@ -64,7 +66,7 @@ export interface SessaoLocal {
 
 export function obterSessao(): SessaoLocal | null {
   if (typeof window === "undefined") return null;
-  const accessToken = localStorage.getItem(CHAVE_TOKEN);
+  const accessToken = tokenEmMemoria;
   const tipo = localStorage.getItem(CHAVE_TIPO) as SessaoLocal["tipo"] | null;
   const nome = localStorage.getItem(CHAVE_NOME);
   if (!accessToken || !tipo || !nome) return null;
@@ -72,18 +74,54 @@ export function obterSessao(): SessaoLocal | null {
 }
 
 export function salvarSessao(sessao: SessaoLocal) {
-  // O access token é o marcador final de atualização entre abas.
+  // O access token nunca é persistido no armazenamento do navegador.
+  localStorage.removeItem(CHAVE_TOKEN_LEGADO);
+  tokenEmMemoria = sessao.accessToken;
   localStorage.setItem(CHAVE_TIPO, sessao.tipo);
   localStorage.setItem(CHAVE_NOME, sessao.nome);
-  localStorage.setItem(CHAVE_TOKEN, sessao.accessToken);
   avisarMudancaSessao();
 }
 
 export function limparSessao() {
-  localStorage.removeItem(CHAVE_TOKEN);
+  tokenEmMemoria = null;
+  localStorage.removeItem(CHAVE_TOKEN_LEGADO);
   localStorage.removeItem(CHAVE_TIPO);
   localStorage.removeItem(CHAVE_NOME);
   avisarMudancaSessao();
+}
+
+/**
+ * Restores an existing HttpOnly refresh-cookie session after a page reload.
+ * Runs once per page lifecycle, before protected UI is mounted.
+ * Never imports the legacy localStorage JWT into memory.
+ */
+export function inicializarSessao(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (inicializacao) return inicializacao;
+  inicializacao = (async () => {
+    localStorage.removeItem(CHAVE_TOKEN_LEGADO);
+    if (obterSessao()) return;
+    await comBloqueioSessao(async () => {
+      const resposta = await fetch("/api/auth/refresh", {
+        method: "POST", credentials: "include", cache: "no-store",
+      });
+      if (resposta.status === 401) {
+        limparSessao();
+        return;
+      }
+      if (!resposta.ok) throw new Error("Não foi possível restaurar sua sessão.");
+      const dados = await lerRespostaAutenticacao<{ accessToken: string }>(
+        resposta, "Não foi possível restaurar sua sessão"
+      );
+      if (!dados.accessToken) throw new Error("Token de sessão ausente.");
+      const usuario = await buscarUsuarioLogado(dados.accessToken);
+      salvarSessao({ accessToken: dados.accessToken, nome: usuario.nome, tipo: usuario.tipo });
+    });
+  })();
+  return inicializacao.catch(erro => {
+    inicializacao = null;
+    throw erro;
+  });
 }
 
 /**
@@ -238,7 +276,7 @@ async function renovarTokenUmaVez(tokenAnterior: string): Promise<string> {
       if (!atual) throw new Error("Sessão encerrada em outra aba. Entre novamente.");
       // Outra conta pode ter feito login durante o pedido de refresh.
       if (atual.accessToken !== tokenAnterior) return atual.accessToken;
-      localStorage.setItem(CHAVE_TOKEN, dados.accessToken);
+      tokenEmMemoria = dados.accessToken;
       avisarMudancaSessao();
       return dados.accessToken;
     });
