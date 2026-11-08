@@ -40,7 +40,7 @@ def scenario(browser, mobile=False):
         req = route.request
         url = req.url
         request_log.append((req.method, url.split("?")[0]))
-        if url.endswith("/api/auth/login"):
+        if url.endswith("/bff/auth/login"):
             return route.fulfill(status=200, content_type="application/json",
                 headers={"Set-Cookie": "lartop_refresh=fake-for-browser-test; Path=/; HttpOnly; SameSite=Lax"},
                 body=json.dumps({"accessToken": "test-only-not-a-real-jwt"}))
@@ -50,7 +50,7 @@ def scenario(browser, mobile=False):
                     body='{"erro":"sem sessão"}')
             return route.fulfill(status=200, content_type="application/json",
                 body=json.dumps({"id":"fake-user","nome":"Teste Navegador","tipo":"CLIENTE","email":"fake@example.test"}))
-        if url.endswith("/api/auth/logout"):
+        if url.endswith("/bff/auth/logout"):
             if logout_should_fail:
                 return route.fulfill(status=503, content_type="application/json",
                     body='{"erro":"Simulação de falha"}')
@@ -65,6 +65,7 @@ def scenario(browser, mobile=False):
         return route.fulfill(status=404, content_type="application/json",
                              body='{"erro":"API mock: endpoint indisponível"}')
 
+    page.route("**/bff/**", intercept)
     page.route("**/api/**", intercept)
     page.goto(BASE + "/entrar", wait_until="load")
     # Aguarda scripts e hidratação; não depende de propriedades internas do React.
@@ -97,7 +98,7 @@ def scenario(browser, mobile=False):
     sair.click()
     page.wait_for_function("localStorage.getItem('lartop_sessao_ativa') === null")
     assert page.evaluate("localStorage.getItem('lartop_tipo_usuario')") is None
-    assert sum(x[1].endswith("/api/auth/logout") for x in request_log) == 2
+    assert sum(x[1].endswith("/bff/auth/logout") for x in request_log) == 2
     page.goto(BASE + "/redefinir-senha?token=token-falso&id=usuario-falso", wait_until="domcontentloaded")
     page.get_by_role("heading", name="Criar nova senha").wait_for(timeout=15000)
     page.wait_for_function("window.location.search === ''", timeout=10000)
@@ -125,7 +126,7 @@ def admin_logout(browser, mobile=False):
                 body=json.dumps({"id":"conta-teste","nome":"Conta Teste","tipo":"ADMIN"}))
         nonlocal falhar_logout
         url = route.request.url
-        if url.endswith("/api/auth/logout"):
+        if url.endswith("/bff/auth/logout"):
             pedidos_logout.append(route.request.method)
             if falhar_logout:
                 return route.fulfill(status=503, content_type="application/json",
@@ -143,6 +144,7 @@ def admin_logout(browser, mobile=False):
                 }))
         return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
 
+    page.route("**/bff/**", mock_api)
     page.route("**/api/**", mock_api)
     page.goto(BASE + "/", wait_until="domcontentloaded")
     page.evaluate("""() => {
@@ -189,7 +191,7 @@ def teste_renovacao_entre_abas(browser):
                     body='{"id":"cliente","nome":"Cliente Duas Abas","tipo":"CLIENTE"}')
             return route.fulfill(status=401, content_type="application/json",
                                  body='{"erro":"Token expirado"}')
-        if url.endswith("/api/auth/refresh"):
+        if url.endswith("/bff/auth/refresh"):
             chamadas_refresh.append(cookies)
             time.sleep(0.2)
             return route.fulfill(status=200, content_type="application/json",
@@ -210,6 +212,7 @@ def teste_renovacao_entre_abas(browser):
         return route.fulfill(status=404, content_type="application/json",
                              body='{"erro":"mock"}')
 
+    context.route("**/bff/**", api)
     context.route("**/api/**", api)
     a = context.new_page()
     b = context.new_page()
@@ -238,10 +241,11 @@ def teste_renovacao_entre_abas(browser):
         if route.request.url.endswith("/api/usuarios/mim"):
             return route.fulfill(status=401, content_type="application/json",
                                  body='{"erro":"JWT expirado"}')
-        if route.request.url.endswith("/api/auth/refresh"):
+        if route.request.url.endswith("/bff/auth/refresh"):
             return route.fulfill(status=503, content_type="application/json",
                                  body='{"erro":"Redis indisponível"}')
         return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
+    falha.route("**/bff/**", indisponivel)
     falha.route("**/api/**", indisponivel)
     page = falha.new_page()
     page.goto(BASE + "/minhas-solicitacoes", wait_until="load")
@@ -274,6 +278,7 @@ def teste_profissional_nao_entra_no_fluxo_cliente(browser, mobile=False):
                                  body='{"erro":"sem push no teste"}')
         return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
 
+    page.route("**/bff/**", api)
     page.route("**/api/**", api)
     page.goto(BASE + "/", wait_until="load")
     page.wait_for_load_state("networkidle", timeout=20000)
@@ -315,10 +320,11 @@ def teste_cliente_pode_continuar_na_busca(browser):
                         body='{"id":"cliente","nome":"Cliente Teste","tipo":"CLIENTE"}')
                 return route.fulfill(status=401, content_type="application/json",
                     body='{"erro":"Não autenticado"}')
-            if route.request.url.endswith("/api/auth/refresh"):
+            if route.request.url.endswith("/bff/auth/refresh"):
                 return route.fulfill(status=401, content_type="application/json",
                     body='{"erro":"Sem refresh"}')
             return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
+        page.route("**/bff/**", api)
         page.route("**/api/**", api)
         page.goto(BASE + "/", wait_until="load")
         if tipo:
@@ -360,6 +366,7 @@ def teste_rodape_contextual(browser, mobile=False):
             return route.fulfill(status=200, content_type="application/json", body='[]')
         return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
 
+    page.route("**/bff/**", api)
     page.route("**/api/**", api)
     page.goto(BASE + "/", wait_until="load")
     footer = page.locator("footer")
@@ -457,6 +464,7 @@ def teste_responsividade_central_notificacoes(browser):
                                      body='{"erro":"mock"}')
             return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
 
+        page.route("**/bff/**", api)
         page.route("**/api/**", api)
         page.goto(BASE + "/painel", wait_until="load")
         page.get_by_text("Nenhum pedido novo aguardando resposta.").wait_for(timeout=20000)
@@ -570,6 +578,7 @@ def teste_recuperacao_push_expirado(browser):
             return route.fulfill(status=200, content_type="application/json",
                                  body='{"itens":[],"naoLidas":0}')
         return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
+    context.route("**/bff/**", api)
     context.route("**/api/**", api)
     page = context.new_page()
     page.goto(BASE + "/painel", wait_until="load")
@@ -650,6 +659,7 @@ def teste_filtros_pedidos_prestador(browser, mobile=False):
         return route.fulfill(status=404, content_type="application/json",
                              body='{"erro":"API simulada"}')
 
+    page.route("**/bff/**", api)
     page.route("**/api/**", api)
     page.goto(BASE + "/painel", wait_until="load")
     page.get_by_role("button", name="Novos", exact=True).wait_for(timeout=15000)
