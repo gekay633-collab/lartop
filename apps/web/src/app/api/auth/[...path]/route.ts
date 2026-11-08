@@ -9,7 +9,7 @@ const backend = (
   (process.env.NODE_ENV === "production"
     ? "https://lartop-production.up.railway.app"
     : "http://localhost:3333")
-).replace(/\\/+$/, "");
+).replace(/[/]+$/, "");
 
 const CAMINHOS_PERMITIDOS = new Set([
   "login", "logout", "refresh", "registrar/cliente",
