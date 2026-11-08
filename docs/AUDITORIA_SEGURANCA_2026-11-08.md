@@ -4,6 +4,15 @@
 
 **Método:** inspeção estática do código e das rotas, leitura de configurações e permissões sem revelar segredos, SQL exclusivamente de leitura no Supabase, testes de integração PostgreSQL/Redis descartáveis e testes Chromium desktop/mobile simulados. **Não foi feito pentest externo, exploit em contas de usuários nem teste de intrusão em produção.** O resultado não certifica ausência de vulnerabilidades.
 
+## Vulnerabilidades CRÍTICAS de dependências e remediação proposta
+
+- **Next.js 16.3.1** está em faixa afetada pelas falhas de segurança de 14/10/2026. O comunicado oficial exige atualização para **Next.js 16.4.1 ou superior**: https://nextjs.org/blog/nextjs-security-update-october-14-2026
+- O projeto também tinha **React 19.2.8** / React Server Components em faixa afetada por RCE; a linha foi corrigida em **React 19.2.9**: https://github.com/react/react/security/advisories/GHSA-xqc2-xf4c-x3h3
+- Sharp **0.35.3** era anterior à versão corrigida **0.35.5** da vulnerabilidade no processamento de imagens.
+- Esta branch fixa `apps/web/package.json` em `next@16.4.1`, `react@19.2.9`, `react-dom@19.2.9`, `eslint-config-next@16.4.1` e `sharp@^0.35.5`. **Os dois lockfiles foram regenerados no CI com pnpm 11.17.0** e os testes de produção são obrigatórios.
+- A presença das versões vulneráveis não demonstra, por si só, exploração efetiva. O risco depende do uso e de condições de exploração. A recomendação é atualizar **antes de abrir o MVP** a usuários externos.
+- Não foi publicado até a aprovação do PR; o ambiente de produção deve ser tratado como exposto à versão antiga até a confirmação do deploy corrigido.
+
 ## Evidências de proteção já existentes
 
 - As 14 tabelas `public` no Supabase têm RLS ativada. A consulta de privilégios não identificou concessões de tabela para os papéis `anon` ou `authenticated`; o advisor registra 14 achados informativos de RLS sem políticas. Não criar políticas abertas indiscriminadamente: a API usa Prisma.
