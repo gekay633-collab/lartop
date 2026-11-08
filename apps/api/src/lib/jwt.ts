@@ -22,19 +22,21 @@ export function versaoCredenciais(senhaHash: string): string {
 }
 
 export function gerarAccessToken(payload: PayloadAccessToken): string {
-  return jwt.sign(payload, ACCESS_SECRET, { expiresIn: ACCESS_EXPIRES_IN, jwtid: randomUUID() });
+  return jwt.sign(payload, ACCESS_SECRET, {
+    algorithm: 'HS256', expiresIn: ACCESS_EXPIRES_IN, jwtid: randomUUID(),
+  });
 }
 
 export function gerarRefreshToken(payload: { sub: string; jti: string; credenciaisVersao: string }): string {
-  return jwt.sign(payload, REFRESH_SECRET, { expiresIn: REFRESH_EXPIRES_IN });
+  return jwt.sign(payload, REFRESH_SECRET, { algorithm: 'HS256', expiresIn: REFRESH_EXPIRES_IN });
 }
 
 export function verificarAccessToken(token: string): PayloadAccessToken {
-  return jwt.verify(token, ACCESS_SECRET) as PayloadAccessToken;
+  return jwt.verify(token, ACCESS_SECRET, { algorithms: ['HS256'] }) as PayloadAccessToken;
 }
 
 export function verificarRefreshToken(token: string): { sub: string; jti: string; credenciaisVersao: string } {
-  const payload = jwt.verify(token, REFRESH_SECRET) as {
+  const payload = jwt.verify(token, REFRESH_SECRET, { algorithms: ['HS256'] }) as {
     sub?: unknown; jti?: unknown; credenciaisVersao?: unknown
   };
   if (typeof payload.sub !== 'string' || typeof payload.jti !== 'string' || !payload.jti ||
