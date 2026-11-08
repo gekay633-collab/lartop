@@ -96,7 +96,7 @@ def main():
 
             page.get_by_placeholder("E-mail").fill("cliente@example.test")
             page.get_by_placeholder("Senha").fill("senha-ficticia")
-            with page.expect_response(lambda r: r.url.endswith("/api/auth/login")) as tentativa:
+            with page.expect_response(lambda r: r.url.endswith("/bff/auth/login")) as tentativa:
                 page.locator('form button[type="submit"]').click()
             resposta = tentativa.value
             assert resposta.status == 200, resposta.text()
@@ -125,7 +125,7 @@ def main():
 
             # Origin cross-site não pode modificar nenhum estado com cookies.
             qtd_logout_antes = sum(x[1] == "/api/auth/logout" for x in eventos)
-            resposta = context.request.post(BASE + "/api/auth/logout", headers={
+            resposta = context.request.post(BASE + "/bff/auth/logout", headers={
                 "Origin":"https://ataque.example", "Sec-Fetch-Site":"cross-site",
             })
             assert resposta.status == 403, resposta.text()
