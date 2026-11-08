@@ -70,6 +70,24 @@ export function proxy(request: NextRequest) {
         request.cookies.get(CHAVE_COOKIE_ACESSO_LOCAL)?.value;
       if (jwt && jwt.length <= 4096) headers.set("Authorization", `Bearer ${jwt}`);
     }
+    // Vercel must receive the authenticated header on the SAME rewrite that
+    // proxies the request to Railway. A separate next.config rewrite can
+    // lose Proxy's request header overrides on the external-hop path.
+    if (api) {
+      const backend = (process.env.API_BACKEND_URL?.trim() ||
+        (process.env.NODE_ENV === "production"
+          ? "https://lartop-production.up.railway.app"
+          : "http://localhost:3333")).replace(/[/]+$/, "");
+      const destino = new URL(backend);
+      // Assign pathname rather than resolving a client-provided // path as a host.
+      destino.pathname = caminho;
+      destino.search = request.nextUrl.search;
+      headers.delete("host");
+      const response = NextResponse.rewrite(destino, { request: { headers } });
+      response.headers.set("Cache-Control", "private, no-store");
+      return response;
+    }
+
     const response = NextResponse.next({ request: { headers } });
     response.headers.set("Cache-Control", "private, no-store");
     return response;
