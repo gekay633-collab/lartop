@@ -10,7 +10,11 @@ const registrarEventoSchema = z.object({
 });
 
 export async function eventoRoutes(app: FastifyInstance) {
-  app.post('/eventos', async (request, reply) => {
+  // Endpoint intencionalmente público para registrar visitas anônimas,
+  // mas não pode aceitar volume ilimitado que distorça métricas e encha o banco.
+  app.post('/eventos', {
+    config: { rateLimit: { max: 15, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
     const parse = registrarEventoSchema.safeParse(request.body);
     if (!parse.success) {
       return reply.status(400).send({ erro: 'Dados invalidos' });
