@@ -111,6 +111,9 @@ def admin_logout(browser, mobile=False):
     falhar_logout = True
 
     def mock_api(route):
+        if route.request.url.endswith("/api/usuarios/mim"):
+            return route.fulfill(status=200, content_type="application/json",
+                body=json.dumps({"id":"conta-teste","nome":"Conta Teste","tipo":"ADMIN"}))
         nonlocal falhar_logout
         url = route.request.url
         if url.endswith("/api/auth/logout"):
@@ -247,6 +250,9 @@ def teste_profissional_nao_entra_no_fluxo_cliente(browser, mobile=False):
     )
     page = context.new_page()
     def api(route):
+        if route.request.url.endswith("/api/usuarios/mim"):
+            return route.fulfill(status=200, content_type="application/json",
+                body=json.dumps({"id":"conta-teste","nome":"Conta Teste","tipo":"PROFISSIONAL"}))
         if "/api/solicitacoes/recebidas" in route.request.url:
             return route.fulfill(status=200, content_type="application/json",
                                  body='{"itens":[],"total":0}')
@@ -392,6 +398,9 @@ def teste_responsividade_central_notificacoes(browser):
         acoes = []
 
         def api(route):
+        if route.request.url.endswith("/api/usuarios/mim"):
+            return route.fulfill(status=200, content_type="application/json",
+                body=json.dumps({"id":"conta-teste","nome":"Conta Teste","tipo":"PROFISSIONAL"}))
             url = route.request.url
             if "/api/notificacoes?" in url:
                 itens = [
@@ -503,6 +512,9 @@ def teste_recuperacao_push_expirado(browser):
     """)
     chamadas = []
     def api(route):
+        if route.request.url.endswith("/api/usuarios/mim"):
+            return route.fulfill(status=200, content_type="application/json",
+                body=json.dumps({"id":"conta-teste","nome":"Conta Teste","tipo":"PROFISSIONAL"}))
         url = route.request.url
         if url.endswith("/api/push/assinaturas/verificar"):
             chamadas.append("verificar")
@@ -561,6 +573,9 @@ def teste_filtros_pedidos_prestador(browser, mobile=False):
                for i in range(1, 21)}
 
     def api(route):
+        if route.request.url.endswith("/api/usuarios/mim"):
+            return route.fulfill(status=200, content_type="application/json",
+                body=json.dumps({"id":"conta-teste","nome":"Conta Teste","tipo":"PROFISSIONAL"}))
         url = route.request.url
         path = urlsplit(url).path
         if path.endswith("/api/solicitacoes/recebidas"):
