@@ -75,15 +75,15 @@ describe('upload validado no servidor', () => {
     assert.equal(res.statusCode, 413);
   });
 
-  it('não emite assinaturas diretas quando o modo legado estiver desativado', async () => {
+  it('não oferece mais o endpoint de assinatura Cloudinary, mesmo se o legado estiver ativado', async () => {
     const anterior = process.env.UPLOAD_ASSINATURA_LEGADO;
-    delete process.env.UPLOAD_ASSINATURA_LEGADO;
+    process.env.UPLOAD_ASSINATURA_LEGADO = 'true';
     try {
       const res = await app.inject({
         method: 'POST', url: '/api/upload/assinatura',
         headers: { authorization: `Bearer ${token}` },
       });
-      assert.equal(res.statusCode, 410);
+      assert.equal(res.statusCode, 404);
     } finally {
       if (anterior === undefined) delete process.env.UPLOAD_ASSINATURA_LEGADO;
       else process.env.UPLOAD_ASSINATURA_LEGADO = anterior;
