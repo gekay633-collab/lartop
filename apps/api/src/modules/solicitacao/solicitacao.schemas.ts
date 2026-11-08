@@ -1,9 +1,9 @@
+import { imagemDaContaLartop } from '../../lib/imagem-segura.js';
 import { z } from 'zod';
 
-const urlImagemSegura = z.string().url().max(2048).refine((valor) => {
-  const url = new URL(valor);
-  return url.protocol === 'https:' && !url.username && !url.password;
-}, { message: 'Use um endereço HTTPS válido para a imagem' });
+const urlImagemSegura = z.string().url().max(2048).refine(imagemDaContaLartop, {
+  message: 'Utilize uma imagem enviada pelo Lartop',
+});
 
 export const criarSolicitacaoSchema = z.object({
   profissionalId: z.string().uuid(),
