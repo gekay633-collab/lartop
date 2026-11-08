@@ -24,6 +24,42 @@ function enviarErro(status: number, erro: string): NextResponse {
   return resposta;
 }
 
+const MAX_CORPO_BYTES = 16_384;
+
+async function lerCorpoComLimite(request: NextRequest): Promise<string | null> {
+  const declarado = request.headers.get("content-length");
+  if (declarado !== null && (!/^\\d+$/.test(declarado) || Number(declarado) > MAX_CORPO_BYTES)) {
+    return null;
+  }
+  if (!request.body) return "";
+  const leitor = request.body.getReader();
+  const partes: Uint8Array[] = [];
+  let tamanho = 0;
+  try {
+    while (true) {
+      const { done, value } = await leitor.read();
+      if (done) break;
+      tamanho += value.byteLength;
+      if (tamanho > MAX_CORPO_BYTES) {
+        await leitor.cancel().catch(() => undefined);
+        return null;
+      }
+      partes.push(value);
+    }
+    const dados = new Uint8Array(tamanho);
+    let posicao = 0;
+    for (const parte of partes) {
+      dados.set(parte, posicao);
+      posicao += parte.byteLength;
+    }
+    return new TextDecoder("utf-8", { fatal: true }).decode(dados);
+  } catch {
+    return null;
+  } finally {
+    leitor.releaseLock();
+  }
+}
+
 /**
  * A API mantém compatibilidade com clientes antigos retornando accessToken.
  * Este gateway elimina o campo ANTES de responder ao navegador e converte
@@ -41,9 +77,10 @@ export async function POST(request: NextRequest, { params }: Contexto): Promise<
     return enviarErro(403, "Origem não autorizada");
   }
 
-  // Evitar logar credenciais ou aceitar corpo arbitrariamente grande.
-  const corpo = await request.text();
-  if (corpo.length > 16_384) return enviarErro(413, "Dados muito grandes");
+  // Limite aplicado DURANTE a leitura; Content-Length pode ser omitido
+  // (transferência por chunks) e request.text() acumularia memória sem limite.
+  const corpo = await lerCorpoComLimite(request);
+  if (corpo === null) return enviarErro(413, "Dados muito grandes ou inválidos");
   if (acao !== "logout" && acao !== "refresh" &&
       !request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
     return enviarErro(415, "Envie dados em formato JSON");
