@@ -16,7 +16,10 @@ function avisarMudancaSessao() {
 /** Atualiza cabeçalho e painéis em outra aba sem propagar tokens por mensagens. */
 export function observarSessao(callback: () => void): () => void {
   const aoArmazenar = (evento: StorageEvent) => {
-    if (!evento.key || [CHAVE_TOKEN_LEGADO, CHAVE_TIPO, CHAVE_NOME].includes(evento.key)) callback();
+    if (!evento.key || [CHAVE_TOKEN_LEGADO, CHAVE_TIPO, CHAVE_NOME].includes(evento.key)) {
+      if (!localStorage.getItem(CHAVE_TIPO) || !localStorage.getItem(CHAVE_NOME)) tokenEmMemoria = null;
+      callback();
+    }
   };
   window.addEventListener("storage", aoArmazenar);
   window.addEventListener(EVENTO_SESSAO, callback);
