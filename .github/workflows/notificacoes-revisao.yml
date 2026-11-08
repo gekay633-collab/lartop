@@ -80,6 +80,10 @@ jobs:
         run: pnpm --filter @lartop/api test:auth:http
       - name: Testar limite, MIME e autenticação do upload pela API
         run: pnpm --filter @lartop/api test:upload
+      - name: Validar proteção de imagens, URL de recuperação e entradas de autenticação
+        run: pnpm --filter @lartop/api exec tsx --test src/lib/seguranca-mvp.test.ts
+      - name: Verificar sintaxe do bootstrap administrativo sem senha padrão
+        run: node --check apps/api/scripts-criar-admin.mjs
       - name: Testar validação segura de endpoints Push
         run: pnpm --filter @lartop/api test:push
       - name: "Integracao real: permissoes, pedidos e concorrencia"
