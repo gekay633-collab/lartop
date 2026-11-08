@@ -48,8 +48,8 @@ export async function authRoutes(app: FastifyInstance) {
   // Cookie-authenticated endpoints must not accept cross-origin browser requests.
   // Missing Origin is allowed for native clients; browser cross-site requests send it.
   app.addHook('onRequest', async (request, reply) => {
-    if (request.url.split('?')[0] !== '/auth/refresh' &&
-        request.url.split('?')[0] !== '/auth/logout') return;
+    if (!request.url.split('?')[0].endsWith('/auth/refresh') &&
+        !request.url.split('?')[0].endsWith('/auth/logout')) return;
     const origin = request.headers.origin;
     if (!origin) return;
     const configured = process.env.FRONTEND_URL?.trim() ||
