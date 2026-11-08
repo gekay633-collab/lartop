@@ -86,10 +86,10 @@ export async function POST(request: NextRequest, { params }: Contexto): Promise<
     return enviarErro(415, "Envie dados em formato JSON");
   }
 
-  const headers = new Headers({
-    "Accept": "application/json",
-    "Content-Type": "application/json",
-  });
+  // Fastify rejects POSTs with Content-Type: application/json and no body.
+  // Refresh and logout are cookie-only actions, so omit Content-Type when empty.
+  const headers = new Headers({ "Accept": "application/json" });
+  if (corpo) headers.set("Content-Type", "application/json");
   const refresh = request.cookies.get("lartop_refresh")?.value;
   if (refresh) headers.set("Cookie", `lartop_refresh=${refresh}`);
   if (acao === "logout") {
