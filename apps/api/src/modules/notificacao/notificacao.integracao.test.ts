@@ -11,6 +11,7 @@ import { solicitacaoRoutes } from '../solicitacao/solicitacao.routes.js';
 import { notificacaoRoutes } from './notificacao.routes.js';
 import { pushRoutes } from '../push/push.routes.js';
 import { perfilRoutes } from '../perfil/perfil.routes.js';
+import { avaliacaoRoutes } from '../avaliacao/avaliacao.routes.js';
 import {
   criarSolicitacao,
   atualizarStatusComoProfissional,
@@ -61,6 +62,7 @@ describe('central de notificações com banco de testes', () => {
     await app.register(solicitacaoRoutes, { prefix: '/api' });
     await app.register(pushRoutes, { prefix: '/api' });
     await app.register(perfilRoutes, { prefix: '/api' });
+    await app.register(avaliacaoRoutes, { prefix: '/api' });
     await app.ready();
 
     const cidade = await prisma.cidade.create({
@@ -177,6 +179,49 @@ describe('central de notificações com banco de testes', () => {
         where: { usuarioId: profissionalId },
         data: { perfilPublicado: true },
       });
+    }
+  });
+
+  it('avaliações públicas desaparecem se perfil é despublicado ou conta inativada', async () => {
+    const pedido = await prisma.solicitacaoOrcamento.create({
+      data: {
+        clienteId, profissionalId, categoriaId, cep: '24900000',
+        endereco: 'Pedido de avaliação reservado ao CI',
+        tamanhoM2: 10, status: 'CONCLUIDA',
+      },
+    });
+    try {
+      await prisma.avaliacao.create({
+        data: {
+          solicitacaoId: pedido.id, avaliadorId: clienteId,
+          avaliadoId: profissionalId, tipo: 'CLIENTE_AVALIA_PROFISSIONAL',
+          nota: 5, comentario: 'Avaliação do banco descartável',
+        },
+      });
+      const caminho = `/api/profissionais/${profissionalId}/avaliacoes`;
+      const publico = await app.inject({ method: 'GET', url: caminho });
+      assert.equal(publico.statusCode, 200);
+      assert.ok((publico.json() as { id: string }[]).length > 0);
+
+      await prisma.perfilProfissional.update({
+        where: { usuarioId: profissionalId }, data: { perfilPublicado: false },
+      });
+      const oculto = await app.inject({ method: 'GET', url: caminho });
+      assert.deepEqual(oculto.json(), []);
+      await prisma.perfilProfissional.update({
+        where: { usuarioId: profissionalId }, data: { perfilPublicado: true },
+      });
+
+      await prisma.usuario.update({ where: { id: profissionalId }, data: { ativo: false } });
+      const bloqueado = await app.inject({ method: 'GET', url: caminho });
+      assert.deepEqual(bloqueado.json(), []);
+    } finally {
+      await prisma.usuario.update({ where: { id: profissionalId }, data: { ativo: true } });
+      await prisma.perfilProfissional.update({
+        where: { usuarioId: profissionalId }, data: { perfilPublicado: true },
+      });
+      await prisma.avaliacao.deleteMany({ where: { solicitacaoId: pedido.id } });
+      await prisma.solicitacaoOrcamento.delete({ where: { id: pedido.id } });
     }
   });
 
