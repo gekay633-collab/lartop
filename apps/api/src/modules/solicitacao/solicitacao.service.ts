@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
 import type { Prisma, StatusSolicitacao } from '@prisma/client';
 import { gerarLinkWhatsapp } from '../../lib/whatsapp.js';
+import { chaveDePedido, hashDePedido } from './solicitacao.idempotencia.js';
 import { registrarEvento } from '../evento/evento.service.js';
 import { AVISOS_CLIENTE } from '../notificacao/notificacao.eventos.js';
 import { enviarPushNotificacao } from '../push/push.service.js';
@@ -29,9 +30,66 @@ const TRANSICOES_CLIENTE: Record<string, string[]> = {
   RESPONDIDA: ['CANCELADA'],
 };
 
-export async function criarSolicitacao(clienteId: string, input: CriarSolicitacaoInput) {
-  // Defesa extra à autorização HTTP: jamais permitir solicitar serviço a si mesmo,
-  // inclusive se esta função for chamada por outro módulo futuramente.
+const incluirDadosPedido = {
+  categoria: true,
+  profissional: { select: { nomeExibicao: true, cidadeId: true } },
+} as const;
+
+function respostaPedido<T extends {
+  idempotencyKey: string | null;
+  idempotencyHash: string | null;
+  categoria: { nome: string };
+  endereco: string;
+  tamanhoM2: number;
+  descricao: string | null;
+}>(pedido: T, telefone: string) {
+  // Nunca expor chaves/hashes internos em respostas de API.
+  const { idempotencyKey: _chave, idempotencyHash: _hash, ...publico } = pedido;
+  const linkWhatsapp = gerarLinkWhatsapp(telefone, {
+    categoriaNome: pedido.categoria.nome,
+    endereco: pedido.endereco,
+    tamanhoM2: pedido.tamanhoM2,
+    descricao: pedido.descricao ?? undefined,
+  });
+  return { ...publico, linkWhatsapp };
+}
+
+/**
+ * Reenvio seguro, inclusive depois de um timeout no navegador.
+ * Usa chave derivada da conta; nunca permite recuperar pedidos alheios.
+ */
+export async function consultarPedidoReenviado(
+  clienteId: string, input: CriarSolicitacaoInput, chave: string,
+) {
+  const idempotencyKey = chaveDePedido(clienteId, chave);
+  const anterior = await prisma.solicitacaoOrcamento.findUnique({
+    where: { idempotencyKey },
+    include: incluirDadosPedido,
+  });
+  if (!anterior) return null;
+  if (anterior.clienteId !== clienteId || anterior.idempotencyHash !== hashDePedido(input)) {
+    throw new SolicitacaoError('Esta tentativa já foi usada para um pedido diferente.', 409);
+  }
+  const usuario = await prisma.usuario.findUnique({
+    where: { id: anterior.profissionalId },
+    select: { telefone: true },
+  });
+  if (!usuario?.telefone) {
+    throw new SolicitacaoError('Pedido localizado, mas o contato do profissional está indisponível.', 409);
+  }
+  return respostaPedido(anterior, usuario.telefone);
+}
+
+export async function criarSolicitacao(
+  clienteId: string, input: CriarSolicitacaoInput, chave?: string,
+) {
+  // Primeiro recupera uma tentativa já concluída, mesmo que o perfil tenha
+  // sido despublicado desde então. Replay não gera novo aviso ou evento.
+  if (chave) {
+    const anterior = await consultarPedidoReenviado(clienteId, input, chave);
+    if (anterior) return anterior;
+  }
+
   if (clienteId === input.profissionalId) {
     throw new SolicitacaoError('Não é permitido solicitar orçamento para o próprio perfil.', 403);
   }
@@ -44,7 +102,6 @@ export async function criarSolicitacao(clienteId: string, input: CriarSolicitaca
   if (!profissional || !profissional.perfilPublicado || !profissional.usuario.ativo) {
     throw new SolicitacaoError('Profissional não encontrado ou perfil não publicado', 404);
   }
-
   if (!profissional.usuario.telefone) {
     throw new SolicitacaoError('Profissional sem telefone cadastrado', 400);
   }
@@ -53,59 +110,62 @@ export async function criarSolicitacao(clienteId: string, input: CriarSolicitaca
     where: { profissionalId: input.profissionalId, categoriaId: input.categoriaId },
     include: { categoria: true },
   });
-
   if (!categoriaValida) {
     throw new SolicitacaoError('Esse profissional não atende essa categoria', 400);
   }
 
-  const { solicitacao, avisoPush } = await prisma.$transaction(async (tx) => {
-    const pedido = await tx.solicitacaoOrcamento.create({
-      data: {
-        clienteId,
-        profissionalId: input.profissionalId,
-        categoriaId: input.categoriaId,
-        cep: input.cep,
-        endereco: input.endereco,
-        tamanhoM2: input.tamanhoM2,
-        descricao: input.descricao,
-        fotos: input.fotos,
-      },
-      include: { categoria: true, profissional: { select: { nomeExibicao: true, cidadeId: true } } },
+  let resultado;
+  try {
+    resultado = await prisma.$transaction(async (tx) => {
+      const pedido = await tx.solicitacaoOrcamento.create({
+        data: {
+          clienteId,
+          profissionalId: input.profissionalId,
+          categoriaId: input.categoriaId,
+          cep: input.cep,
+          endereco: input.endereco,
+          tamanhoM2: input.tamanhoM2,
+          descricao: input.descricao,
+          fotos: input.fotos,
+          idempotencyKey: chave ? chaveDePedido(clienteId, chave) : null,
+          idempotencyHash: chave ? hashDePedido(input) : null,
+        },
+        include: incluirDadosPedido,
+      });
+      const avisoPush = await tx.notificacao.create({
+        data: {
+          destinatarioId: input.profissionalId,
+          solicitacaoId: pedido.id,
+          tipo: 'NOVA_SOLICITACAO',
+          titulo: 'Você recebeu um novo pedido',
+          mensagem: `Você recebeu uma solicitação de ${categoriaValida.categoria.nome}. Acesse seu painel para responder.`,
+        },
+      });
+      return { solicitacao: pedido, avisoPush };
     });
+  } catch (erro) {
+    // Corrida entre múltiplas requisições: o índice único garante um único
+    // commit. A requisição perdedora recupera o pedido vencedor sem novo Push.
+    if (chave && erro && typeof erro === 'object' &&
+        'code' in erro && erro.code === 'P2002') {
+      const anterior = await consultarPedidoReenviado(clienteId, input, chave);
+      if (anterior) return anterior;
+    }
+    throw erro;
+  }
 
-    const avisoPush = await tx.notificacao.create({
-      data: {
-        destinatarioId: input.profissionalId,
-        solicitacaoId: pedido.id,
-        tipo: 'NOVA_SOLICITACAO',
-        titulo: 'Você recebeu um novo pedido',
-        mensagem: `Você recebeu uma solicitação de ${categoriaValida.categoria.nome}. Acesse seu painel para responder.`,
-      },
-    });
-    return { solicitacao: pedido, avisoPush };
-  });
-
-  // Primeiro confirma o pedido e o aviso no banco; depois tenta o push.
-  // Falhas externas não impedem a criação da solicitação.
-  await enviarPushNotificacao(input.profissionalId, avisoPush).catch((erro) => {
+  await enviarPushNotificacao(input.profissionalId, resultado.avisoPush).catch((erro) => {
     console.error('[push] falha após criação de solicitação', erro instanceof Error ? erro.name : 'desconhecida');
-  });
-
-  const linkWhatsapp = gerarLinkWhatsapp(profissional.usuario.telefone, {
-    categoriaNome: categoriaValida.categoria.nome,
-    endereco: input.endereco,
-    tamanhoM2: input.tamanhoM2,
-    descricao: input.descricao,
   });
 
   registrarEvento({
     tipo: 'CONTATO_GERADO',
-    cidadeId: solicitacao.profissional.cidadeId,
+    cidadeId: resultado.solicitacao.profissional.cidadeId,
     categoriaId: input.categoriaId,
     profissionalId: input.profissionalId,
   });
 
-  return { ...solicitacao, linkWhatsapp };
+  return respostaPedido(resultado.solicitacao, profissional.usuario.telefone);
 }
 
 export async function listarSolicitacoesRecebidas(
