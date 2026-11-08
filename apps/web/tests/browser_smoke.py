@@ -78,17 +78,19 @@ def scenario(browser, mobile=False):
         print("BROWSER DEBUG ERRORS:", browser_errors[-25:])
         print("BROWSER DEBUG SCRIPTS:", page.evaluate("Array.from(document.scripts).map(s => s.src).filter(Boolean).slice(0,6)"))
         raise
-    assert page.evaluate("localStorage.getItem('lartop_access_token')") == "test-only-not-a-real-jwt"
+    assert page.evaluate("localStorage.getItem('lartop_access_token')") is None
+    assert page.evaluate("localStorage.getItem('lartop_sessao_ativa')") == "1"
 
     if mobile:
         page.get_by_role("button", name="Abrir menu").click()
     sair = page.get_by_role("button", name="Sair")
     sair.click()
     page.get_by_role("alert").filter(has_text="Não foi possível encerrar sua sessão").wait_for(timeout=15000)
-    assert page.evaluate("localStorage.getItem('lartop_access_token')") is not None
+    assert page.evaluate("localStorage.getItem('lartop_access_token')") is None
+    assert page.evaluate("localStorage.getItem('lartop_sessao_ativa')") == "1"
     logout_should_fail = False
     sair.click()
-    page.wait_for_function("localStorage.getItem('lartop_access_token') === null")
+    page.wait_for_function("localStorage.getItem('lartop_sessao_ativa') === null")
     assert page.evaluate("localStorage.getItem('lartop_tipo_usuario')") is None
     assert sum(x[1].endswith("/api/auth/logout") for x in request_log) == 2
     page.goto(BASE + "/redefinir-senha?token=token-falso&id=usuario-falso", wait_until="domcontentloaded")
@@ -131,7 +133,7 @@ def admin_logout(browser, mobile=False):
     page.route("**/api/**", mock_api)
     page.goto(BASE + "/", wait_until="domcontentloaded")
     page.evaluate("""() => {
-      localStorage.setItem('lartop_access_token', 'token-admin-ficticio');
+      localStorage.setItem('lartop_sessao_ativa', '1');
       localStorage.setItem('lartop_tipo_usuario', 'ADMIN');
       localStorage.setItem('lartop_nome_usuario', 'Teste Admin');
     }""")
@@ -142,10 +144,11 @@ def admin_logout(browser, mobile=False):
     sair = page.get_by_role("button", name="Sair")
     sair.click()
     page.get_by_role("alert").filter(has_text="Não foi possível encerrar sua sessão").wait_for(timeout=15000)
-    assert page.evaluate("localStorage.getItem('lartop_access_token')") == "token-admin-ficticio"
+    assert page.evaluate("localStorage.getItem('lartop_access_token')") is None
+    assert page.evaluate("localStorage.getItem('lartop_sessao_ativa')") == "1"
     falhar_logout = False
     sair.click()
-    page.wait_for_function("localStorage.getItem('lartop_access_token') === null", timeout=15000)
+    page.wait_for_function("localStorage.getItem('lartop_sessao_ativa') === null", timeout=15000)
     page.wait_for_url(BASE + "/", timeout=20000, wait_until="domcontentloaded")
     assert pedidos_logout == ["POST", "POST"]
     context.close()
@@ -275,7 +278,7 @@ def teste_profissional_nao_entra_no_fluxo_cliente(browser, mobile=False):
     page.evaluate("""() => {
       localStorage.setItem('lartop_tipo_usuario', 'PROFISSIONAL');
       localStorage.setItem('lartop_nome_usuario', 'Profissional de Teste');
-      localStorage.setItem('lartop_access_token', 'token-ficticio-prestador');
+      localStorage.setItem('lartop_sessao_ativa', '1');
     }""")
     page.goto(BASE + "/painel", wait_until="load")
     page.get_by_text("Nenhum pedido novo aguardando resposta.").wait_for(timeout=20000)
@@ -308,7 +311,7 @@ def teste_cliente_pode_continuar_na_busca(browser):
             page.evaluate("""() => {
               localStorage.setItem('lartop_tipo_usuario', 'CLIENTE');
               localStorage.setItem('lartop_nome_usuario', 'Cliente Teste');
-              localStorage.setItem('lartop_access_token', 'token-ficticio-cliente');
+              localStorage.setItem('lartop_sessao_ativa', '1');
             }""")
         page.goto(BASE + "/buscar", wait_until="domcontentloaded")
         page.get_by_role("heading", name="Digite um CEP para começar").wait_for(timeout=15000)
@@ -344,7 +347,7 @@ def teste_rodape_contextual(browser, mobile=False):
 
     def alterar_papel(papel):
         page.evaluate("""(papel) => {
-          localStorage.setItem('lartop_access_token', 'token-ficticio-para-teste');
+          localStorage.setItem('lartop_sessao_ativa', '1');
           localStorage.setItem('lartop_tipo_usuario', papel);
           localStorage.setItem('lartop_nome_usuario', 'Conta de Teste');
           window.dispatchEvent(new Event('lartop:sessao-alterada'));
@@ -397,7 +400,7 @@ def teste_responsividade_central_notificacoes(browser):
         context.add_init_script("""
           localStorage.setItem('lartop_tipo_usuario', 'PROFISSIONAL');
           localStorage.setItem('lartop_nome_usuario', 'Prestador de Teste');
-          localStorage.setItem('lartop_access_token', 'token-testes-interface');
+          localStorage.setItem('lartop_sessao_ativa', '1');
         """)
         page = context.new_page()
         acoes = []
@@ -478,7 +481,7 @@ def teste_recuperacao_push_expirado(browser):
     context.add_init_script("""
       localStorage.setItem('lartop_tipo_usuario', 'PROFISSIONAL');
       localStorage.setItem('lartop_nome_usuario', 'Prestador Teste Push');
-      localStorage.setItem('lartop_access_token', 'token-mock-push');
+      localStorage.setItem('lartop_sessao_ativa', '1');
       window.__pushTeste = { removidas: 0, novas: 0 };
       let inscricao = {
         endpoint: 'https://fcm.googleapis.com/fcm/send/inscricao-antiga',
@@ -562,7 +565,7 @@ def teste_filtros_pedidos_prestador(browser, mobile=False):
     context.add_init_script("""
       localStorage.setItem('lartop_tipo_usuario', 'PROFISSIONAL');
       localStorage.setItem('lartop_nome_usuario', 'Prestador de teste');
-      localStorage.setItem('lartop_access_token', 'token-testes-paginacao');
+      localStorage.setItem('lartop_sessao_ativa', '1');
     """)
     page = context.new_page()
     chamadas = []
