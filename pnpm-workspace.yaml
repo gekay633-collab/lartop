@@ -9,3 +9,10 @@ allowBuilds:
   msgpackr-extract: true
   prisma: true
   unrs-resolver: true
+
+# Pins de segurança para subdependências ainda não corrigidas pelos consumidores.
+# Manter cada linha na mesma major e remover quando os pais atualizarem.
+overrides:
+  'fast-uri@3': 3.1.8
+  'fast-uri@4': 4.1.4
+  'source-map-js@1': 1.2.2
