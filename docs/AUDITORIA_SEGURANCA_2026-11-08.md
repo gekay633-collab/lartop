@@ -13,6 +13,14 @@
 - A presença das versões vulneráveis não demonstra, por si só, exploração efetiva. O risco depende do uso e de condições de exploração. A recomendação é atualizar **antes de abrir o MVP** a usuários externos.
 - Não foi publicado até a aprovação do PR; o ambiente de produção deve ser tratado como exposto à versão antiga até a confirmação do deploy corrigido.
 
+## Resultado da auditoria automatizada de dependências
+
+**Última checagem de 8/11/2026:** `pnpm audit --prod --audit-level high` passou no GitHub Actions [#42443649353](https://github.com/gekay633-collab/lartop/actions/runs/42443649353). O relatório passou de **16 achados altos antes dos patches** para **zero achados altos ou críticos** nas dependências de produção analisadas. Permanecem **6 moderados e 4 baixos** no auditor; não interpretar como `zero vulnerabilidades`.
+
+O lockfile agora fixa Fastify 5.12.8, Zod 4.6.7, fast-uri 3.1.8/4.1.4 e source-map-js 1.2.2, além de Next.js 16.4.1, React 19.2.9 e Sharp 0.35.5. O GitHub Actions executou build da API e Next.js, testes de integração PostgreSQL/Redis descartáveis e Chromium desktop/mobile com sucesso.
+
+**Não há autorização para deploy automático neste PR.** A produção permanece nas versões antigas até publicação explicitamente aprovada.
+
 ## Evidências de proteção já existentes
 
 - As 14 tabelas `public` no Supabase têm RLS ativada. A consulta de privilégios não identificou concessões de tabela para os papéis `anon` ou `authenticated`; o advisor registra 14 achados informativos de RLS sem políticas. Não criar políticas abertas indiscriminadamente: a API usa Prisma.
@@ -71,7 +79,7 @@
 - [x] Inspeção do controle de acesso `public`/RLS/grants no Supabase (somente leitura).
 - [x] Inspeção de nomes das variáveis do Railway sem revelar valores.
 - [x] Correções isoladas em branch, sem alterar dados de produção.
-- [ ] CI (API/Prisma, integração, TypeScript, Chromium e casos de segurança novos) completamente verde.
+- [x] CI (API/Prisma, integração, TypeScript, Chromium e casos de segurança novos) completamente verde em 8/11/2026.
 - [ ] Revisão humana do PR e aprovação de publicação.
 - [ ] Teste em celulares reais e verificação de regressões em login, pedidos, fotos e notificações.
 - [ ] Teste de e-mail real e DNS do domínio.
