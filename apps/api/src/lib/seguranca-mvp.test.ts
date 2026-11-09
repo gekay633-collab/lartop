@@ -112,7 +112,7 @@ test('WhatsApp recebe mensagem acentuada, legível e com metro quadrado em pt-BR
     '*Endereço:* Rua das Acácias, nº 100 – Maricá',
     '*Tamanho aproximado:* 1.500,5 m²',
     '*Detalhes:* Preciso realizar a limpeza do jardim.',
-  ].join('\\n'));
+  ].join('\n'));
 });
 
 test('WhatsApp omite Detalhes vazio sem prejudicar as informações essenciais', () => {
