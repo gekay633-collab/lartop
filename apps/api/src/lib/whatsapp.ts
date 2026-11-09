@@ -14,15 +14,20 @@ interface DadosMensagemLead {
 export function gerarLinkWhatsapp(telefoneProfissional: string, dados: DadosMensagemLead): string {
   const numero = normalizarTelefone(telefoneProfissional);
 
+  const tamanhoFormatado = new Intl.NumberFormat('pt-BR', {
+    maximumFractionDigits: 2,
+  }).format(dados.tamanhoM2);
+
   const linhas = [
-    `Ola! Encontrei seu perfil na Lartop e gostaria de um orcamento.`,
-    `Servico: ${dados.categoriaNome}`,
-    `Endereco: ${dados.endereco}`,
-    `Tamanho aproximado: ${dados.tamanhoM2}m2`,
+    'Olá! Encontrei seu perfil na Lartop e gostaria de solicitar um orçamento.',
+    '',
+    `*Serviço:* ${dados.categoriaNome}`,
+    `*Endereço:* ${dados.endereco}`,
+    `*Tamanho aproximado:* ${tamanhoFormatado} m²`,
   ];
 
-  if (dados.descricao) {
-    linhas.push(`Detalhes: ${dados.descricao}`);
+  if (dados.descricao?.trim()) {
+    linhas.push(`*Detalhes:* ${dados.descricao.trim()}`);
   }
 
   const mensagem = linhas.join('\n');

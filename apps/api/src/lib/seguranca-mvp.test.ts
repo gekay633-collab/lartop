@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { verificarAccessToken } from './jwt.js';
 import assert from 'node:assert/strict';
 import { imagemDaContaLartop } from './imagem-segura.js';
+import { gerarLinkWhatsapp } from './whatsapp.js';
 import { atualizarPerfilSchema, adicionarFotoPortfolioSchema } from '../modules/perfil/perfil.schemas.js';
 import { criarSolicitacaoSchema } from '../modules/solicitacao/solicitacao.schemas.js';
 import { gerarLinkRecuperacao } from './email.js';
@@ -91,4 +92,39 @@ test('rejeita JWT assinado com algoritmo diferente de HS256', () => {
     tipo: 'CLIENTE', credenciaisVersao: 'versao-teste',
   }, chave, { algorithm: 'HS384', expiresIn: '10m' });
   assert.throws(() => verificarAccessToken(token));
+});
+
+
+test('WhatsApp recebe mensagem acentuada, legível e com metro quadrado em pt-BR', () => {
+  const link = gerarLinkWhatsapp('(21) 98888-7777', {
+    categoriaNome: 'Corte de grama',
+    endereco: 'Rua das Acácias, nº 100 – Maricá',
+    tamanhoM2: 1500.5,
+    descricao: '  Preciso realizar a limpeza do jardim.  ',
+  });
+  const url = new URL(link);
+  assert.equal(url.origin, 'https://wa.me');
+  assert.equal(url.pathname, '/5521988887777');
+  assert.equal(url.searchParams.get('text'), [
+    'Olá! Encontrei seu perfil na Lartop e gostaria de solicitar um orçamento.',
+    '',
+    '*Serviço:* Corte de grama',
+    '*Endereço:* Rua das Acácias, nº 100 – Maricá',
+    '*Tamanho aproximado:* 1.500,5 m²',
+    '*Detalhes:* Preciso realizar a limpeza do jardim.',
+  ].join('\n'));
+});
+
+test('WhatsApp omite Detalhes vazio sem prejudicar as informações essenciais', () => {
+  const link = gerarLinkWhatsapp('5521999991111', {
+    categoriaNome: 'Poda de árvores',
+    endereco: 'Rua Um, nº 10',
+    tamanhoM2: 100,
+    descricao: '   ',
+  });
+  const mensagem = new URL(link).searchParams.get('text');
+  assert.ok(mensagem?.includes('*Serviço:* Poda de árvores'));
+  assert.ok(mensagem?.includes('*Tamanho aproximado:* 100 m²'));
+  assert.equal(mensagem?.includes('Detalhes:'), false);
+  assert.equal(new URL(link).pathname, '/5521999991111');
 });
