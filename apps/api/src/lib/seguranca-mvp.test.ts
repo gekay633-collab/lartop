@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import jwt from 'jsonwebtoken';
 import { verificarAccessToken } from './jwt.js';
 import assert from 'node:assert/strict';
-import { imagemDaContaLartop } from './imagem-segura.js';
+import { imagemDaContaLartop, imagemPertenceAoUsuario } from './imagem-segura.js';
 import { gerarLinkWhatsapp } from './whatsapp.js';
 import { atualizarPerfilSchema, adicionarFotoPortfolioSchema } from '../modules/perfil/perfil.schemas.js';
 import { criarSolicitacaoSchema } from '../modules/solicitacao/solicitacao.schemas.js';
@@ -47,6 +47,34 @@ test('bloqueia imagens remotas fora da conta Cloudinary do Lartop', () => {
   }
 });
 
+test('imagens novas só podem ser vinculadas à pasta da conta que fez upload', () => {
+  const anterior = process.env.CLOUDINARY_CLOUD_NAME;
+  process.env.CLOUDINARY_CLOUD_NAME = 'conta-ci-lartop';
+  const dono = '11111111-1111-4111-8111-111111111111';
+  const outro = '22222222-2222-4222-8222-222222222222';
+  const foto = (id: string) => `https://res.cloudinary.com/conta-ci-lartop/image/upload/v1234567890/lartop/${id}/imagem_abc123.jpg`;
+  try {
+    assert.equal(imagemPertenceAoUsuario(foto(dono), dono), true);
+    assert.equal(imagemPertenceAoUsuario(foto(outro), dono), false);
+    for (const url of [
+      foto(dono).replace('v1234567890/', ''),
+      foto(dono).replace('/v1234567890/', '/c_fill,w_500/v1234567890/'),
+      foto(dono).replace('/imagem_abc123.jpg', '/%2Fimagem_abc123.jpg'),
+      foto(dono).replace('/imagem_abc123.jpg', '/imagem_abc123.svg'),
+      foto(dono).replace('https://', 'http://'),
+      foto(dono) + '?download=1',
+      'https://res.cloudinary.com/outra-conta/image/upload/v1234567890/lartop/' + dono + '/imagem_abc123.jpg',
+    ]) {
+      assert.equal(imagemPertenceAoUsuario(url, dono), false, url);
+    }
+    // A validação original continua separada: ela valida a conta Cloudinary,
+    // enquanto a nova regra valida a pasta exclusiva do dono autenticado.
+    assert.equal(imagemDaContaLartop(foto(outro)), true);
+  } finally {
+    if (anterior === undefined) delete process.env.CLOUDINARY_CLOUD_NAME;
+    else process.env.CLOUDINARY_CLOUD_NAME = anterior;
+  }
+});
 test('links de redefinição usam HTTPS, origem oficial e parâmetros codificados', () => {
   const anterior = process.env.FRONTEND_URL;
   const modo = process.env.NODE_ENV;
