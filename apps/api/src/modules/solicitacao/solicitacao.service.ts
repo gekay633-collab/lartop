@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
+import { imagemPertenceAoUsuario } from '../../lib/imagem-segura.js';
 import type { Prisma, StatusSolicitacao } from '@prisma/client';
 import { gerarLinkWhatsapp } from '../../lib/whatsapp.js';
 import { chaveDePedido, hashDePedido } from './solicitacao.idempotencia.js';
@@ -83,6 +84,9 @@ export async function consultarPedidoReenviado(
 export async function criarSolicitacao(
   clienteId: string, input: CriarSolicitacaoInput, chave?: string,
 ) {
+  if (input.fotos.some(foto => !imagemPertenceAoUsuario(foto, clienteId))) {
+    throw new SolicitacaoError('As imagens do pedido devem ter sido enviadas pela sua conta.', 400);
+  }
   // Primeiro recupera uma tentativa já concluída, mesmo que o perfil tenha
   // sido despublicado desde então. Replay não gera novo aviso ou evento.
   if (chave) {

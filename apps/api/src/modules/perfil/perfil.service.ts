@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
+import { imagemPertenceAoUsuario } from '../../lib/imagem-segura.js';
 import { redis } from '../../lib/redis.js';
 import type {
   AtualizarPerfilInput,
@@ -33,6 +34,9 @@ export async function obterPerfilProprio(usuarioId: string) {
 }
 
 export async function atualizarPerfil(usuarioId: string, input: AtualizarPerfilInput) {
+  if (input.fotoPerfilUrl && !imagemPertenceAoUsuario(input.fotoPerfilUrl, usuarioId)) {
+    throw new PerfilError('A foto do perfil deve ter sido enviada pela sua conta.', 400);
+  }
   const perfilExistente = await prisma.perfilProfissional.findUnique({ where: { usuarioId } });
   if (!perfilExistente) {
     throw new PerfilError('Perfil profissional não encontrado');
@@ -103,6 +107,10 @@ export async function definirCategorias(usuarioId: string, input: DefinirCategor
 }
 
 export async function adicionarFotoPortfolio(usuarioId: string, input: AdicionarFotoPortfolioInput) {
+  if ((input.urlAntes && !imagemPertenceAoUsuario(input.urlAntes, usuarioId)) ||
+      !imagemPertenceAoUsuario(input.urlDepois, usuarioId)) {
+    throw new PerfilError('As fotos devem ter sido enviadas pela sua conta.', 400);
+  }
   const perfilExistente = await prisma.perfilProfissional.findUnique({ where: { usuarioId } });
   if (!perfilExistente) {
     throw new PerfilError('Perfil profissional não encontrado');
