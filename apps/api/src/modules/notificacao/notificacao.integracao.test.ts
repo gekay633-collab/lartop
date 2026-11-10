@@ -12,6 +12,8 @@ import { notificacaoRoutes } from './notificacao.routes.js';
 import { pushRoutes } from '../push/push.routes.js';
 import { perfilRoutes } from '../perfil/perfil.routes.js';
 import { avaliacaoRoutes } from '../avaliacao/avaliacao.routes.js';
+import { buscaRoutes } from '../busca/busca.routes.js';
+import { adminRoutes } from '../admin/admin.routes.js';
 import {
   criarSolicitacao,
   atualizarStatusComoProfissional,
@@ -63,10 +65,12 @@ describe('central de notificações com banco de testes', () => {
     await app.register(pushRoutes, { prefix: '/api' });
     await app.register(perfilRoutes, { prefix: '/api' });
     await app.register(avaliacaoRoutes, { prefix: '/api' });
+    await app.register(buscaRoutes, { prefix: '/api' });
+    await app.register(adminRoutes, { prefix: '/api' });
     await app.ready();
 
     const cidade = await prisma.cidade.create({
-      data: { nome: 'Cidade teste', estado: 'RJ', slug: `ci-notif-${suffix}`, lat: -22.9, lng: -42.8 },
+      data: { nome: 'Cidade teste', estado: 'RJ', slug: `ci-notif-${suffix}-rj`, lat: -22.9, lng: -42.8 },
     });
     cidadeId = cidade.id;
     const categoria = await prisma.categoria.create({
@@ -115,6 +119,49 @@ describe('central de notificações com banco de testes', () => {
     redis.disconnect();
   });
 
+  it('busca pública parametriza categoria e não expõe contato ou localização privada', async () => {
+    const caminho = `/api/cidades/rj/ci-notif-${suffix}/profissionais?raioKm=15&porPagina=20`;
+    const busca = await app.inject({ method: 'GET', url: caminho });
+    assert.equal(busca.statusCode, 200, busca.body);
+    const resultados = busca.json().resultados as Record<string, unknown>[];
+    assert.ok(resultados.some(x => x.usuarioId === profissionalId));
+    const perfil = resultados.find(x => x.usuarioId === profissionalId)!;
+    for (const campo of ['telefone', 'email', 'cepBase', 'cep', 'lat', 'lng', 'senhaHash']) {
+      assert.equal(Object.hasOwn(perfil, campo), false, `Busca pública expôs campo privado: ${campo}`);
+    }
+    const categoria = `servico-notif-${suffix}`;
+    const filtrada = await app.inject({
+      method: 'GET', url: `${caminho}&categoria=${encodeURIComponent(categoria)}`,
+    });
+    assert.equal(filtrada.statusCode, 200, filtrada.body);
+    assert.ok(filtrada.json().resultados.some((x: { usuarioId: string }) => x.usuarioId === profissionalId));
+    const injecao = await app.inject({
+      method: 'GET',
+      url: `${caminho}&categoria=${encodeURIComponent("' OR 1=1 --")}`,
+    });
+    assert.equal(injecao.statusCode, 200, injecao.body);
+    assert.deepEqual(injecao.json().resultados, []);
+  });
+
+  it('admin não aceita requisições anônimas, cliente, prestador ou papel falso', async () => {
+    for (const rota of ['/api/admin/dashboard', '/api/admin/prestadores', '/api/admin/clientes']) {
+      const visitante = await app.inject({ method: 'GET', url: rota });
+      assert.equal(visitante.statusCode, 401, rota);
+      for (const token of [clienteToken, profissionalToken]) {
+        const usuario = await app.inject({
+          method: 'GET', url: rota, headers: { authorization: `Bearer ${token}` },
+        });
+        assert.equal(usuario.statusCode, 403, rota);
+      }
+      const forjado = gerarAccessToken({
+        sub: clienteId, tipo: 'ADMIN', credenciaisVersao: versaoCredenciais('nao-usada'),
+      });
+      const incorreto = await app.inject({
+        method: 'GET', url: rota, headers: { authorization: `Bearer ${forjado}` },
+      });
+      assert.equal(incorreto.statusCode, 401, rota);
+    }
+  });
   it('bloqueia tokens de contas desativadas e papéis incompatíveis', async () => {
     const tokenFalsoAdmin = gerarAccessToken({ sub: clienteId, tipo: 'ADMIN', credenciaisVersao: versaoCredenciais('nao-usada') });
     const acessoPapelErrado = await app.inject({
