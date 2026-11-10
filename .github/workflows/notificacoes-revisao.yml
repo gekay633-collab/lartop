@@ -55,7 +55,7 @@ jobs:
       VAPID_PRIVATE_KEY: chave-ficticia-nao-usada-em-envios-ci
     steps:
       - name: Buscar codigo do PR
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Preparar pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -114,7 +114,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
         with:
           version: 11.17.0
