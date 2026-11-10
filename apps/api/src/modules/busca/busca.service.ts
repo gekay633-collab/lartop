@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
+import { Prisma } from '@prisma/client';
 import { redis } from '../../lib/redis.js';
 import { resolverCep, CepInvalidoError } from '../../lib/cep.js';
 import type { BuscarProfissionaisInput } from './busca.schemas.js';
@@ -35,22 +36,17 @@ async function executarBuscaPorCoordenadas(params: {
 }) {
   const offset = (params.pagina - 1) * params.porPagina;
 
+  // Fragmentos Prisma.sql impedem a interpolação de valores de usuários no SQL.
   const filtroCategoria = params.categoria
-    ? `AND EXISTS (
+    ? Prisma.sql`AND EXISTS (
         SELECT 1 FROM profissional_categorias pc
         JOIN categorias c ON c.id = pc.categoria_id
-        WHERE pc.profissional_id = pp.usuario_id AND c.slug = $4 AND c.ativo = true
+        WHERE pc.profissional_id = pp.usuario_id
+          AND c.slug = ${params.categoria} AND c.ativo = true
       )`
-    : '';
+    : Prisma.empty;
 
-  const paramsSql: (string | number)[] = [params.lat, params.lng, params.raioKm];
-  if (params.categoria) paramsSql.push(params.categoria);
-  paramsSql.push(params.porPagina, offset);
-
-  const limitParamIndex = paramsSql.length - 1;
-  const offsetParamIndex = paramsSql.length;
-
-  const query = `
+  const query = Prisma.sql`
     WITH base AS (
       SELECT
         pp.usuario_id AS "usuarioId",
@@ -67,8 +63,8 @@ async function executarBuscaPorCoordenadas(params: {
         (
           6371 * acos(
             LEAST(1.0, GREATEST(-1.0,
-              cos(radians($1)) * cos(radians(pp.lat)) * cos(radians(pp.lng) - radians($2))
-              + sin(radians($1)) * sin(radians(pp.lat))
+              cos(radians(${params.lat})) * cos(radians(pp.lat)) * cos(radians(pp.lng) - radians(${params.lng}))
+              + sin(radians(${params.lat})) * sin(radians(pp.lat))
             ))
           )
         ) AS "distanciaKm"
@@ -79,14 +75,13 @@ async function executarBuscaPorCoordenadas(params: {
       ${filtroCategoria}
     )
     SELECT * FROM base
-    WHERE "distanciaKm" <= $3
+    WHERE "distanciaKm" <= ${params.raioKm}
       AND "distanciaKm" <= "raioAtendimentoKm"
-    ORDER BY "distanciaKm" ASC
-    LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
+    ORDER BY "distanciaKm" ASC, "usuarioId" ASC
+    LIMIT ${params.porPagina} OFFSET ${offset}
   `;
 
-  const resultados = await prisma.$queryRawUnsafe<ProfissionalResultado[]>(query, ...paramsSql);
-
+  const resultados = await prisma.$queryRaw<ProfissionalResultado[]>(query);
   return resultados.map((r) => ({ ...r, distanciaKm: Number(r.distanciaKm.toFixed(1)) }));
 }
 

@@ -12,6 +12,9 @@ const nextConfig: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // HSTS vale para HTTPS; não incluir subdomínios/preload até aprovar o domínio próprio.
+          { key: "Strict-Transport-Security", value: "max-age=31536000" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
           // CSP com nonce por resposta definida em src/proxy.ts.
         ],
       },

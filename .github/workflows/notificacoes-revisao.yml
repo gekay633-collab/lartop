@@ -105,6 +105,8 @@ jobs:
         run: pnpm --filter @lartop/web exec node tests/badge_notificacao_check.mjs
       - name: Compilar frontend Next.js em modo de produção
         run: pnpm --filter @lartop/web build
+      - name: Verificar que bundles públicos não expõem variáveis sigilosas
+        run: pnpm --filter @lartop/web exec node tests/check_client_bundle_secrets.mjs
 
   navegador-chromium:
     name: Chromium desktop + celular emulado (API simulada)
