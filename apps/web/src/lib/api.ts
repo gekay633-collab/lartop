@@ -1,3 +1,5 @@
+import "server-only";
+
 // Apenas chamadas no servidor: no navegador, use /api/* (mesma origem).
 const BACKEND_PADRAO =
   process.env.NODE_ENV === "production"
