@@ -1,30 +1,37 @@
 # Lartop — domínio próprio e migração futura de hospedagem
 
-**Preparado em 10/11/2026.** Este guia não ativa nenhum domínio por si só. Preencher `DOMINIO` e `REGISTRADOR` somente após o proprietário informar os valores reais. **Não publicar novas URLs nem editar DNS no escuro.**
+**Preparado em 10/11/2026. Domínio confirmado pelo proprietário: `lartop.app.br`, comprado no Registro.br.** Este guia não ativa o domínio por si só. **Não publicar novas URLs nem editar DNS no escuro.**
 
 ## Objetivo e arquitetura
-- **Agora:** `https://DOMINIO` → Vercel/Next.js; navegador usa **sempre** caminhos relativos `/api/*` e `/bff/auth/*`. Next.js valida CSRF, lê cookies HttpOnly e encaminha a chamada servidor-servidor para Fastify no Railway.
-- **Depois:** `https://DOMINIO` → novo servidor/reverse proxy com Next.js (ou Vercel durante a migração); Fastify poderá mudar de Railway para outro host sem alterar o endereço público.
+- **Agora:** `https://lartop.app.br` → Vercel/Next.js; navegador usa **sempre** caminhos relativos `/api/*` e `/bff/auth/*`. Next.js valida CSRF, lê cookies HttpOnly e encaminha a chamada servidor-servidor para Fastify no Railway.
+- **Depois:** `https://lartop.app.br` → novo servidor/reverse proxy com Next.js (ou Vercel durante a migração); Fastify poderá mudar de Railway para outro host sem alterar o endereço público.
 - **DNS fica com o registrador ou provedor DNS independente**, se possível. Evitar mover nameservers para Vercel apenas para colocar o site no ar: manter DNS portátil simplifica a troca de infraestrutura.
-- Um único domínio canônico: escolher raiz (`DOMINIO`) ou `www.DOMINIO` e redirecionar o outro via Vercel, sem duplicar cookies e SEO. Não é necessário expor uma API pública em `api.DOMINIO` agora.
+- Um único domínio canônico: escolher raiz (`lartop.app.br`) ou `www.lartop.app.br` e redirecionar o outro via Vercel, sem duplicar cookies e SEO. Não é necessário expor uma API pública em `api.lartop.app.br` agora.
+
+## Valores escolhidos para a virada
+- URL canônica: **`https://lartop.app.br`**.
+- Redirecionamento secundário: **`https://www.lartop.app.br` → `https://lartop.app.br`**.
+- DNS: manter no **Registro.br**, sem mudar nameservers por conveniência.
+- Sistema atual continua em Vercel para frontend e Railway para backend.
+- Registros de DNS da Vercel devem ser obtidos em **Settings → Domains** deste projeto; não supor IP ou CNAME genérico.
 
 ## Fase A — conectar ao projeto Vercel existente
-1. Confirmar domínio exato, registrador e quem controla os DNS. Guardar a zona DNS atual (A, AAAA, CNAME, MX, TXT, SPF, DKIM, DMARC, CAA) antes de editar; **não remover registros de e-mail**.
+1. Confirmado domínio `lartop.app.br` no Registro.br; verificar se a zona DNS é gerenciada no próprio Registro.br. Guardar a zona DNS atual (A, AAAA, CNAME, MX, TXT, SPF, DKIM, DMARC, CAA) antes de editar; **não remover registros de e-mail**.
 2. Vercel → projeto do Lartop → **Settings → Domains** → adicionar raiz e `www`, escolhendo qual é o principal; configurar redirecionamento do secundário ao canônico.
 3. Usar **apenas os valores A/CNAME/TXT indicados pela Vercel para este projeto** (os valores podem variar por conta). No registrador, remover registros conflitantes **somente para os hosts alterados**, não alterar MX/TXT de e-mail por engano.
-4. Aguardar confirmação DNS e certificado SSL automático; validar `https://DOMINIO`, `https://www.DOMINIO`, redirecionamento, HTTPS, HSTS, CSP e nenhuma origem inesperada.
+4. Aguardar confirmação DNS e certificado SSL automático; validar `https://lartop.app.br`, `https://www.lartop.app.br`, redirecionamento, HTTPS, HSTS, CSP e nenhuma origem inesperada.
 5. Até validar tudo, manter `https://lartop-ats6.vercel.app` funcionando para acesso e recuperação de senha antigos.
 
 ## Fase B — trocar as origens oficiais com segurança
 **Configurar depois de confirmar HTTPS do domínio canônico**:
 - Railway (serviço **lartop**, produção):
-  - `FRONTEND_URL=https://DOMINIO` — **essencial**: o backend monta links de recuperação de senha a partir desta variável; atualmente há fallback para `https://lartop-ats6.vercel.app`.
-  - `CORS_ORIGIN=https://DOMINIO` — somente origem HTTPS autorizada, sem `*`; chamadas do navegador continuam via BFF na mesma origem, não diretamente ao Railway. Conferir necessidades de preview separadamente.
-  - `VAPID_SUBJECT=https://DOMINIO` — identificador de contato do remetente Push; **não trocar VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY** durante migração.
+  - `FRONTEND_URL=https://lartop.app.br` — **essencial**: o backend monta links de recuperação de senha a partir desta variável; atualmente há fallback para `https://lartop-ats6.vercel.app`.
+  - `CORS_ORIGIN=https://lartop.app.br` — somente origem HTTPS autorizada, sem `*`; chamadas do navegador continuam via BFF na mesma origem, não diretamente ao Railway. Conferir necessidades de preview separadamente.
+  - `VAPID_SUBJECT=https://lartop.app.br` — identificador de contato do remetente Push; **não trocar VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY** durante migração.
   - `EMAIL_REMETENTE` — só mudar após validar DNS/domínio no Resend (SPF/DKIM e demais requisitos do provedor). Nunca copiar chaves de API para o frontend.
 - Vercel (projeto web, produção):
   - `API_BACKEND_URL` é **apenas do servidor Next.js** e pode permanecer como endereço do Railway enquanto a API estiver lá. Não criar `NEXT_PUBLIC_API_BACKEND_URL`, não expor banco, Redis nem JWT ao navegador.
-  - Evitar hardcode de `DOMINIO` nas páginas ou bundle client. O PWA usa `manifest.id='/'`, `start_url='/'` e links relativos, adequados para mudança de host.
+  - Evitar hardcode de `lartop.app.br` nas páginas ou bundle client. O PWA usa `manifest.id='/'`, `start_url='/'` e links relativos, adequados para mudança de host.
   - Variáveis alteradas na Vercel só entram no ar com um **novo deployment**.
 - Atenção: nunca criar rewrites Vercel `/api/*` diretamente para Railway — **contornam o BFF, cookies HttpOnly e as verificações CSRF** já existentes.
 
@@ -51,10 +58,11 @@
 - `apps/web/src/app/manifest.ts`: URLs relativas e escopo da origem.
 - No Railway, `VAPID_SUBJECT` existe. Confirmar seu valor correto no painel sem divulgar segredos.
 
-## Pendente de informação do proprietário
-- `DOMINIO` exato (ex.: `exemplo.com.br`).
-- `REGISTRADOR` (Registro.br, Hostinger, GoDaddy, Cloudflare etc.) e se DNS está lá ou em outro serviço.
-- Preferência de canônico (recomendação: raiz + `www` redirecionando).
-- Confirmação do status DNS/SSL na Vercel após apontamento.
+## Pendente para ativação
+- Verificar que a **zona DNS** de `lartop.app.br` está no Registro.br; registrador e DNS podem ser diferentes.
+- Capturar os **registros exatos** exigidos no projeto Vercel, para `lartop.app.br` e `www.lartop.app.br`.
+- Aplicar os registros na zona DNS com acesso do titular e confirmar a emissão de certificado HTTPS na Vercel.
+- Somente então alterar FRONTEND_URL, CORS_ORIGIN e VAPID_SUBJECT no Railway; confirmar e-mails Resend.
+- Testar PWA, login, pedidos, redefinição de senha e Push no domínio novo.
 
 **Nenhum registro DNS, variável de produção nem segredo foi alterado pela criação deste documento.**
