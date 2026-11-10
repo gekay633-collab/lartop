@@ -285,10 +285,12 @@ describe('central de notificações com banco de testes', () => {
         senhaHash: 'nao-usada', nome: 'Outro prestador', tipo: 'PROFISSIONAL',
       },
     });
+    let pedidoCriadoId: string | null = null;
     try {
       const tokenClienteB = (await emitirTokens(clienteB.id, 'CLIENTE')).accessToken;
       const tokenPrestadorB = (await emitirTokens(profissionalB.id, 'PROFISSIONAL')).accessToken;
       const pedido = await criarSolicitacao(clienteId, entrada());
+      pedidoCriadoId = pedido.id;
       const aviso = await prisma.notificacao.findFirstOrThrow({
         where: { solicitacaoId: pedido.id, destinatarioId: profissionalId },
       });
@@ -329,6 +331,10 @@ describe('central de notificações com banco de testes', () => {
         where: { id: aviso.id },
       })).lidaEm, null);
     } finally {
+      if (pedidoCriadoId) {
+        await prisma.notificacao.deleteMany({ where: { solicitacaoId: pedidoCriadoId } });
+        await prisma.solicitacaoOrcamento.delete({ where: { id: pedidoCriadoId } });
+      }
       await prisma.usuario.deleteMany({
         where: { id: { in: [clienteB.id, profissionalB.id] } },
       });
@@ -346,6 +352,7 @@ describe('central de notificações com banco de testes', () => {
     const urlPrestador = urlFoto(profissionalId);
     const urlCliente = urlFoto(clienteId);
     const pedidosAntes = await pedidosCriados();
+    let pedidoCriadoId: string | null = null;
     try {
       const perfilAlheio = await app.inject({
         method: 'PATCH', url: '/api/perfil/mim',
@@ -389,7 +396,12 @@ describe('central de notificações com banco de testes', () => {
         payload: { ...entrada(), fotos: [urlCliente] },
       });
       assert.equal(pedidoProprio.statusCode, 201, pedidoProprio.body);
+      pedidoCriadoId = pedidoProprio.json().id;
     } finally {
+      if (pedidoCriadoId) {
+        await prisma.notificacao.deleteMany({ where: { solicitacaoId: pedidoCriadoId } });
+        await prisma.solicitacaoOrcamento.delete({ where: { id: pedidoCriadoId } });
+      }
       await prisma.fotoPortfolio.deleteMany({ where: { profissionalId } });
       await prisma.perfilProfissional.update({
         where: { usuarioId: profissionalId }, data: { fotoPerfilUrl: null },
