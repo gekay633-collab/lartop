@@ -272,6 +272,133 @@ describe('central de notificações com banco de testes', () => {
     }
   });
 
+  it('bloqueia acesso cruzado: cliente B e prestador B não veem nem alteram pedido A', async () => {
+    const clienteB = await prisma.usuario.create({
+      data: {
+        email: `cliente-idor-${randomUUID()}@example.test`,
+        senhaHash: 'nao-usada', nome: 'Outro cliente', tipo: 'CLIENTE',
+      },
+    });
+    const profissionalB = await prisma.usuario.create({
+      data: {
+        email: `prof-idor-${randomUUID()}@example.test`,
+        senhaHash: 'nao-usada', nome: 'Outro prestador', tipo: 'PROFISSIONAL',
+      },
+    });
+    try {
+      const tokenClienteB = (await emitirTokens(clienteB.id, 'CLIENTE')).accessToken;
+      const tokenPrestadorB = (await emitirTokens(profissionalB.id, 'PROFISSIONAL')).accessToken;
+      const pedido = await criarSolicitacao(clienteId, entrada());
+      const aviso = await prisma.notificacao.findFirstOrThrow({
+        where: { solicitacaoId: pedido.id, destinatarioId: profissionalId },
+      });
+      const headersClienteB = { authorization: `Bearer ${tokenClienteB}` };
+      const headersPrestadorB = { authorization: `Bearer ${tokenPrestadorB}` };
+      const minhasB = await app.inject({
+        method: 'GET', url: '/api/solicitacoes/minhas', headers: headersClienteB,
+      });
+      assert.equal(minhasB.statusCode, 200, minhasB.body);
+      assert.equal(minhasB.json().total, 0, 'cliente B não pode listar pedidos de A');
+
+      const recebidasB = await app.inject({
+        method: 'GET', url: '/api/solicitacoes/recebidas', headers: headersPrestadorB,
+      });
+      assert.equal(recebidasB.statusCode, 200, recebidasB.body);
+      assert.equal(recebidasB.json().total, 0, 'prestador B não pode listar pedidos de outro profissional');
+
+      const cancelamento = await app.inject({
+        method: 'POST', url: `/api/solicitacoes/${pedido.id}/cancelar`, headers: headersClienteB,
+      });
+      assert.equal(cancelamento.statusCode, 404, cancelamento.body);
+
+      const trocaStatus = await app.inject({
+        method: 'PATCH', url: `/api/solicitacoes/${pedido.id}/status`,
+        headers: headersPrestadorB, payload: { status: 'ACEITA' },
+      });
+      assert.equal(trocaStatus.statusCode, 404, trocaStatus.body);
+
+      const avisoAlheio = await app.inject({
+        method: 'PATCH', url: `/api/notificacoes/${aviso.id}/lida`, headers: headersClienteB,
+      });
+      assert.equal(avisoAlheio.statusCode, 404, avisoAlheio.body);
+      const checkPedido = await prisma.solicitacaoOrcamento.findUniqueOrThrow({
+        where: { id: pedido.id },
+      });
+      assert.equal(checkPedido.status, 'PENDENTE');
+      assert.equal((await prisma.notificacao.findUniqueOrThrow({
+        where: { id: aviso.id },
+      })).lidaEm, null);
+    } finally {
+      await prisma.usuario.deleteMany({
+        where: { id: { in: [clienteB.id, profissionalB.id] } },
+      });
+    }
+  });
+
+  it('fotos novas do cliente e prestador não aceitam URL da pasta de outra conta', async () => {
+    const original = process.env.CLOUDINARY_CLOUD_NAME;
+    const atual = 'conta-ci-lartop';
+    process.env.CLOUDINARY_CLOUD_NAME = atual;
+    const outro = randomUUID();
+    const urlFoto = (usuario: string) =>
+      `https://res.cloudinary.com/${atual}/image/upload/v1700000000/lartop/${usuario}/foto123.jpg`;
+    const urlOutro = urlFoto(outro);
+    const urlPrestador = urlFoto(profissionalId);
+    const urlCliente = urlFoto(clienteId);
+    const pedidosAntes = await pedidosCriados();
+    try {
+      const perfilAlheio = await app.inject({
+        method: 'PATCH', url: '/api/perfil/mim',
+        headers: { authorization: `Bearer ${profissionalToken}` },
+        payload: { fotoPerfilUrl: urlOutro },
+      });
+      assert.equal(perfilAlheio.statusCode, 400, perfilAlheio.body);
+
+      const portfolioAlheio = await app.inject({
+        method: 'POST', url: '/api/perfil/mim/fotos',
+        headers: { authorization: `Bearer ${profissionalToken}` },
+        payload: { urlDepois: urlOutro },
+      });
+      assert.equal(portfolioAlheio.statusCode, 400, portfolioAlheio.body);
+
+      const pedidoAlheio = await app.inject({
+        method: 'POST', url: '/api/solicitacoes',
+        headers: { authorization: `Bearer ${clienteToken}` },
+        payload: { ...entrada(), fotos: [urlOutro] },
+      });
+      assert.equal(pedidoAlheio.statusCode, 400, pedidoAlheio.body);
+      assert.equal(await pedidosCriados(), pedidosAntes);
+
+      const perfilProprio = await app.inject({
+        method: 'PATCH', url: '/api/perfil/mim',
+        headers: { authorization: `Bearer ${profissionalToken}` },
+        payload: { fotoPerfilUrl: urlPrestador },
+      });
+      assert.equal(perfilProprio.statusCode, 200, perfilProprio.body);
+
+      const portfolioProprio = await app.inject({
+        method: 'POST', url: '/api/perfil/mim/fotos',
+        headers: { authorization: `Bearer ${profissionalToken}` },
+        payload: { urlDepois: urlPrestador },
+      });
+      assert.equal(portfolioProprio.statusCode, 201, portfolioProprio.body);
+
+      const pedidoProprio = await app.inject({
+        method: 'POST', url: '/api/solicitacoes',
+        headers: { authorization: `Bearer ${clienteToken}` },
+        payload: { ...entrada(), fotos: [urlCliente] },
+      });
+      assert.equal(pedidoProprio.statusCode, 201, pedidoProprio.body);
+    } finally {
+      await prisma.fotoPortfolio.deleteMany({ where: { profissionalId } });
+      await prisma.perfilProfissional.update({
+        where: { usuarioId: profissionalId }, data: { fotoPerfilUrl: null },
+      });
+      if (original === undefined) delete process.env.CLOUDINARY_CLOUD_NAME;
+      else process.env.CLOUDINARY_CLOUD_NAME = original;
+    }
+  });
+
   it('limita criação abusiva de solicitações por cliente sem gerar pedido ou Push', async () => {
     const chave = `limite:solicitacoes:${clienteId}`;
     const antes = await prisma.solicitacaoOrcamento.count({ where: { clienteId } });
