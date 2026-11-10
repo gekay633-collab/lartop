@@ -57,7 +57,7 @@ jobs:
       - name: Buscar codigo do PR
         uses: actions/checkout@v4
       - name: Preparar pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 11.17.0
       - name: Preparar Node
@@ -115,7 +115,7 @@ jobs:
     timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 11.17.0
       - uses: actions/setup-node@v4
