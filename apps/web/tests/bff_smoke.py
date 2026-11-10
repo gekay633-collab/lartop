@@ -100,6 +100,11 @@ def main():
             scripts = csp.split("script-src", 1)[1].split(";", 1)[0]
             assert "'unsafe-inline'" not in scripts, scripts
             assert "frame-ancestors 'none'" in csp
+            assert pagina.header_value("strict-transport-security") == "max-age=31536000"
+            assert pagina.header_value("x-content-type-options") == "nosniff"
+            assert pagina.header_value("x-frame-options") == "DENY"
+            assert pagina.header_value("referrer-policy") == "strict-origin-when-cross-origin"
+            assert "geolocation=()" in (pagina.header_value("permissions-policy") or "")
             assert not erros_csp, erros_csp
 
             page.get_by_placeholder("E-mail").fill("cliente@example.test")
