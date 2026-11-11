@@ -119,6 +119,97 @@ describe('central de notificações com banco de testes', () => {
     redis.disconnect();
   });
 
+  it('portfólio: máximo 6 fotos independentes, exclusão pelo dono e concorrência segura', async () => {
+    const nomeOriginal = process.env.CLOUDINARY_CLOUD_NAME;
+    process.env.CLOUDINARY_CLOUD_NAME = 'conta-ci-lartop';
+    const foto = (nome: string) =>
+      `https://res.cloudinary.com/conta-ci-lartop/image/upload/v1700000000/lartop/${profissionalId}/${nome}.jpg`;
+    const headers = { authorization: `Bearer ${profissionalToken}` };
+    const post = (numero: number) => app.inject({
+      method: 'POST', url: '/api/perfil/mim/fotos',
+      headers,
+      payload: numero === 1
+        ? { urlDepois: foto('foto1') }  // Compatibilidade com versões antigas do PWA.
+        : { url: foto(`foto${numero}`) },
+    });
+    let outroUsuarioId: string | null = null;
+    try {
+      const anonimo = await app.inject({
+        method: 'DELETE', url: `/api/perfil/mim/fotos/${randomUUID()}`,
+      });
+      assert.equal(anonimo.statusCode, 401);
+      const cliente = await app.inject({
+        method: 'POST', url: '/api/perfil/mim/fotos',
+        headers: { authorization: `Bearer ${clienteToken}` },
+        payload: { url: foto('cliente') },
+      });
+      assert.equal(cliente.statusCode, 403);
+
+      const ids: string[] = [];
+      for (let n = 1; n <= 6; n++) {
+        const resposta = await post(n);
+        assert.equal(resposta.statusCode, 201, resposta.body);
+        ids.push(resposta.json().id);
+      }
+      const limite = await post(7);
+      assert.equal(limite.statusCode, 409, limite.body);
+      assert.equal(await prisma.fotoPortfolio.count({ where: { profissionalId } }), 6);
+
+      const publico = await app.inject({ method: 'GET', url: `/api/profissionais/${profissionalId}` });
+      assert.equal(publico.statusCode, 200, publico.body);
+      assert.equal(publico.json().fotos.length, 6);
+      const primeira = publico.json().fotos.find((x: { id: string }) => x.id === ids[0]);
+      assert.equal(primeira.urlDepois, foto('foto1'));
+      assert.equal(Object.hasOwn(primeira, 'urlAntes'), false);
+
+      const outro = await prisma.usuario.create({
+        data: {
+          nome: 'Prestador de teste sem acesso', tipo: 'PROFISSIONAL',
+          email: `portfolio-outro-${randomUUID()}@example.test`, senhaHash: 'nao-usada',
+        },
+      });
+      outroUsuarioId = outro.id;
+      const tokenOutro = (await emitirTokens(outro.id, 'PROFISSIONAL')).accessToken;
+      const alheia = await app.inject({
+        method: 'DELETE', url: `/api/perfil/mim/fotos/${ids[0]}`,
+        headers: { authorization: `Bearer ${tokenOutro}` },
+      });
+      assert.equal(alheia.statusCode, 404);
+      assert.equal(await prisma.fotoPortfolio.count({ where: { profissionalId } }), 6);
+      const clienteNaoExclui = await app.inject({
+        method: 'DELETE', url: `/api/perfil/mim/fotos/${ids[0]}`,
+        headers: { authorization: `Bearer ${clienteToken}` },
+      });
+      assert.equal(clienteNaoExclui.statusCode, 403);
+      const idRuim = await app.inject({
+        method: 'DELETE', url: '/api/perfil/mim/fotos/invalido', headers,
+      });
+      assert.equal(idRuim.statusCode, 400);
+
+      const excluir = await app.inject({
+        method: 'DELETE', url: `/api/perfil/mim/fotos/${ids[0]}`, headers,
+      });
+      assert.equal(excluir.statusCode, 200, excluir.body);
+      assert.equal((await app.inject({
+        method: 'GET', url: `/api/profissionais/${profissionalId}`,
+      })).json().fotos.length, 5);
+      const excluirDeNovo = await app.inject({
+        method: 'DELETE', url: `/api/perfil/mim/fotos/${ids[0]}`, headers,
+      });
+      assert.equal(excluirDeNovo.statusCode, 404);
+
+      // Em 5 publicações, duas requisições concorrentes não podem criar 7.
+      const concorrentes = await Promise.all([post(8), post(9)]);
+      assert.deepEqual(concorrentes.map(x => x.statusCode).sort(), [201, 409]);
+      assert.equal(await prisma.fotoPortfolio.count({ where: { profissionalId } }), 6);
+    } finally {
+      await prisma.fotoPortfolio.deleteMany({ where: { profissionalId } });
+      if (outroUsuarioId) await prisma.usuario.delete({ where: { id: outroUsuarioId } });
+      if (nomeOriginal === undefined) delete process.env.CLOUDINARY_CLOUD_NAME;
+      else process.env.CLOUDINARY_CLOUD_NAME = nomeOriginal;
+    }
+  });
+
   it('busca pública parametriza categoria e não expõe contato ou localização privada', async () => {
     const caminho = `/api/cidades/rj/ci-notif-${suffix}/profissionais?raioKm=15&porPagina=20`;
     const busca = await app.inject({ method: 'GET', url: caminho });

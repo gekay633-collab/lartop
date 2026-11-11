@@ -110,7 +110,7 @@ export default async function PerfilProfissionalPage({ params }: PageProps) {
 
             {perfil.fotos.length > 0 && (
               <section className="mt-8">
-                <h2 className="font-display text-xl font-semibold text-pinho-900">Antes e depois</h2>
+                <h2 className="font-display text-xl font-semibold text-pinho-900">Portfólio</h2>
                 <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {perfil.fotos.map((foto) => (
                     <img key={foto.id} src={foto.urlDepois} alt={foto.descricao ?? "Trabalho realizado"} className="aspect-square rounded-xl object-cover" />

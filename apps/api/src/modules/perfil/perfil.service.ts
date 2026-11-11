@@ -106,26 +106,54 @@ export async function definirCategorias(usuarioId: string, input: DefinirCategor
   return obterPerfilProprio(usuarioId);
 }
 
+// Cada registro representa uma foto independente. A coluna url_depois
+// permanece no banco somente para compatibilidade com dados históricos.
+// O limite é aplicado no banco, nunca apenas na interface.
+export const LIMITE_PUBLICACOES_PORTFOLIO = 6;
+
 export async function adicionarFotoPortfolio(usuarioId: string, input: AdicionarFotoPortfolioInput) {
-  if ((input.urlAntes && !imagemPertenceAoUsuario(input.urlAntes, usuarioId)) ||
-      !imagemPertenceAoUsuario(input.urlDepois, usuarioId)) {
-    throw new PerfilError('As fotos devem ter sido enviadas pela sua conta.', 400);
-  }
-  const perfilExistente = await prisma.perfilProfissional.findUnique({ where: { usuarioId } });
-  if (!perfilExistente) {
-    throw new PerfilError('Perfil profissional não encontrado');
+  if (!imagemPertenceAoUsuario(input.url, usuarioId)) {
+    throw new PerfilError('A foto deve ter sido enviada pela sua conta.', 400);
   }
 
-  const foto = await prisma.fotoPortfolio.create({
-    data: {
-      profissionalId: usuarioId,
-      urlAntes: input.urlAntes,
-      urlDepois: input.urlDepois,
-      descricao: input.descricao,
-    },
+  // Bloquear a linha do perfil serializa adições simultâneas da mesma conta.
+  // Sem o lock, duas requisições podem observar 5 trabalhos e criar o 7º.
+  return prisma.$transaction(async (tx) => {
+    const perfil = await tx.$queryRaw<{ usuario_id: string }[]>`
+      SELECT usuario_id FROM perfis_profissionais
+      WHERE usuario_id = ${usuarioId} FOR UPDATE
+    `;
+    if (!perfil.length) {
+      throw new PerfilError('Perfil profissional não encontrado', 404);
+    }
+    const total = await tx.fotoPortfolio.count({ where: { profissionalId: usuarioId } });
+    if (total >= LIMITE_PUBLICACOES_PORTFOLIO) {
+      throw new PerfilError('Você já publicou 6 fotos. Exclua uma para adicionar outra.', 409);
+    }
+
+    return tx.fotoPortfolio.create({
+      data: {
+        profissionalId: usuarioId,
+        urlDepois: input.url,
+        descricao: input.descricao,
+      },
+    });
   });
+}
 
-  return foto;
+/** Remove somente uma foto pertencente ao profissional autenticado.
+ * A mídia existente não é removida do Cloudinary nesta etapa para evitar
+ * exclusão física acidental de arquivos que possam estar referenciados.
+ */
+export async function excluirFotoPortfolio(usuarioId: string, fotoId: string) {
+  const excluidas = await prisma.fotoPortfolio.deleteMany({
+    where: { id: fotoId, profissionalId: usuarioId },
+  });
+  if (excluidas.count !== 1) {
+    // Mesma resposta para ID inexistente e publicação de outra pessoa.
+    throw new PerfilError('Foto não encontrada no seu portfólio.', 404);
+  }
+  return { ok: true };
 }
 
 export async function publicarPerfil(usuarioId: string) {
@@ -196,7 +224,7 @@ export async function obterPerfilPublico(usuarioId: string) {
       },
       fotos: {
         orderBy: { criadoEm: 'desc' },
-        select: { id: true, urlAntes: true, urlDepois: true, descricao: true },
+        select: { id: true, urlDepois: true, descricao: true },
       },
     },
   });
