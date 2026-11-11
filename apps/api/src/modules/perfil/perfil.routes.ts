@@ -12,6 +12,7 @@ import {
   atualizarTelefoneProfissional,
   definirCategorias,
   adicionarFotoPortfolio,
+  excluirFotoPortfolio,
   publicarPerfil,
   despublicarPerfil,
   PerfilError,
@@ -120,6 +121,24 @@ export async function perfilRoutes(app: FastifyInstance) {
       }
       request.log.error(err);
       return reply.status(500).send({ erro: 'Erro interno ao adicionar foto' });
+    }
+  });
+
+  app.delete('/perfil/mim/fotos/:fotoId', { preHandler: somenteProfissional }, async (request, reply) => {
+    const { fotoId } = request.params as { fotoId: string };
+    // Não permita IDs arbitrários que gerem consultas de banco desnecessárias.
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fotoId)) {
+      return reply.status(400).send({ erro: 'Identificador de publicação inválido.' });
+    }
+    try {
+      return reply.send(await excluirFotoPortfolio(request.usuario!.id, fotoId));
+    } catch (err) {
+      if (err instanceof PerfilError) {
+        return reply.status(err.status).send({ erro: err.message });
+      }
+      request.log.error({ causa: err instanceof Error ? err.name : 'desconhecida' },
+        'Falha ao excluir publicação do portfólio');
+      return reply.status(500).send({ erro: 'Não foi possível excluir a publicação.' });
     }
   });
 
