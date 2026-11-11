@@ -106,14 +106,14 @@ export async function definirCategorias(usuarioId: string, input: DefinirCategor
   return obterPerfilProprio(usuarioId);
 }
 
-// Uma publicação equivale a um trabalho, com "antes" opcional e "depois"
-// obrigatório. O limite é aplicado no banco, nunca apenas na interface.
+// Cada registro representa uma foto independente. A coluna url_depois
+// permanece no banco somente para compatibilidade com dados históricos.
+// O limite é aplicado no banco, nunca apenas na interface.
 export const LIMITE_PUBLICACOES_PORTFOLIO = 6;
 
 export async function adicionarFotoPortfolio(usuarioId: string, input: AdicionarFotoPortfolioInput) {
-  if ((input.urlAntes && !imagemPertenceAoUsuario(input.urlAntes, usuarioId)) ||
-      !imagemPertenceAoUsuario(input.urlDepois, usuarioId)) {
-    throw new PerfilError('As fotos devem ter sido enviadas pela sua conta.', 400);
+  if (!imagemPertenceAoUsuario(input.url, usuarioId)) {
+    throw new PerfilError('A foto deve ter sido enviada pela sua conta.', 400);
   }
 
   // Bloquear a linha do perfil serializa adições simultâneas da mesma conta.
@@ -128,21 +128,20 @@ export async function adicionarFotoPortfolio(usuarioId: string, input: Adicionar
     }
     const total = await tx.fotoPortfolio.count({ where: { profissionalId: usuarioId } });
     if (total >= LIMITE_PUBLICACOES_PORTFOLIO) {
-      throw new PerfilError('Você já publicou 6 trabalhos. Exclua um para adicionar outro.', 409);
+      throw new PerfilError('Você já publicou 6 fotos. Exclua uma para adicionar outra.', 409);
     }
 
     return tx.fotoPortfolio.create({
       data: {
         profissionalId: usuarioId,
-        urlAntes: input.urlAntes,
-        urlDepois: input.urlDepois,
+        urlDepois: input.url,
         descricao: input.descricao,
       },
     });
   });
 }
 
-/** Remove somente uma publicação pertencente ao profissional autenticado.
+/** Remove somente uma foto pertencente ao profissional autenticado.
  * A mídia existente não é removida do Cloudinary nesta etapa para evitar
  * exclusão física acidental de arquivos que possam estar referenciados.
  */
@@ -152,7 +151,7 @@ export async function excluirFotoPortfolio(usuarioId: string, fotoId: string) {
   });
   if (excluidas.count !== 1) {
     // Mesma resposta para ID inexistente e publicação de outra pessoa.
-    throw new PerfilError('Publicação não encontrada no seu portfólio.', 404);
+    throw new PerfilError('Foto não encontrada no seu portfólio.', 404);
   }
   return { ok: true };
 }
@@ -225,7 +224,7 @@ export async function obterPerfilPublico(usuarioId: string) {
       },
       fotos: {
         orderBy: { criadoEm: 'desc' },
-        select: { id: true, urlAntes: true, urlDepois: true, descricao: true },
+        select: { id: true, urlDepois: true, descricao: true },
       },
     },
   });
