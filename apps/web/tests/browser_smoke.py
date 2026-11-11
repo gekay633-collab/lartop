@@ -693,6 +693,102 @@ def teste_filtros_pedidos_prestador(browser, mobile=False):
           " pedidos agrupados: 5 por página, histórico preservado e aceite atualiza lista OK")
 
 
+
+def teste_portfolio_somente_fotos(browser, mobile=False):
+    """Seis fotos, exclusão individual e nova publicação sem conteúdo de 'antes/depois'."""
+    from urllib.parse import urlsplit
+
+    context = browser.new_context(
+        viewport={"width": 390 if mobile else 1366, "height": 844 if mobile else 768},
+        is_mobile=mobile, has_touch=mobile,
+    )
+    context.add_init_script("""
+      localStorage.setItem('lartop_tipo_usuario', 'PROFISSIONAL');
+      localStorage.setItem('lartop_nome_usuario', 'Prestador de teste');
+      localStorage.setItem('lartop_sessao_ativa', '1');
+    """)
+    page = context.new_page()
+    page.on("dialog", lambda dialog: dialog.accept())
+
+    foto_pequena = ("data:image/gif;base64,"
+                   "R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=")
+    fotos = [{"id": f"foto-{n}", "urlDepois": foto_pequena, "descricao": None}
+             for n in range(1, 7)]
+    requisicoes = []
+
+    def api(route):
+        req = route.request
+        path = urlsplit(req.url).path
+        if path == "/api/usuarios/mim":
+            return route.fulfill(status=200, content_type="application/json",
+                body=json.dumps({"id": "prestador-ci", "tipo": "PROFISSIONAL", "nome": "Prestador de teste"}))
+        if path == "/api/perfil/mim" and req.method == "GET":
+            return route.fulfill(status=200, content_type="application/json",
+                body=json.dumps({
+                    "nomeExibicao": "Prestador de teste", "bio": "Jardinagem",
+                    "fotoPerfilUrl": None, "perfilPublicado": True,
+                    "usuario": {"telefone": None, "telefoneVerificado": False},
+                    "categorias": [{"categoria": {"id": "servico-1", "nome": "Jardinagem"}}],
+                    "fotos": list(fotos),
+                }))
+        if path == "/api/categorias":
+            return route.fulfill(status=200, content_type="application/json",
+                body=json.dumps([{"id": "servico-1", "nome": "Jardinagem", "slug": "jardinagem"}]))
+        if path.startswith("/api/perfil/mim/fotos/") and req.method == "DELETE":
+            id_foto = path.rsplit("/", 1)[-1]
+            requisicoes.append(("delete", id_foto))
+            fotos[:] = [foto for foto in fotos if foto["id"] != id_foto]
+            return route.fulfill(status=200, content_type="application/json", body='{"ok":true}')
+        if path == "/api/upload/imagem" and req.method == "POST":
+            requisicoes.append(("upload", "foto"))
+            return route.fulfill(status=201, content_type="application/json",
+                body=json.dumps({"url": "https://res.cloudinary.com/ci/image/upload/v123/portfolio.jpg"}))
+        if path == "/api/perfil/mim/fotos" and req.method == "POST":
+            dados = req.post_data_json
+            assert "url" in dados and "urlAntes" not in dados and "urlDepois" not in dados, dados
+            assert len(fotos) < 6
+            requisicoes.append(("publicar", "foto"))
+            fotos.append({"id": "foto-nova", "urlDepois": foto_pequena, "descricao": None})
+            return route.fulfill(status=201, content_type="application/json",
+                body=json.dumps(fotos[-1]))
+        if path == "/api/solicitacoes/recebidas":
+            return route.fulfill(status=200, content_type="application/json",
+                body='{"itens":[],"total":0}')
+        if path == "/api/notificacoes":
+            return route.fulfill(status=200, content_type="application/json",
+                body='{"itens":[],"naoLidas":0}')
+        if path == "/api/push/assinaturas/verificar":
+            return route.fulfill(status=200, content_type="application/json",
+                body='{"registrada":true}')
+        return route.fulfill(status=404, content_type="application/json",
+                             body='{"erro":"endpoint de simulação não utilizado"}')
+
+    page.route("**/bff/**", api)
+    page.route("**/api/**", api)
+    page.goto(BASE + "/painel", wait_until="load")
+    page.get_by_role("button", name="Meu perfil").click()
+    page.get_by_text("6 de 6 fotos publicadas.").wait_for(timeout=15000)
+    assert page.get_by_role("button", name="Excluir foto").count() == 6
+    assert page.get_by_text("Limite de 6 fotos atingido.", exact=False).count() == 1
+    assert page.get_by_text("Antes e depois").count() == 0
+    assert page.get_by_role("button", name="Publicar foto").count() == 0
+
+    page.get_by_role("button", name="Excluir foto").first.click()
+    page.get_by_text("5 de 6 fotos publicadas.").wait_for(timeout=15000)
+    assert ("delete", "foto-1") in requisicoes
+    page.get_by_label("Adicionar foto ao portfólio").set_input_files({
+        "name": "portfolio.jpg", "mimeType": "image/jpeg",
+        "buffer": b"\xff\xd8\xff\xe0" + bytes(64),
+    })
+    page.get_by_role("button", name="Publicar foto").click()
+    page.get_by_text("6 de 6 fotos publicadas.").wait_for(timeout=15000)
+    assert ("upload", "foto") in requisicoes
+    assert ("publicar", "foto") in requisicoes
+    assert page.get_by_role("button", name="Excluir foto").count() == 6
+    context.close()
+    print(("MOBILE" if mobile else "DESKTOP") +
+          " portfólio de até 6 fotos, exclusão e novo upload OK")
+
 if __name__ == "__main__":
     wait_server()
     with sync_playwright() as p:
@@ -712,5 +808,7 @@ if __name__ == "__main__":
             teste_filtros_pedidos_prestador(browser, mobile=False)
             teste_filtros_pedidos_prestador(browser, mobile=True)
             teste_recuperacao_push_expirado(browser)
+            teste_portfolio_somente_fotos(browser, mobile=False)
+            teste_portfolio_somente_fotos(browser, mobile=True)
         finally:
             browser.close()
