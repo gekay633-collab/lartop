@@ -272,11 +272,10 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
     setMensagem("");
     try {
       const url = await enviarImagem(fotoPortfolioSelecionada, accessToken);
-      // urlDepois é o nome legado da coluna; cada nova publicação é uma foto independente.
       const resposta = await fetchAutenticado("/api/perfil/mim/fotos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urlDepois: url }),
+        body: JSON.stringify({ url }),
       });
       if (!resposta.ok) {
         const dados: unknown = await resposta.json().catch(() => null);
