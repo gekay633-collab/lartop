@@ -38,11 +38,18 @@ export const definirCategoriasSchema = z.object({
     }),
 });
 
+// A coluna existente do banco chama-se url_depois por compatibilidade.
+// Novos clientes enviam somente "url"; PWAs antigos continuam podendo enviar "urlDepois".
 export const adicionarFotoPortfolioSchema = z.object({
-  urlAntes: urlImagemSegura.optional(),
-  urlDepois: urlImagemSegura,
+  url: urlImagemSegura.optional(),
+  urlDepois: urlImagemSegura.optional(),
   descricao: z.string().max(300).optional(),
-});
+}).refine(dados => Boolean(dados.url || dados.urlDepois), {
+  message: 'Informe uma foto para o portfólio.',
+}).transform(dados => ({
+  url: dados.url ?? dados.urlDepois!,
+  descricao: dados.descricao,
+}));
 
 export type AtualizarPerfilInput = z.infer<typeof atualizarPerfilSchema>;
 export type AtualizarTelefoneInput = z.infer<typeof atualizarTelefoneSchema>;
