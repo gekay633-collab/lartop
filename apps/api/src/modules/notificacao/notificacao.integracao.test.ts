@@ -119,7 +119,7 @@ describe('central de notificações com banco de testes', () => {
     redis.disconnect();
   });
 
-  it('portfólio: máximo 6 trabalhos, exclusão pelo dono e concorrência segura', async () => {
+  it('portfólio: máximo 6 fotos independentes, exclusão pelo dono e concorrência segura', async () => {
     const nomeOriginal = process.env.CLOUDINARY_CLOUD_NAME;
     process.env.CLOUDINARY_CLOUD_NAME = 'conta-ci-lartop';
     const foto = (nome: string) =>
@@ -128,10 +128,9 @@ describe('central de notificações com banco de testes', () => {
     const post = (numero: number) => app.inject({
       method: 'POST', url: '/api/perfil/mim/fotos',
       headers,
-      payload: {
-        urlAntes: numero === 1 ? foto('antes1') : undefined,
-        urlDepois: foto(`depois${numero}`),
-      },
+      payload: numero === 1
+        ? { urlDepois: foto('foto1') }  // Compatibilidade com versões antigas do PWA.
+        : { url: foto(`foto${numero}`) },
     });
     let outroUsuarioId: string | null = null;
     try {
@@ -142,7 +141,7 @@ describe('central de notificações com banco de testes', () => {
       const cliente = await app.inject({
         method: 'POST', url: '/api/perfil/mim/fotos',
         headers: { authorization: `Bearer ${clienteToken}` },
-        payload: { urlDepois: foto('cliente') },
+        payload: { url: foto('cliente') },
       });
       assert.equal(cliente.statusCode, 403);
 
@@ -159,7 +158,9 @@ describe('central de notificações com banco de testes', () => {
       const publico = await app.inject({ method: 'GET', url: `/api/profissionais/${profissionalId}` });
       assert.equal(publico.statusCode, 200, publico.body);
       assert.equal(publico.json().fotos.length, 6);
-      assert.equal(publico.json().fotos.find((x: { id: string }) => x.id === ids[0]).urlAntes, foto('antes1'));
+      const primeira = publico.json().fotos.find((x: { id: string }) => x.id === ids[0]);
+      assert.equal(primeira.urlDepois, foto('foto1'));
+      assert.equal(Object.hasOwn(primeira, 'urlAntes'), false);
 
       const outro = await prisma.usuario.create({
         data: {
