@@ -14,7 +14,7 @@ interface PerfilProprio {
   perfilPublicado: boolean;
   usuario: { telefone: string | null; telefoneVerificado: boolean };
   categorias: { categoria: { id: string; nome: string } }[];
-  fotos: { id: string; urlDepois: string; descricao: string | null }[];
+  fotos: { id: string; urlAntes: string | null; urlDepois: string; descricao: string | null }[];
 }
 
 interface CategoriaDisponivel {
@@ -35,6 +35,9 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
   const [salvando, setSalvando] = useState(false);
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const [enviandoPortfolio, setEnviandoPortfolio] = useState(false);
+  const [excluindoFotoId, setExcluindoFotoId] = useState<string | null>(null);
+  const [fotoAntesSelecionada, setFotoAntesSelecionada] = useState<File | null>(null);
+  const [fotoDepoisSelecionada, setFotoDepoisSelecionada] = useState<File | null>(null);
   const [categoriasDisponiveis, setCategoriasDisponiveis] = useState<CategoriaDisponivel[]>([]);
   const [categoriasSelecionadas, setCategoriasSelecionadas] = useState<string[]>([]);
   const [carregandoCategorias, setCarregandoCategorias] = useState(true);
@@ -42,6 +45,7 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
   const [erroPerfil, setErroPerfil] = useState("");
   const inputFotoPerfil = useRef<HTMLInputElement>(null);
   const inputPortfolio = useRef<HTMLInputElement>(null);
+  const inputPortfolioAntes = useRef<HTMLInputElement>(null);
 
   async function carregarPerfil() {
     try {
@@ -259,28 +263,65 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
     }
   }
 
-  async function aoSelecionarFotoPortfolio(evento: React.ChangeEvent<HTMLInputElement>) {
-    const arquivo = evento.target.files?.[0];
-    if (!arquivo) return;
-
+  async function publicarTrabalho() {
+    if (!perfil || !fotoDepoisSelecionada || enviandoPortfolio || excluindoFotoId) return;
+    if (perfil.fotos.length >= 6) {
+      setErro("O limite é de 6 trabalhos no portfólio. Exclua um para publicar outro.");
+      return;
+    }
     setEnviandoPortfolio(true);
     setErro("");
     setMensagem("");
     try {
-      const url = await enviarImagem(arquivo, accessToken);
-      const resposta = await fetchAutenticado(`/api/perfil/mim/fotos`, {
+      const urlAntes = fotoAntesSelecionada
+        ? await enviarImagem(fotoAntesSelecionada, accessToken)
+        : undefined;
+      const urlDepois = await enviarImagem(fotoDepoisSelecionada, accessToken);
+      const resposta = await fetchAutenticado("/api/perfil/mim/fotos", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ urlDepois: url }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urlAntes, urlDepois }),
       });
-      if (!resposta.ok) throw new Error("Nao foi possivel salvar a foto");
-      setMensagem("Foto adicionada ao portfólio!");
-      await carregar();
+      if (!resposta.ok) {
+        const dados: unknown = await resposta.json().catch(() => null);
+        const mensagemErro = dados && typeof dados === "object" && "erro" in dados
+          && typeof dados.erro === "string" ? dados.erro : "Não foi possível publicar as fotos.";
+        throw new Error(mensagemErro);
+      }
+      await carregarPerfil();
+      setFotoAntesSelecionada(null);
+      setFotoDepoisSelecionada(null);
+      if (inputPortfolio.current) inputPortfolio.current.value = "";
+      if (inputPortfolioAntes.current) inputPortfolioAntes.current.value = "";
+      setMensagem("Trabalho publicado no portfólio!");
     } catch (err) {
-      setErro(err instanceof Error ? err.message : "Erro ao enviar foto");
+      setErro(err instanceof Error ? err.message : "Falha ao publicar as fotos.");
     } finally {
       setEnviandoPortfolio(false);
-      if (inputPortfolio.current) inputPortfolio.current.value = "";
+    }
+  }
+
+  async function excluirPublicacao(fotoId: string) {
+    if (enviandoPortfolio || excluindoFotoId ||
+      !window.confirm("Excluir este trabalho (fotos de antes e depois) do seu portfólio?")) return;
+    setExcluindoFotoId(fotoId);
+    setErro("");
+    setMensagem("");
+    try {
+      const resposta = await fetchAutenticado(`/api/perfil/mim/fotos/${encodeURIComponent(fotoId)}`, {
+        method: "DELETE",
+      });
+      if (!resposta.ok) {
+        const dados: unknown = await resposta.json().catch(() => null);
+        throw new Error(dados && typeof dados === "object" && "erro" in dados
+          && typeof dados.erro === "string" ? dados.erro : "Não foi possível excluir o trabalho.");
+      }
+      await carregarPerfil();
+      setMensagem("Publicação removida do portfólio.");
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Erro ao excluir o trabalho.");
+    } finally {
+      setExcluindoFotoId(null);
     }
   }
 
@@ -405,18 +446,82 @@ export function AbaMeuPerfil({ accessToken }: { accessToken: string }) {
       </div>
 
       <div className="rounded-2xl border border-areia-300 bg-white/70 p-5">
-        <p className="text-xs font-medium uppercase tracking-wide text-pinho-700">Fotos de trabalhos realizados</p>
-        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {perfil.fotos.map((foto) => (
-            <img key={foto.id} src={foto.urlDepois} alt={foto.descricao ?? "Trabalho"} className="aspect-square rounded-lg object-cover" />
-          ))}
-        </div>
-        <div className="mt-3">
-          <input ref={inputPortfolio} type="file" accept="image/*" onChange={aoSelecionarFotoPortfolio} className="hidden" id="foto-portfolio-input" />
-          <label htmlFor="foto-portfolio-input" className="inline-block cursor-pointer rounded-lg bg-pinho-900 px-4 py-2 text-sm font-medium text-sauge-50 hover:bg-pinho-700">
-            {enviandoPortfolio ? "Enviando..." : "Adicionar foto"}
-          </label>
-        </div>
+        <h2 className="text-xs font-medium uppercase tracking-wide text-pinho-700">Fotos de trabalhos realizados</h2>
+        <p className="mt-1 text-sm text-pinho-700">
+          {perfil.fotos.length} de 6 trabalhos publicados. Cada trabalho pode ter fotos de antes e depois.
+        </p>
+        {perfil.fotos.length === 0 ? (
+          <p className="mt-3 text-sm text-pinho-700">Você ainda não publicou trabalhos no portfólio.</p>
+        ) : (
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {perfil.fotos.map((foto) => (
+              <div key={foto.id} className="rounded-xl border border-areia-300 p-3">
+                <div className="grid grid-cols-2 gap-2">
+                  {foto.urlAntes ? (
+                    <figure>
+                      <img src={foto.urlAntes} alt="Antes do serviço" className="aspect-square w-full rounded-lg object-cover" />
+                      <figcaption className="mt-1 text-xs text-pinho-700">Antes</figcaption>
+                    </figure>
+                  ) : (
+                    <div className="flex aspect-square items-center justify-center rounded-lg bg-sauge-100 text-xs text-pinho-700">
+                      Sem foto de antes
+                    </div>
+                  )}
+                  <figure>
+                    <img src={foto.urlDepois} alt="Depois do serviço" className="aspect-square w-full rounded-lg object-cover" />
+                    <figcaption className="mt-1 text-xs text-pinho-700">Depois</figcaption>
+                  </figure>
+                </div>
+                {foto.descricao && <p className="mt-2 text-sm text-pinho-700">{foto.descricao}</p>}
+                <button
+                  type="button"
+                  onClick={() => void excluirPublicacao(foto.id)}
+                  disabled={Boolean(excluindoFotoId) || enviandoPortfolio}
+                  className="mt-3 rounded-lg border border-terra-500 px-3 py-2 text-sm font-medium text-terra-600 hover:bg-terra-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Excluir este trabalho do portfólio"
+                >
+                  {excluindoFotoId === foto.id ? "Excluindo..." : "Excluir publicação"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {perfil.fotos.length < 6 ? (
+          <div className="mt-4 flex flex-col gap-3 border-t border-areia-300 pt-4">
+            <label className="flex flex-col gap-1 text-sm font-medium text-pinho-900">
+              Foto de antes (opcional)
+              <input
+                ref={inputPortfolioAntes}
+                type="file" accept="image/jpeg,image/png,image/webp"
+                onChange={(evento) => setFotoAntesSelecionada(evento.target.files?.[0] ?? null)}
+                disabled={enviandoPortfolio || Boolean(excluindoFotoId)}
+                className="text-sm font-normal"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium text-pinho-900">
+              Foto de depois
+              <input
+                ref={inputPortfolio}
+                type="file" accept="image/jpeg,image/png,image/webp"
+                onChange={(evento) => setFotoDepoisSelecionada(evento.target.files?.[0] ?? null)}
+                disabled={enviandoPortfolio || Boolean(excluindoFotoId)}
+                className="text-sm font-normal"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => void publicarTrabalho()}
+              disabled={!fotoDepoisSelecionada || enviandoPortfolio || Boolean(excluindoFotoId)}
+              className="self-start rounded-lg bg-pinho-900 px-4 py-2 text-sm font-medium text-sauge-50 hover:bg-pinho-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {enviandoPortfolio ? "Publicando..." : "Publicar trabalho"}
+            </button>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm font-medium text-terra-600">
+            Limite de 6 trabalhos atingido. Exclua uma publicação para adicionar outra.
+          </p>
+        )}
       </div>
 
       {mensagem && <p className="text-sm text-relva-600">{mensagem}</p>}
