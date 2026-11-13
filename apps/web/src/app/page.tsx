@@ -20,7 +20,7 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-pinho-900/55" />
           <div className="relative mx-auto flex max-w-6xl flex-col gap-10 px-4 py-14 sm:px-6 sm:py-20 md:py-28">
             <div className="max-w-2xl">
-              <h1 className="font-display text-3xl font-semibold leading-tight text-sauge-50 sm:text-4xl md:text-5xl">Seu LAR nas maos de quem entende do assunto.</h1>
+              <h1 className="font-display text-3xl font-semibold leading-tight text-sauge-50 sm:text-4xl md:text-5xl">Seu LAR nas mãos de quem entende do assunto.</h1>
               <p className="mt-4 text-lg text-sauge-100">Encontre profissionais de jardinagem, piscina e cuidados com sua casa perto de você. Compare avaliações e combine tudo direto pelo WhatsApp.</p>
             </div>
             <div className="max-w-3xl">
