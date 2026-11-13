@@ -53,7 +53,7 @@ export default function ParaProfissionaisPage() {
       <main className="flex-1">
         <div className="textura-gramado-sutil border-b border-areia-300">
           <div className="mx-auto max-w-2xl px-4 py-14 text-center sm:px-6">
-            <h1 className="font-display text-3xl font-semibold text-pinho-900">Trabalha com jardinagem? Cadastre seu perfil de graça.</h1>
+            <h1 className="font-display text-3xl font-semibold text-pinho-900">Trabalha com jardinagem e piscina? Cadastre seu perfil de graça.</h1>
             <p className="mt-3 text-pinho-700">Receba pedidos de orçamento de clientes da sua região e feche negócios diretamente pelo WhatsApp.</p>
           </div>
         </div>
