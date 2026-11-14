@@ -22,8 +22,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const uf = estado.toUpperCase();
 
   return {
-    title: `Jardineiros e cortadores de grama em ${nomeCidade}, ${uf} | Lartop`,
-    description: `Encontre profissionais de corte de grama, poda e paisagismo em ${nomeCidade}/${uf}. Compare avaliações e fale direto pelo WhatsApp.`,
+    title: `Jardineiro em ${nomeCidade}, ${uf} | Jardinagem e corte de grama | Lartop`,
+    description: `Procurando jardineiro em ${nomeCidade}, ${uf}? Encontre profissionais de jardinagem, corte de grama, poda e manutenção de jardim. Compare perfis na Lartop.`,
+    alternates: { canonical: `https://lartop.app.br/jardinagem/${estado.toLowerCase()}/${cidade.toLowerCase()}` },
   };
 }
 
@@ -41,10 +42,10 @@ export default async function CidadePage({ params }: PageProps) {
         <div className="textura-gramado-sutil border-b border-areia-300">
           <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
             <h1 className="font-display text-3xl font-semibold text-pinho-900">
-              Corte de grama e jardinagem em {nomeCidade}, {uf}
+              Jardineiros e serviços de jardinagem em {nomeCidade}, {uf}
             </h1>
             <p className="mt-2 text-pinho-700">
-              Compare profissionais avaliados na sua região e combine tudo direto pelo WhatsApp.
+              Encontre profissionais para corte de grama, poda e manutenção de jardins. Compare perfis, portfólios e avaliações antes de solicitar um serviço.
             </p>
           </div>
         </div>
@@ -76,6 +77,12 @@ export default async function CidadePage({ params }: PageProps) {
             </>
           )}
         </div>
+        <section className="mx-auto max-w-4xl px-4 pb-12 sm:px-6" aria-labelledby="servicos-jardinagem">
+          <h2 id="servicos-jardinagem" className="font-display text-2xl font-semibold text-pinho-900">Serviços de jardinagem em {nomeCidade}</h2>
+          <p className="mt-3 text-pinho-700">Precisa de um jardineiro em {nomeCidade}? Na Lartop você pode encontrar profissionais para corte de grama, manutenção de jardins, poda e cuidados com áreas verdes. Confira os serviços informados em cada perfil e entre em contato pelo fluxo de solicitação disponível na plataforma.</p>
+          <h2 className="mt-8 font-display text-xl font-semibold text-pinho-900">Como escolher um jardineiro?</h2>
+          <p className="mt-3 text-pinho-700">Compare as fotos do portfólio, as avaliações e os serviços oferecidos. Antes de contratar, confirme com o profissional a disponibilidade, o escopo do trabalho e o orçamento.</p>
+        </section>
       </main>
       <Rodape />
     </>
