@@ -19,7 +19,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const uf = estado.toUpperCase();
   return {
     title: `Piscineiros e manutenção de piscinas em ${nomeCidade}, ${uf} | Lartop`,
-    description: `Encontre profissionais de manutenção e limpeza de piscinas em ${nomeCidade}/${uf}. Compare perfis e encontre atendimento na sua região.`,
+    description: `Procurando piscineiro em ${nomeCidade}, ${uf}? Encontre profissionais para limpeza, tratamento da água e manutenção de piscinas. Compare perfis na Lartop.`,
+    alternates: { canonical: `https://lartop.app.br/piscinas/${estado.toLowerCase()}/${cidade.toLowerCase()}` },
   };
 }
 
@@ -69,6 +70,20 @@ export default async function PiscinasCidadePage({ params }: PageProps) {
             </>
           )}
         </div>
+        <section className="mx-auto max-w-4xl px-4 pb-12 sm:px-6" aria-labelledby="servicos-piscinas">
+          <h2 id="servicos-piscinas" className="font-display text-2xl font-semibold text-pinho-900">Serviços de limpeza e manutenção de piscinas em {nomeCidade}</h2>
+          <p className="mt-3 text-pinho-700">Precisa de um piscineiro em {nomeCidade}? Na Lartop você pode consultar perfis de profissionais que oferecem cuidados com piscinas, como limpeza, tratamento da água e manutenção. Verifique os serviços descritos em cada perfil antes de solicitar atendimento.</p>
+          <h2 className="mt-8 font-display text-xl font-semibold text-pinho-900">Como escolher um piscineiro?</h2>
+          <p className="mt-3 text-pinho-700">Compare os serviços oferecidos, as avaliações e as fotos do portfólio, quando disponíveis. Confirme diretamente com o profissional a disponibilidade, a frequência das visitas e o orçamento.</p>
+          <div className="mt-8 border-t border-areia-300 pt-6">
+            <h2 className="font-display text-xl font-semibold text-pinho-900">Dúvidas sobre piscineiros em {nomeCidade}</h2>
+            <h3 className="mt-4 font-semibold text-pinho-900">Quais serviços posso encontrar?</h3>
+            <p className="mt-2 text-pinho-700">Os perfis podem oferecer limpeza da piscina, tratamento da água e manutenção. Confira o que cada profissional realiza antes de solicitar o serviço.</p>
+            <h3 className="mt-4 font-semibold text-pinho-900">Como solicitar um orçamento?</h3>
+            <p className="mt-2 text-pinho-700">Escolha um perfil disponível e utilize o fluxo de solicitação da Lartop. Combine diretamente com o profissional os detalhes, o preço e a disponibilidade.</p>
+            <p className="mt-6 text-pinho-700">Também procura serviços para o jardim? <a className="font-semibold text-terra-600 underline" href="/jardinagem/rj/marica">Veja profissionais de jardinagem em Maricá</a>.</p>
+          </div>
+        </section>
       </main>
       <Rodape />
     </>
