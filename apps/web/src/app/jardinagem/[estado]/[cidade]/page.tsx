@@ -53,8 +53,8 @@ export default async function CidadePage({ params }: PageProps) {
         <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
           {ehErroApi(resultado) ? (
             <div className="rounded-2xl border border-areia-300 bg-white/60 p-8 text-center">
-              <p className="font-display text-lg text-pinho-900">Ainda não temos profissionais em {nomeCidade}.</p>
-              <p className="mt-2 text-pinho-700">Digite seu CEP para buscar em uma área maior.</p>
+              <p className="font-display text-lg text-pinho-900">Não foi possível consultar os profissionais agora.</p>
+              <p className="mt-2 text-pinho-700">Tente novamente em instantes ou digite seu CEP para buscar profissionais.</p>
               <div className="mx-auto mt-6 max-w-xl">
                 <BuscaHero />
               </div>
@@ -82,6 +82,14 @@ export default async function CidadePage({ params }: PageProps) {
           <p className="mt-3 text-pinho-700">Precisa de um jardineiro em {nomeCidade}? Na Lartop você pode encontrar profissionais para corte de grama, manutenção de jardins, poda e cuidados com áreas verdes. Confira os serviços informados em cada perfil e entre em contato pelo fluxo de solicitação disponível na plataforma.</p>
           <h2 className="mt-8 font-display text-xl font-semibold text-pinho-900">Como escolher um jardineiro?</h2>
           <p className="mt-3 text-pinho-700">Compare as fotos do portfólio, as avaliações e os serviços oferecidos. Antes de contratar, confirme com o profissional a disponibilidade, o escopo do trabalho e o orçamento.</p>
+          <div className="mt-8 border-t border-areia-300 pt-6">
+            <h2 className="font-display text-xl font-semibold text-pinho-900">Dúvidas sobre jardinagem em {nomeCidade}</h2>
+            <h3 className="mt-4 font-semibold text-pinho-900">Quais serviços posso encontrar?</h3>
+            <p className="mt-2 text-pinho-700">Os perfis podem incluir corte de grama, poda, manutenção de jardins e outros cuidados com áreas verdes. Consulte os serviços oferecidos por cada profissional.</p>
+            <h3 className="mt-4 font-semibold text-pinho-900">Como solicitar um orçamento?</h3>
+            <p className="mt-2 text-pinho-700">Escolha um perfil disponível, confira o portfólio e siga o fluxo de solicitação da Lartop. Confirme o preço e a disponibilidade diretamente com o profissional.</p>
+            <p className="mt-6 text-pinho-700">Também precisa cuidar da piscina? <a className="font-semibold text-terra-600 underline" href="/piscinas/rj/marica">Veja profissionais de limpeza e manutenção de piscinas em Maricá</a>.</p>
+          </div>
         </section>
       </main>
       <Rodape />
