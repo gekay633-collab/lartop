@@ -166,6 +166,18 @@ export interface RespostaBuscaCidade {
   resultados: ProfissionalResultado[];
 }
 
+// O slug da URL pode chegar percent-encoded e conter caracteres invisíveis.
+// Remova-os antes de montar o caminho da API (ex.: marica%E2%81%A0 -> marica).
+function normalizarSlugCidade(slug: string): string {
+  let valor = slug;
+  try {
+    valor = decodeURIComponent(slug);
+  } catch {
+    // Mantém o original quando a codificação estiver malformada.
+  }
+  return valor.replace(/[\u200B-\u200D\u2060\uFEFF]/g, "").trim();
+}
+
 export async function buscarProfissionaisPorCidade(params: {
   estado: string;
   cidadeSlug: string;
@@ -175,7 +187,7 @@ export async function buscarProfissionaisPorCidade(params: {
   if (params.categoria) query.set("categoria", params.categoria);
 
   const resultado = await consultarApi<RespostaBuscaCidade>(
-    `/api/cidades/${encodeURIComponent(params.estado)}/${encodeURIComponent(params.cidadeSlug)}/profissionais?${query.toString()}`
+    `/api/cidades/${encodeURIComponent(params.estado)}/${encodeURIComponent(normalizarSlugCidade(params.cidadeSlug))}/profissionais?${query.toString()}`
   );
   if (ehErroApi(resultado)) return resultado;
 
