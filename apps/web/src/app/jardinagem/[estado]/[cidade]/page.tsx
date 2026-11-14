@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function CidadePage({ params }: PageProps) {
   const { estado, cidade } = await params;
-  const resultado = await buscarProfissionaisPorCidade({ estado, cidadeSlug: cidade });
+  const resultado = await buscarProfissionaisPorCidade({ estado, cidadeSlug: cidade, categoria: "jardinagem" });
 
   const nomeCidade = ehErroApi(resultado) ? nomeCidadeLegivel(cidade) : resultado.cidade.nome;
   const uf = estado.toUpperCase();

@@ -37,12 +37,23 @@ async function executarBuscaPorCoordenadas(params: {
   const offset = (params.pagina - 1) * params.porPagina;
 
   // Fragmentos Prisma.sql impedem a interpolação de valores de usuários no SQL.
+  const categoriasJardinagem = [
+    'corte-de-grama',
+    'poda',
+    'paisagismo',
+    'manutencao-jardim',
+    'limpeza-terreno',
+    'instalacao',
+  ];
   const filtroCategoria = params.categoria
     ? Prisma.sql`AND EXISTS (
         SELECT 1 FROM profissional_categorias pc
         JOIN categorias c ON c.id = pc.categoria_id
         WHERE pc.profissional_id = pp.usuario_id
-          AND c.slug = ${params.categoria} AND c.ativo = true
+          AND c.ativo = true
+          AND ${params.categoria === 'jardinagem'
+            ? Prisma.sql`c.slug IN (${Prisma.join(categoriasJardinagem)})`
+            : Prisma.sql`c.slug = ${params.categoria}`}
       )`
     : Prisma.empty;
 
