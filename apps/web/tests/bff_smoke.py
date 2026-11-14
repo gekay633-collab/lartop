@@ -10,6 +10,18 @@ from playwright.sync_api import sync_playwright
 
 BASE = "http://localhost:3000"
 eventos = []
+
+
+def diagnostico_sessao(context, fase):
+    """Registra apenas nomes/flags e ordem das chamadas; nunca valores de credenciais."""
+    cookies = context.cookies(BASE)
+    estados = {nome: {"presente": any(c["name"] == nome for c in cookies),
+                       "httpOnly": all(c["httpOnly"] for c in cookies if c["name"] == nome)}
+               for nome in ("lartop_access", "lartop_refresh")}
+    rotas = [f"{e[0]} {e[1]}" for e in eventos if e[1] in
+             ("/api/auth/login", "/api/auth/refresh", "/api/usuarios/mim")]
+    print(f"[diagnostico-sessao] {fase}: cookies={estados}; eventos={rotas}", flush=True)
+
 ACCESS_INICIAL = "jwt-dentro-do-cookie-httponly"
 ACCESS_NOVO = "jwt-renovado-httponly"
 
@@ -126,7 +138,10 @@ def main():
             refresh = [c for c in cookies if c["name"] == "lartop_refresh"]
             assert len(access) == 1 and access[0]["httpOnly"], cookies
             assert len(refresh) == 1 and refresh[0]["httpOnly"], cookies
-            assert access[0]["value"] == ACCESS_INICIAL
+            diagnostico_sessao(context, "apos-login")
+            if access[0]["value"] != ACCESS_INICIAL:
+                estado = ("renovado" if access[0]["value"] == ACCESS_NOVO else "inesperado")
+                raise AssertionError(f"Cookie access diferente do inicial: estado={estado}; veja diagnostico-sessao")
 
             # O rewrite legado /api/auth não pode retornar accessToken nem
             # permitir login antigo diretamente pelo Railway.
