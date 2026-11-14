@@ -10,6 +10,10 @@ export const metadata: Metadata = {
   title: "Lartop | Corte de grama e jardinagem perto de você",
   description: "Encontre profissionais de corte de grama, poda e paisagismo na sua cidade. Compare avaliações e fale direto pelo WhatsApp.",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

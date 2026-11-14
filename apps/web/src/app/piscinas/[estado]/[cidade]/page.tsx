@@ -10,7 +10,15 @@ interface PageProps {
 }
 
 function nomeCidadeLegivel(slug: string): string {
-  return slug.split("-").map((parte) => parte.charAt(0).toUpperCase() + parte.slice(1)).join(" ");
+  let cidade = slug;
+  try {
+    cidade = decodeURIComponent(slug);
+  } catch {
+    // Mantém o valor original se a URL tiver codificação inválida.
+  }
+  cidade = cidade.replace(/[\u200B-\u200D\u2060\uFEFF]/g, "").trim();
+  if (cidade.toLowerCase() === "marica") return "Maricá";
+  return cidade.split("-").map((parte) => parte.charAt(0).toUpperCase() + parte.slice(1)).join(" ");
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
