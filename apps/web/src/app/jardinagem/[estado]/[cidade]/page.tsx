@@ -9,6 +9,16 @@ interface PageProps {
   params: Promise<{ estado: string; cidade: string }>;
 }
 
+function slugCidadeCanonico(slug: string): string {
+  let valor = slug;
+  try {
+    valor = decodeURIComponent(slug);
+  } catch {
+    // Preserva a entrada caso a codificação esteja inválida.
+  }
+  return encodeURIComponent(valor.replace(/[\u200B-\u200D\u2060\uFEFF]/g, "").trim().toLowerCase());
+}
+
 function nomeCidadeLegivel(slug: string): string {
   let cidade = slug;
   try {
@@ -29,7 +39,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `Jardineiro em ${nomeCidade}, ${uf} | Jardinagem e corte de grama | Lartop`,
     description: `Procurando jardineiro em ${nomeCidade}, ${uf}? Encontre profissionais de jardinagem, corte de grama, poda e manutenção de jardim. Compare perfis na Lartop.`,
-    alternates: { canonical: `https://lartop.app.br/jardinagem/${estado.toLowerCase()}/${cidade.toLowerCase()}` },
+    alternates: { canonical: `https://lartop.app.br/jardinagem/${estado.toLowerCase()}/${slugCidadeCanonico(cidade)}` },
   };
 }
 
