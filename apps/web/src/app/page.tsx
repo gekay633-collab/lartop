@@ -34,6 +34,15 @@ export default function HomePage() {
           <AcessoBuscaCliente><CategoriasHome /></AcessoBuscaCliente>
         </section>
 
+        <section className="mx-auto max-w-6xl px-4 pb-14 sm:px-6">
+          <h2 className="font-display text-2xl font-semibold text-pinho-900">Profissionais em Maricá, RJ</h2>
+          <p className="mt-2 text-pinho-700">Explore serviços disponíveis na sua região.</p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <a href="/jardinagem/rj/marica" className="rounded-xl border border-areia-300 bg-white px-5 py-3 font-semibold text-pinho-900 transition hover:border-relva-500">Encontre jardineiros em Maricá</a>
+            <a href="/piscinas/rj/marica" className="rounded-xl border border-areia-300 bg-white px-5 py-3 font-semibold text-pinho-900 transition hover:border-relva-500">Encontre piscineiros em Maricá</a>
+          </div>
+        </section>
+
         <section className="textura-gramado-sutil border-y border-areia-300">
           <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
             <h2 className="font-display text-2xl font-semibold text-pinho-900">Como funciona</h2>
