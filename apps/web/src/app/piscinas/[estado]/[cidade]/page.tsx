@@ -9,6 +9,16 @@ interface PageProps {
   params: Promise<{ estado: string; cidade: string }>;
 }
 
+function slugCidadeCanonico(slug: string): string {
+  let valor = slug;
+  try {
+    valor = decodeURIComponent(slug);
+  } catch {
+    // Preserva a entrada caso a codificação esteja inválida.
+  }
+  return encodeURIComponent(valor.replace(/[\u200B-\u200D\u2060\uFEFF]/g, "").trim().toLowerCase());
+}
+
 function nomeCidadeLegivel(slug: string): string {
   let cidade = slug;
   try {
@@ -28,7 +38,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `Piscineiros e manutenção de piscinas em ${nomeCidade}, ${uf} | Lartop`,
     description: `Procurando piscineiro em ${nomeCidade}, ${uf}? Encontre profissionais para limpeza, tratamento da água e manutenção de piscinas. Compare perfis na Lartop.`,
-    alternates: { canonical: `https://lartop.app.br/piscinas/${estado.toLowerCase()}/${cidade.toLowerCase()}` },
+    alternates: { canonical: `https://lartop.app.br/piscinas/${estado.toLowerCase()}/${slugCidadeCanonico(cidade)}` },
   };
 }
 
