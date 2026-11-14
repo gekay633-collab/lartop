@@ -96,6 +96,14 @@ export function Rodape() {
             </nav>
           )}
 
+          <nav aria-label="Serviços em Maricá">
+            <p className="text-sm font-semibold uppercase tracking-wide text-pinho-900">Serviços em Maricá</p>
+            <ul className="mt-3 flex flex-col gap-2 text-sm text-pinho-700">
+              <li><Link href="/jardinagem/rj/marica" className={estiloLink}>Jardineiros em Maricá</Link></li>
+              <li><Link href="/piscinas/rj/marica" className={estiloLink}>Piscineiros em Maricá</Link></li>
+            </ul>
+          </nav>
+
           <nav aria-label="Informações">
             <p className="text-sm font-semibold uppercase tracking-wide text-pinho-900">Informações</p>
             <ul className="mt-3 flex flex-col gap-2 text-sm text-pinho-700">
