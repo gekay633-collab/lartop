@@ -183,7 +183,7 @@ export function AbaLeads({ accessToken }: { accessToken: string }) {
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <p className="font-display text-lg font-semibold text-pinho-900">{lead.categoria.nome}</p>
-                  <p className="break-words text-sm text-pinho-700">{lead.cliente.nome}{lead.endereco ? ` · ${lead.endereco}` : " · Pedido rápido"}</p>
+                  <p className="break-words text-sm text-pinho-700">{lead.cliente.nome}{lead.endereco ? ` - ${lead.endereco}` : " - Pedido rápido"}</p>
                   <time className="text-xs text-pinho-700" dateTime={lead.criadoEm}>
                     {new Date(lead.criadoEm).toLocaleString("pt-BR", {
                       day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
