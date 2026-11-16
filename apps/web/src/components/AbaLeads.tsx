@@ -132,6 +132,11 @@ export function AbaLeads({ accessToken }: { accessToken: string }) {
     }
   }
 
+  const telefoneWhatsapp = (telefone: string) => {
+    const numero = telefone.replace(/[^0-9]/g, "");
+    return numero.startsWith("55") && numero.length === 13 ? numero : "55" + numero;
+  };
+
   const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
 
   return (
@@ -195,8 +200,7 @@ export function AbaLeads({ accessToken }: { accessToken: string }) {
               )}
               {lead.cliente.telefone && (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <a href={`https://wa.me/${lead.cliente.telefone.length === 13 && lead.cliente.telefone.startsWith("55")
-                      ? lead.cliente.telefone : "55" + lead.cliente.telefone.replace(/\\D/g, "")}`}
+                  <a href={`https://wa.me/${telefoneWhatsapp(lead.cliente.telefone)}`}
                     target="_blank" rel="noopener noreferrer"
                     className="rounded-lg border border-relva-500 px-3 py-2 text-sm font-medium text-relva-600">
                     Contatar cliente pelo WhatsApp
