@@ -15,6 +15,8 @@ PEDIDO = "33333333-3333-4333-8333-333333333333"
 
 eventos = []
 pedido_capturado = []
+concluido = False
+avaliacao_feita = False
 
 class BackendSimulado(BaseHTTPRequestHandler):
     def log_message(self, *_args):
@@ -82,15 +84,34 @@ class BackendSimulado(BaseHTTPRequestHandler):
             if not pedido_capturado or dados.get("token") != pedido_capturado[-1]["token"]:
                 return self.responder(404, {"erro": "Link inválido ou expirado"})
             return self.responder(200, {
-                "id": PEDIDO, "status": "PENDENTE", "criadoEm": "2026-11-16T20:00:00.000Z",
+                "id": PEDIDO, "referencia": "10427",
+                "status": "CONCLUIDA" if concluido else "PENDENTE",
+                "jaAvaliada": avaliacao_feita,
+                "avaliacao": {"nota": 5, "comentario": "Prestador atencioso."} if avaliacao_feita else None,
+                "criadoEm": "2026-11-16T20:00:00.000Z",
                 "categoria": {"nome": "Limpeza de piscina"},
                 "profissional": {"nomeExibicao": "Prestador Simulado"},
                 "linkWhatsapp": "https://wa.me/5521999992222?text=Teste",
             })
+        if caminho == f"/api/solicitacoes/rapidas/{PEDIDO}/avaliar":
+            global avaliacao_feita
+            if not concluido:
+                return self.responder(409, {"erro": "Não concluído"})
+            if not pedido_capturado or dados.get("token") != pedido_capturado[-1]["token"]:
+                return self.responder(404, {"erro": "Link inválido"})
+            if dados.get("confirmacao") is not True or dados.get("nota") not in (1, 2, 3, 4, 5):
+                return self.responder(400, {"erro": "Confirme e selecione nota"})
+            if avaliacao_feita:
+                return self.responder(409, {"erro": "Avaliação já registrada"})
+            avaliacao_feita = True
+            return self.responder(201, {"id": "avaliacao-test", "nota": dados["nota"]})
         return self.responder(404, {"erro": "Rota simulada indisponível"})
 
 
 def executar(browser, mobile=False):
+    global concluido, avaliacao_feita
+    concluido = False
+    avaliacao_feita = False
     context = browser.new_context(
         viewport={"width": 390 if mobile else 1366, "height": 844 if mobile else 768},
         is_mobile=mobile, has_touch=mobile,
@@ -133,6 +154,22 @@ def executar(browser, mobile=False):
     assert pagina.url == link
     assert not any("#" in path for _method, path in eventos)
     assert pagina.locator('input[type="password"]').count() == 0
+
+    # Prestador conclui pedido no backend mock. O visitante continua autenticado
+    # apenas pelo fragmento criptograficamente forte do próprio link.
+    concluido = True
+    pagina.get_by_role("button", name="Atualizar status").click()
+    pagina.get_by_role("heading", name="O serviço foi realizado?").wait_for(timeout=20000)
+    assert "Referência LARTOP: 10427" in pagina.locator("main").inner_text()
+    pagina.get_by_label("Não, o serviço não foi realizado").check()
+    pagina.get_by_text("Não enviaremos uma avaliação.").wait_for(timeout=20000)
+    pagina.get_by_label("Sim, o serviço foi realizado").check()
+    pagina.get_by_role("button", name="5 estrelas").click()
+    pagina.get_by_label("Comentário (opcional)").fill("Prestador atencioso.")
+    pagina.get_by_role("button", name="Enviar avaliação").click()
+    pagina.get_by_role("heading", name="Avaliação registrada").wait_for(timeout=20000)
+    assert avaliacao_feita, "A API simulada deve registrar uma avaliação"
+    assert pagina.get_by_role("button", name="Enviar avaliação").count() == 0
     context.close()
     print(("MOBILE" if mobile else "DESKTOP") + " contratação sem cadastro, WhatsApp e link privado OK")
 
