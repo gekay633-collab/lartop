@@ -31,6 +31,18 @@ async function tentativaPara(corpo: string): Promise<{ tentativaId: string; toke
   return nova;
 }
 
+function concluirTentativa(tentativaId: string): void {
+  // Após uma confirmação, pedidos novos (mesmo com os mesmos dados)
+  // precisam gerar outra solicitação. O token já foi mostrado ao cliente.
+  try {
+    const salvo = JSON.parse(sessionStorage.getItem(CHAVE_TENTATIVA) || "null") as
+      { tentativaId?: string } | null;
+    if (salvo?.tentativaId === tentativaId) {
+      sessionStorage.removeItem(CHAVE_TENTATIVA);
+    }
+  } catch { /* Armazenamento opcional. */ }
+}
+
 export function FormularioRapido({
   profissionalId, profissionalNome, categorias,
 }: {
@@ -83,8 +95,9 @@ export function FormularioRapido({
 
       const link = `${window.location.origin}/acompanhar/${encodeURIComponent(resultado.id)}#${chave.token}`;
       setSucesso({ link, whatsappUrl: resultado.linkWhatsapp });
-      // Guardar a última tentativa enquanto a aba estiver aberta evita perder o
-      // acesso após timeout ou refresh ANTES de receber a confirmação.
+      concluirTentativa(chave.tentativaId);
+      // Uma tentativa incerta (timeout) permanece para recuperação sem
+      // duplicar o pedido; a tentativa confirmada é liberada para novos pedidos.
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Falha no envio.");
     } finally {
