@@ -1058,7 +1058,7 @@ describe('central de notificações com banco de testes', () => {
       });
       assert.equal(novo.statusCode, 201, novo.body);
       id = novo.json().id;
-      const registro = await prisma.solicitacaoOrcamento.findUniqueOrThrow({ where: { id } });
+      const registro = await prisma.solicitacaoOrcamento.findUniqueOrThrow({ where: { id: id! } });
       assert.equal(registro.clienteId, null);
       assert.ok(registro.referenciaCurta !== null && registro.referenciaCurta >= 10000 &&
         registro.referenciaCurta <= 99999);
@@ -1096,7 +1096,7 @@ describe('central de notificações com banco de testes', () => {
 
       const concorrentes = await Promise.all([avaliar(payload), avaliar(payload)]);
       assert.deepEqual(concorrentes.map(x => x.statusCode).sort(), [201, 409]);
-      assert.equal(await prisma.avaliacaoVisitante.count({ where: { solicitacaoId: id } }), 1);
+      assert.equal(await prisma.avaliacaoVisitante.count({ where: { solicitacaoId: id! } }), 1);
       const depois = (await acompanhar()).json();
       assert.equal(depois.jaAvaliada, true);
       assert.equal(depois.avaliacao.nota, 5);
@@ -1128,7 +1128,7 @@ describe('central de notificações com banco de testes', () => {
         ((anteriores._sum.nota ?? 0) + (notaVisitantes._sum.nota ?? 0)) / total);
 
       await prisma.solicitacaoOrcamento.update({
-        where: { id }, data: { acessoExpiraEm: new Date(Date.now() - 1000) },
+        where: { id: id! }, data: { acessoExpiraEm: new Date(Date.now() - 1000) },
       });
       assert.equal((await avaliar(payload)).statusCode, 404);
     } finally {
