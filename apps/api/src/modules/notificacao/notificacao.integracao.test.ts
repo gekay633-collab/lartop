@@ -1041,4 +1041,103 @@ describe('central de notificações com banco de testes', () => {
     }
   });
 
+  it('feedback visitante: somente serviço concluído, token seguro, estrelas, média e uma avaliação por pedido', async () => {
+    const { randomBytes } = await import('node:crypto');
+    const token = randomBytes(32).toString('base64url');
+    const tokenInvalido = randomBytes(32).toString('base64url');
+    const body = {
+      profissionalId, categoriaId, nome: 'Visitante de teste',
+      whatsapp: '(21) 99999-1212',
+      descricao: 'Solicito um serviço de manutenção no jardim.',
+      tentativaId: randomUUID(), token, consentimento: true, site: '',
+    };
+    let id: string | null = null;
+    try {
+      const novo = await app.inject({
+        method: 'POST', url: '/api/solicitacoes/rapidas', payload: body,
+      });
+      assert.equal(novo.statusCode, 201, novo.body);
+      id = novo.json().id;
+      const registro = await prisma.solicitacaoOrcamento.findUniqueOrThrow({ where: { id } });
+      assert.equal(registro.clienteId, null);
+      assert.ok(registro.referenciaCurta !== null && registro.referenciaCurta >= 10000 &&
+        registro.referenciaCurta <= 99999);
+      assert.match(novo.json().linkWhatsapp, /Refer%C3%AAncia%20LARTOP/);
+      const textoWhatsapp = new URL(novo.json().linkWhatsapp).searchParams.get('text') ?? '';
+      assert.match(textoWhatsapp, /\\*Referência LARTOP:\\* [0-9]{5}(?![0-9])/);
+      assert.equal(textoWhatsapp.includes(registro.referenciaCurta!.toString()), true);
+
+      const url = `/api/solicitacoes/rapidas/${id}/avaliar`;
+      const avaliar = (payload: Record<string, unknown>) =>
+        app.inject({ method: 'POST', url, payload });
+      const payload = { token, confirmacao: true, nota: 5, comentario: 'Serviço realizado corretamente.' };
+      const antes = await avaliar(payload);
+      assert.equal(antes.statusCode, 409, antes.body);
+      assert.equal((await avaliar({ ...payload, token: tokenInvalido })).statusCode, 404);
+      assert.equal((await avaliar({ ...payload, confirmacao: false })).statusCode, 400);
+      assert.equal((await avaliar({ ...payload, nota: 0 })).statusCode, 400);
+      assert.equal((await avaliar({ ...payload, nota: 6 })).statusCode, 400);
+      assert.equal((await avaliar({ ...payload, comentario: 'x'.repeat(501) })).statusCode, 400);
+
+      for (const status of ['ACEITA', 'CONCLUIDA']) {
+        const atualizar = await app.inject({
+          method: 'PATCH', url: `/api/solicitacoes/${id}/status`,
+          headers: { authorization: `Bearer ${profissionalToken}` }, payload: { status },
+        });
+        assert.equal(atualizar.statusCode, 200, atualizar.body);
+      }
+      const acompanhar = () => app.inject({
+        method: 'POST', url: `/api/solicitacoes/rapidas/${id}/acompanhar`, payload: { token },
+      });
+      const antesDoFeedback = await acompanhar();
+      assert.equal(antesDoFeedback.statusCode, 200);
+      assert.equal(antesDoFeedback.json().status, 'CONCLUIDA');
+      assert.equal(antesDoFeedback.json().jaAvaliada, false);
+
+      const concorrentes = await Promise.all([avaliar(payload), avaliar(payload)]);
+      assert.deepEqual(concorrentes.map(x => x.statusCode).sort(), [201, 409]);
+      assert.equal(await prisma.avaliacaoVisitante.count({ where: { solicitacaoId: id } }), 1);
+      const depois = (await acompanhar()).json();
+      assert.equal(depois.jaAvaliada, true);
+      assert.equal(depois.avaliacao.nota, 5);
+      assert.equal(depois.clienteNomeRapido, undefined);
+      assert.equal(depois.acessoTokenHash, undefined);
+      assert.equal((await avaliar(payload)).statusCode, 409);
+      const avisos = await prisma.notificacao.findMany({
+        where: { solicitacaoId: id, destinatarioId: profissionalId, tipo: 'NOVA_AVALIACAO' },
+      });
+      assert.equal(avisos.length, 1);
+      assert.doesNotMatch(avisos[0].mensagem, /Visitante de teste|2199999/i);
+      const publicas = await app.inject({
+        method: 'GET', url: `/api/profissionais/${profissionalId}/avaliacoes`,
+      });
+      assert.equal(publicas.statusCode, 200, publicas.body);
+      assert.ok(publicas.json().some((x: any) =>
+        x.avaliador.nome === 'Cliente LARTOP' && x.comentario === 'Serviço realizado corretamente.'));
+      const perfil = await prisma.perfilProfissional.findUniqueOrThrow({ where: { usuarioId: profissionalId } });
+      const anteriores = await prisma.avaliacao.aggregate({
+        where: { avaliadoId: profissionalId, tipo: 'CLIENTE_AVALIA_PROFISSIONAL' },
+        _sum: { nota: true }, _count: { nota: true },
+      });
+      const notaVisitantes = await prisma.avaliacaoVisitante.aggregate({
+        where: { solicitacao: { profissionalId } }, _sum: { nota: true }, _count: { nota: true },
+      });
+      const total = anteriores._count.nota + notaVisitantes._count.nota;
+      assert.equal(perfil.totalAvaliacoes, total);
+      assert.equal(perfil.notaMedia,
+        ((anteriores._sum.nota ?? 0) + (notaVisitantes._sum.nota ?? 0)) / total);
+
+      await prisma.solicitacaoOrcamento.update({
+        where: { id }, data: { acessoExpiraEm: new Date(Date.now() - 1000) },
+      });
+      assert.equal((await avaliar(payload)).statusCode, 404);
+    } finally {
+      if (id) {
+        await prisma.notificacao.deleteMany({ where: { solicitacaoId: id } });
+        await prisma.avaliacaoVisitante.deleteMany({ where: { solicitacaoId: id } });
+        await prisma.solicitacaoOrcamento.deleteMany({ where: { id } });
+      }
+    }
+  });
+
 });
