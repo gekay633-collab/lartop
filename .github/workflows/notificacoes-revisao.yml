@@ -137,3 +137,5 @@ jobs:
           # Exercita route handler + Proxy reais (sem page.route), usando
           # apenas um mock Railway local descartável em localhost:3333.
           python3 apps/web/tests/bff_smoke.py
+          # Fluxo público completo com backend simulado e navegador real, sem tocar produção.
+          python3 apps/web/tests/contratacao_rapida_browser.py
