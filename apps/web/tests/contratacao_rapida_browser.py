@@ -109,6 +109,20 @@ def executar(browser, mobile=False):
     link = pagina.get_by_label("Link privado de acompanhamento").input_value()
     assert re.fullmatch(r"http://localhost:3000/acompanhar/" + PEDIDO + r"#[A-Za-z0-9_-]{43}", link)
     assert pedido_capturado[-1]["token"] == link.split("#", 1)[1]
+    assert pagina.evaluate("sessionStorage.getItem('lartop:rapida:tentativa:v1')") is None
+    # Um site terceiro não pode usar o gateway para criar pedidos em nome do visitante.
+    total_postagens = sum(1 for metodo, caminho in eventos
+                          if metodo == "POST" and caminho == "/api/solicitacoes/rapidas")
+    cross_site = context.request.post(
+        BASE + "/api/solicitacoes/rapidas",
+        headers={"Origin": "https://exemplo-malicioso.invalid",
+                 "Sec-Fetch-Site": "cross-site",
+                 "Content-Type": "application/json"},
+        data=json.dumps({"nome": "Invasor"}),
+    )
+    assert cross_site.status == 403, cross_site.text()
+    assert sum(1 for metodo, caminho in eventos
+               if metodo == "POST" and caminho == "/api/solicitacoes/rapidas") == total_postagens
     assert "wa.me/5521999992222" in pagina.get_by_role(
         "link", name=re.compile("Conversar com Prestador Simulado")
     ).get_attribute("href")
