@@ -1,6 +1,8 @@
 function normalizarTelefone(telefone: string): string {
   const apenasDigitos = telefone.replace(/\D/g, '');
-  if (apenasDigitos.startsWith('55')) return apenasDigitos;
+  // Um número nacional pode ter DDD 55 (ex.: Santa Maria/RS).
+  // Só interpretar 55 como código do Brasil quando houver 12 ou 13 dígitos.
+  if (apenasDigitos.startsWith('55') && [12, 13].includes(apenasDigitos.length)) return apenasDigitos;
   return `55${apenasDigitos}`;
 }
 
