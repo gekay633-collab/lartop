@@ -40,12 +40,15 @@ function respostaPedido<T extends {
   idempotencyKey: string | null;
   idempotencyHash: string | null;
   categoria: { nome: string };
-  endereco: string;
-  tamanhoM2: number;
+  endereco: string | null;
+  tamanhoM2: number | null;
   descricao: string | null;
 }>(pedido: T, telefone: string) {
   // Nunca expor chaves/hashes internos em respostas de API.
   const { idempotencyKey: _chave, idempotencyHash: _hash, ...publico } = pedido;
+  if (pedido.endereco === null || pedido.tamanhoM2 === null) {
+    throw new SolicitacaoError('A solicitação não contém os campos do pedido antigo.', 409);
+  }
   const linkWhatsapp = gerarLinkWhatsapp(telefone, {
     categoriaNome: pedido.categoria.nome,
     endereco: pedido.endereco,
@@ -203,7 +206,20 @@ export async function listarSolicitacoesRecebidas(
     }),
   ]);
 
-  return { total, pagina: query.pagina, porPagina: query.porPagina, itens };
+  // Nunca retornar hash do link privado, nem chaves internas, ao prestador.
+  // Compatibiliza o mesmo painel com pedidos cadastrados e anônimos.
+  const itensPublicos = itens.map(({ acessoTokenHash: _token, acessoExpiraEm: _expira,
+      idempotencyKey: _chave, idempotencyHash: _resumo,
+      clienteNomeRapido: _nome, clienteWhatsappRapido: _whats, ...pedido }) => ({
+    ...pedido,
+    cliente: pedido.cliente ?? {
+      id: null,
+      nome: _nome ?? 'Cliente sem cadastro',
+      telefone: _whats,
+      telefoneVerificado: false,
+    },
+  }));
+  return { total, pagina: query.pagina, porPagina: query.porPagina, itens: itensPublicos };
 }
 
 export async function listarMinhasSolicitacoes(clienteId: string, query: ListarSolicitacoesQuery) {
@@ -267,7 +283,8 @@ export async function atualizarStatusComoProfissional(
     }
 
     const aviso = AVISOS_CLIENTE[input.status as keyof typeof AVISOS_CLIENTE];
-    const avisoPush = aviso ? await tx.notificacao.create({
+    // Cliente sem conta acompanha pelo link; não criar notificação para ID nulo.
+    const avisoPush = aviso && solicitacao.clienteId ? await tx.notificacao.create({
       data: {
         destinatarioId: solicitacao.clienteId,
         solicitacaoId,
@@ -280,12 +297,15 @@ export async function atualizarStatusComoProfissional(
     return { pedido, avisoPush };
   });
 
-  if (resultado.avisoPush) {
+  if (resultado.avisoPush && solicitacao.clienteId) {
     await enviarPushNotificacao(solicitacao.clienteId, resultado.avisoPush).catch((erro) => {
       console.error('[push] falha após atualização', erro instanceof Error ? erro.name : 'desconhecida');
     });
   }
-  return resultado.pedido;
+  // Não devolver segredo de acesso ao pedido ao prestador.
+  const { acessoTokenHash: _hashAcesso, idempotencyKey: _chaveInterna,
+    idempotencyHash: _resumoInterno, ...pedidoPublico } = resultado.pedido;
+  return pedidoPublico;
 }
 
 export async function cancelarComoCliente(clienteId: string, solicitacaoId: string) {
