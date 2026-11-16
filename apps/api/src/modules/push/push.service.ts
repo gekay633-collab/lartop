@@ -110,7 +110,7 @@ export async function enviarPushNotificacao(destinatarioId: string, aviso: Mensa
   });
   if (!assinaturas.length) return;
 
-  const destino = aviso.tipo === 'NOVA_SOLICITACAO' || aviso.tipo === 'SOLICITACAO_CANCELADA'
+  const destino = ['NOVA_SOLICITACAO', 'SOLICITACAO_CANCELADA', 'NOVA_AVALIACAO'].includes(aviso.tipo)
     ? '/painel' : '/minhas-solicitacoes';
   const payload = JSON.stringify({
     title: aviso.titulo,
