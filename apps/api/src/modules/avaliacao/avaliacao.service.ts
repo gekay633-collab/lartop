@@ -58,6 +58,11 @@ export async function avaliarComoProfissional(profissionalId: string, input: Cri
     throw new AvaliacaoError('Solicitação não encontrada', 404);
   }
 
+  // Pedidos de visitantes não possuem usuário para receber avaliação.
+  if (!solicitacao.clienteId) {
+    throw new AvaliacaoError('Este pedido não possui conta de cliente para avaliação.', 400);
+  }
+
   if (solicitacao.status !== 'CONCLUIDA') {
     throw new AvaliacaoError('Só é possível avaliar solicitações concluídas', 400);
   }

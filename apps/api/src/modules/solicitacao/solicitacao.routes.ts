@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { chaveDePedido } from './solicitacao.idempotencia.js';
+import { solicitacaoRapidaRoutes } from './solicitacao.rapida.routes.js';
 import { redis } from '../../lib/redis.js';
 import {
   criarSolicitacaoSchema,
@@ -45,6 +46,7 @@ async function aceitarMaisUmPedido(clienteId: string, chave?: string): Promise<b
 }
 
 export async function solicitacaoRoutes(app: FastifyInstance) {
+  await app.register(solicitacaoRapidaRoutes);
   const somenteCliente = [app.exigirAutenticacao, app.exigirTipo(['CLIENTE'])];
   const somenteProfissional = [app.exigirAutenticacao, app.exigirTipo(['PROFISSIONAL'])];
 

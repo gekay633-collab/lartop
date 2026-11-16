@@ -8,7 +8,7 @@ export default function PoliticaPrivacidadePage() {
       <main className="flex-1">
         <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
           <h1 className="font-display text-3xl font-semibold text-pinho-900">Política de Privacidade</h1>
-          <p className="mt-2 text-sm text-pinho-700">Última atualização: setembro de 2026</p>
+          <p className="mt-2 text-sm text-pinho-700">Última atualização: novembro de 2026</p>
 
           <div className="mt-8 flex flex-col gap-6 text-pinho-900/90">
             <section>
@@ -21,6 +21,7 @@ export default function PoliticaPrivacidadePage() {
               <p className="mt-2">Coletamos os seguintes dados, conforme o uso que você faz da plataforma:</p>
               <ul className="mt-2 list-disc pl-5">
                 <li>Nome, e-mail, telefone e senha (armazenada de forma criptografada), no cadastro de conta.</li>
+                <li>Em solicitações sem cadastro: nome, WhatsApp e descrição do serviço. Não pedimos senha ou e-mail nesse fluxo.</li>
                 <li>CEP e endereço, para calcular a distância entre você e os profissionais disponíveis.</li>
                 <li>Fotos de perfil e de trabalhos realizados, quando o profissional opta por enviar.</li>
                 <li>Dados de uso, como pesquisas realizadas e perfis visualizados, para melhorar a qualidade da busca.</li>
@@ -33,6 +34,7 @@ export default function PoliticaPrivacidadePage() {
               <ul className="mt-2 list-disc pl-5">
                 <li>Para exibir profissionais próximos a você com base no CEP informado.</li>
                 <li>Para permitir que você entre em contato com um profissional via WhatsApp.</li>
+                <li>Para registrar solicitações rápidas, compartilhar os dados informados com o profissional escolhido e permitir acompanhar o pedido por link privado.</li>
                 <li>Para autenticar sua conta e manter sua sessão ativa com segurança.</li>
                 <li>Para enviar e-mails operacionais, como recuperação de senha.</li>
                 <li>Para gerar estatísticas agregadas e anônimas sobre demanda por região e categoria.</li>
@@ -48,7 +50,7 @@ export default function PoliticaPrivacidadePage() {
                 <li><strong>Resend</strong> - envio de e-mails transacionais (como recuperação de senha).</li>
                 <li><strong>ViaCEP e OpenStreetMap (Nominatim)</strong> - resolução de CEP e cálculo de localização geográfica.</li>
               </ul>
-              <p className="mt-2">O contato entre cliente e profissional acontece diretamente pelo WhatsApp, fora da nossa plataforma - a Lartop não armazena o conteúdo dessas conversas.</p>
+              <p className="mt-2">No pedido rápido, o profissional escolhido recebe nome, número de WhatsApp e descrição do serviço. O contato ocorre diretamente pelo WhatsApp, fora da nossa plataforma; não armazenamos o conteúdo dessas conversas.</p>
             </section>
 
             <section>
@@ -65,7 +67,8 @@ export default function PoliticaPrivacidadePage() {
 
             <section>
               <h2 className="font-display text-xl font-semibold text-pinho-900">6. Segurança dos dados</h2>
-              <p className="mt-2">Adotamos medidas técnicas para proteger seus dados, incluindo criptografia de senhas, conexões seguras (HTTPS), controle de acesso por autenticação e limitação de tentativas de login.</p>
+              <p className="mt-2">Adotamos medidas técnicas para proteger seus dados, incluindo proteção de senhas, conexões seguras (HTTPS), controle de acesso e limitação de tentativas.</p>
+              <p className="mt-2">O acompanhamento sem login utiliza um link privado com token de acesso válido por até 90 dias após o pedido, salvo revogação antecipada. Guarde o link e não o compartilhe, pois quem o possuir poderá consultar o andamento. O número de WhatsApp fornecido no pedido rápido não é verificado por SMS.</p>
             </section>
 
             <section>

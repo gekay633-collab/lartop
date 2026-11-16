@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 
 interface Lead {
   id: string;
-  endereco: string;
-  tamanhoM2: number;
+  endereco: string | null;
+  tamanhoM2: number | null;
   descricao: string | null;
   status: string;
   criadoEm: string;
@@ -132,6 +132,11 @@ export function AbaLeads({ accessToken }: { accessToken: string }) {
     }
   }
 
+  const telefoneWhatsapp = (telefone: string) => {
+    const numero = telefone.replace(/[^0-9]/g, "");
+    return numero.startsWith("55") && numero.length === 13 ? numero : "55" + numero;
+  };
+
   const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
 
   return (
@@ -178,7 +183,7 @@ export function AbaLeads({ accessToken }: { accessToken: string }) {
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <p className="font-display text-lg font-semibold text-pinho-900">{lead.categoria.nome}</p>
-                  <p className="break-words text-sm text-pinho-700">{lead.cliente.nome} - {lead.endereco}</p>
+                  <p className="break-words text-sm text-pinho-700">{lead.cliente.nome}{lead.endereco ? ` - ${lead.endereco}` : " - Pedido rápido"}</p>
                   <time className="text-xs text-pinho-700" dateTime={lead.criadoEm}>
                     {new Date(lead.criadoEm).toLocaleString("pt-BR", {
                       day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
@@ -190,7 +195,21 @@ export function AbaLeads({ accessToken }: { accessToken: string }) {
                 </span>
               </div>
 
-              <p className="mt-2 font-data text-sm text-terra-600">{lead.tamanhoM2} m²</p>
+              {lead.tamanhoM2 !== null && (
+                <p className="mt-2 font-data text-sm text-terra-600">{lead.tamanhoM2} m²</p>
+              )}
+              {lead.cliente.telefone && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <a href={`https://wa.me/${telefoneWhatsapp(lead.cliente.telefone)}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="rounded-lg border border-relva-500 px-3 py-2 text-sm font-medium text-relva-600">
+                    Contatar cliente pelo WhatsApp
+                  </a>
+                  {!lead.cliente.telefoneVerificado && (
+                    <span className="text-xs text-pinho-700">Número informado, não verificado</span>
+                  )}
+                </div>
+              )}
               {lead.descricao && <p className="mt-1 break-words text-sm text-pinho-900/80">{lead.descricao}</p>}
 
               {(PROXIMOS_STATUS[lead.status] ?? []).length > 0 && (

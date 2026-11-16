@@ -75,6 +75,8 @@ jobs:
           throw new Error("A Vercel nao pode redirecionar /api diretamente ao Railway: bypass de autenticacao.");'
       - name: Auditar vulnerabilidades altas e críticas das dependências de produção
         run: pnpm audit --prod --audit-level high
+      - name: Validar sintaxe do script de backup (nunca executa backup na CI)
+        run: bash -n scripts/backup-lartop-supabase.sh
       - name: Validar Prisma e compilar API
         run: pnpm --filter @lartop/api build
       - name: Aplicar migracoes APENAS no Postgres temporario de CI
@@ -95,6 +97,8 @@ jobs:
         run: node --check apps/api/scripts-criar-admin.mjs
       - name: Testar validação segura de endpoints Push
         run: pnpm --filter @lartop/api test:push
+      - name: Validar WhatsApp com mensagem pronta e DDD brasileiro
+        run: pnpm --filter @lartop/api test:whatsapp
       - name: "Integracao real: permissoes, pedidos e concorrencia"
         run: pnpm --filter @lartop/api test:notificacoes:integration
       - name: Gerar tipagem de rotas do Next.js
@@ -137,3 +141,5 @@ jobs:
           # Exercita route handler + Proxy reais (sem page.route), usando
           # apenas um mock Railway local descartável em localhost:3333.
           python3 apps/web/tests/bff_smoke.py
+          # Fluxo público completo com backend simulado e navegador real, sem tocar produção.
+          python3 apps/web/tests/contratacao_rapida_browser.py
