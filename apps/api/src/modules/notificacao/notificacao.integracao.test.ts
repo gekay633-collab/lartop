@@ -946,6 +946,17 @@ describe('central de notificações com banco de testes', () => {
     };
     let pedidoId: string | null = null;
     try {
+      // Entradas inválidas não podem criar pedidos nem enviar avisos.
+      for (const entrada of [
+        { ...body, whatsapp: '119999' },
+        { ...body, consentimento: false },
+        { ...body, site: 'preenchido-por-robo' },
+      ]) {
+        const invalido = await app.inject({
+          method: 'POST', url: '/api/solicitacoes/rapidas', payload: entrada,
+        });
+        assert.equal(invalido.statusCode, 400, invalido.body);
+      }
       const novo = await app.inject({
         method: 'POST', url: '/api/solicitacoes/rapidas', payload: body,
       });
@@ -997,6 +1008,20 @@ describe('central de notificações com banco de testes', () => {
       assert.equal(antes.json().status, 'PENDENTE');
       assert.equal(antes.json().clienteWhatsappRapido, undefined);
       assert.equal(antes.json().acessoTokenHash, undefined);
+      const semToken = await app.inject({
+        method: 'POST', url: `/api/solicitacoes/rapidas/${pedidoId}/acompanhar`,
+        payload: {},
+      });
+      assert.equal(semToken.statusCode, 400, semToken.body);
+
+      // Um token válido não autoriza consultar depois do vencimento.
+      await prisma.solicitacaoOrcamento.update({
+        where: { id: pedidoId }, data: { acessoExpiraEm: new Date(Date.now() - 1000) },
+      });
+      assert.equal((await acompanhar(token)).statusCode, 404);
+      await prisma.solicitacaoOrcamento.update({
+        where: { id: pedidoId }, data: { acessoExpiraEm: new Date(Date.now() + 86_400_000) },
+      });
 
       const aceitar = await app.inject({
         method: 'PATCH', url: `/api/solicitacoes/${pedidoId}/status`,
