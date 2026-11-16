@@ -934,4 +934,85 @@ describe('central de notificações com banco de testes', () => {
     });
     assert.equal(resposta.statusCode, 400);
   });
+  it('pedido rápido: salva sem conta, deduplica, aparece ao prestador e acompanha por token', async () => {
+    const { randomBytes } = await import('node:crypto');
+    const tentativaId = randomUUID();
+    const token = randomBytes(32).toString('base64url');
+    const body = {
+      profissionalId, categoriaId, nome: 'Cliente sem conta',
+      whatsapp: '(21) 99999-1111',
+      descricao: 'Preciso de limpeza da piscina esta semana.',
+      tentativaId, token, consentimento: true, site: '',
+    };
+    let pedidoId: string | null = null;
+    try {
+      const novo = await app.inject({
+        method: 'POST', url: '/api/solicitacoes/rapidas', payload: body,
+      });
+      assert.equal(novo.statusCode, 201, novo.body);
+      const pedido = novo.json() as { id: string; linkWhatsapp: string };
+      pedidoId = pedido.id;
+      assert.match(pedido.linkWhatsapp, /^https:\/\/wa\.me\/55/);
+      assert.ok(!JSON.stringify(pedido).includes(token), 'resposta não deve revelar token ou seu hash');
+
+      const repetido = await app.inject({
+        method: 'POST', url: '/api/solicitacoes/rapidas', payload: body,
+      });
+      assert.equal(repetido.statusCode, 200, repetido.body);
+      assert.equal(repetido.json().id, pedidoId);
+
+      assert.equal(await prisma.solicitacaoOrcamento.count({ where: { id: pedidoId } }), 1);
+      const registro = await prisma.solicitacaoOrcamento.findUniqueOrThrow({ where: { id: pedidoId } });
+      assert.equal(registro.clienteId, null);
+      assert.equal(registro.clienteWhatsappRapido, '21999991111');
+      assert.equal(registro.endereco, null);
+      assert.notEqual(registro.acessoTokenHash, token);
+      assert.equal(await prisma.notificacao.count({
+        where: { solicitacaoId: pedidoId, tipo: 'NOVA_SOLICITACAO' },
+      }), 1);
+
+      const anonimo = await app.inject({
+        method: 'GET', url: '/api/solicitacoes/recebidas',
+      });
+      assert.equal(anonimo.statusCode, 401);
+      const recebidas = await app.inject({
+        method: 'GET', url: '/api/solicitacoes/recebidas?porPagina=50',
+        headers: { authorization: `Bearer ${profissionalToken}` },
+      });
+      assert.equal(recebidas.statusCode, 200, recebidas.body);
+      const lead = (recebidas.json().itens as Record<string, any>[]).find(i => i.id === pedidoId);
+      assert.equal(lead.cliente.nome, 'Cliente sem conta');
+      assert.equal(lead.cliente.telefoneVerificado, false);
+      assert.equal(lead.acessoTokenHash, undefined);
+      assert.equal(lead.idempotencyKey, undefined);
+
+      const acompanhar = (valor: string) => app.inject({
+        method: 'POST', url: `/api/solicitacoes/rapidas/${pedidoId}/acompanhar`,
+        payload: { token: valor },
+      });
+      assert.equal((await acompanhar(randomBytes(32).toString('base64url'))).statusCode, 404);
+      const antes = await acompanhar(token);
+      assert.equal(antes.statusCode, 200, antes.body);
+      assert.equal(antes.json().status, 'PENDENTE');
+      assert.equal(antes.json().clienteWhatsappRapido, undefined);
+      assert.equal(antes.json().acessoTokenHash, undefined);
+
+      const aceitar = await app.inject({
+        method: 'PATCH', url: `/api/solicitacoes/${pedidoId}/status`,
+        headers: { authorization: `Bearer ${profissionalToken}` },
+        payload: { status: 'ACEITA' },
+      });
+      assert.equal(aceitar.statusCode, 200, aceitar.body);
+      assert.equal((await acompanhar(token)).json().status, 'ACEITA');
+      assert.equal(await prisma.notificacao.count({
+        where: { solicitacaoId: pedidoId, destinatarioId: clienteId },
+      }), 0, 'não criar notificações para cliente fictício');
+    } finally {
+      if (pedidoId) {
+        await prisma.notificacao.deleteMany({ where: { solicitacaoId: pedidoId } });
+        await prisma.solicitacaoOrcamento.deleteMany({ where: { id: pedidoId } });
+      }
+    }
+  });
+
 });
