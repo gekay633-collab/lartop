@@ -43,17 +43,32 @@ export function gerarLinkWhatsapp(telefoneProfissional: string, dados: DadosMens
  */
 export function gerarLinkWhatsappRapido(
   telefoneProfissional: string,
-  dados: { nomeCliente: string; categoriaNome: string; descricao: string; pedidoId: string },
+  dados: { nomeCliente: string; categoriaNome: string; descricao: string; pedidoId: string; referenciaCurta?: number | null },
 ): string {
   const numero = normalizarTelefone(telefoneProfissional);
   const linha = (valor: string) => valor.replace(/[\r\n]+/g, ' ').trim();
+  const referencia = referenciaPedidoCincoDigitos(dados.pedidoId, dados.referenciaCurta);
   const mensagem = [
     'Olá! Encontrei seu perfil na LARTOP e gostaria de um orçamento.',
     '',
     `*Meu nome:* ${linha(dados.nomeCliente)}`,
     `*Serviço:* ${linha(dados.categoriaNome)}`,
     `*Detalhes:* ${linha(dados.descricao)}`,
-    `*Referência LARTOP:* ${dados.pedidoId.slice(0, 8)}`,
+    `*Referência LARTOP:* ${referencia}`,
   ].join('\n');
   return `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
+}
+
+
+// Referência não serve como credencial: apenas identifica o pedido no atendimento.
+// Para pedidos anteriores à migração, gera 5 dígitos estáveis a partir do UUID.
+import { createHash } from 'node:crypto';
+
+export function referenciaPedidoCincoDigitos(pedidoId: string, referenciaCurta?: number | null): string {
+  if (referenciaCurta !== null && referenciaCurta !== undefined &&
+      Number.isInteger(referenciaCurta) && referenciaCurta >= 10000 && referenciaCurta <= 99999) {
+    return String(referenciaCurta);
+  }
+  const numero = createHash('sha256').update(pedidoId).digest().readUInt32BE(0);
+  return String(10000 + (numero % 90000));
 }
