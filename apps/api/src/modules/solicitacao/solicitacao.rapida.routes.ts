@@ -26,7 +26,7 @@ export async function solicitacaoRapidaRoutes(app: FastifyInstance) {
       reply.header('Cache-Control', 'no-store');
       if (repetido) return reply.status(200).send(repetido);
 
-      if (!(await permitirPedidoRapido(request.ip, parsed.data.whatsapp))) {
+      if (!(await permitirPedidoRapido(parsed.data.profissionalId, parsed.data.whatsapp))) {
         // Pode ter sido salvo em outra requisição simultânea.
         const reenviado = await consultarReenvioRapido(parsed.data);
         if (reenviado) return reply.status(200).send(reenviado);
