@@ -1,4 +1,6 @@
 import type { FastifyInstance } from 'fastify';
+import { avaliarSolicitacaoRapida } from '../avaliacao/avaliacao.rapida.service.js';
+import { avaliarSolicitacaoRapidaSchema } from '../avaliacao/avaliacao.rapida.schemas.js';
 import { z } from 'zod';
 import {
   criarSolicitacaoRapidaSchema,
@@ -63,4 +65,26 @@ export async function solicitacaoRapidaRoutes(app: FastifyInstance) {
       return reply.status(503).send({ erro: 'Acompanhamento temporariamente indisponível.' });
     }
   });
+  // Link privado: autenticação pelo token do fragmento, nunca por referência 5 dígitos.
+  app.post('/solicitacoes/rapidas/:id/avaliar', {
+    config: { rateLimit: { max: 12, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
+    reply.header('Cache-Control', 'no-store');
+    const parametro = z.object({ id: z.string().uuid() }).safeParse(request.params);
+    const body = avaliarSolicitacaoRapidaSchema.safeParse(request.body);
+    if (!parametro.success || !body.success) {
+      return reply.status(400).send({ erro: 'Confirme o serviço, selecione 1 a 5 estrelas e tente novamente.' });
+    }
+    try {
+      const avaliacao = await avaliarSolicitacaoRapida(parametro.data.id, body.data);
+      return reply.status(201).send(avaliacao);
+    } catch (erro) {
+      if (erro instanceof SolicitacaoRapidaError) {
+        return reply.status(erro.status).send({ erro: erro.message });
+      }
+      request.log.error({ err: erro }, 'Falha ao registrar feedback sem cadastro');
+      return reply.status(503).send({ erro: 'Não foi possível registrar seu feedback agora.' });
+    }
+  });
+
 }
