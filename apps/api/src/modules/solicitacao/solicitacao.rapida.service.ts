@@ -3,7 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { redis } from '../../lib/redis.js';
 import { enviarPushNotificacao } from '../push/push.service.js';
 import { registrarEvento } from '../evento/evento.service.js';
-import { gerarLinkWhatsappRapido } from '../../lib/whatsapp.js';
+import { gerarLinkWhatsappRapido, referenciaPedidoCincoDigitos } from '../../lib/whatsapp.js';
 import type { CriarSolicitacaoRapidaInput } from './solicitacao.rapida.schemas.js';
 
 export class SolicitacaoRapidaError extends Error {
@@ -58,11 +58,13 @@ function respostaRapida(pedido: {
   criadoEm: Date;
   clienteNomeRapido: string | null;
   descricao: string | null;
+  referenciaCurta: number | null;
   categoria: { nome: string };
   profissional: { nomeExibicao: string };
 }, telefoneProfissional: string) {
   return {
     id: pedido.id,
+    referencia: referenciaPedidoCincoDigitos(pedido.id, pedido.referenciaCurta),
     status: pedido.status,
     criadoEm: pedido.criadoEm,
     categoria: { nome: pedido.categoria.nome },
@@ -72,6 +74,7 @@ function respostaRapida(pedido: {
       categoriaNome: pedido.categoria.nome,
       descricao: pedido.descricao ?? '',
       pedidoId: pedido.id,
+      referenciaCurta: pedido.referenciaCurta,
     }),
   };
 }
@@ -164,7 +167,7 @@ export async function criarSolicitacaoRapida(input: CriarSolicitacaoRapidaInput)
   return respostaRapida(resultado.pedido, profissional.usuario.telefone);
 }
 
-export async function acompanharSolicitacaoRapida(id: string, token: string) {
+export async function validarAcessoSolicitacaoRapida(id: string, token: string) {
   const pedido = await prisma.solicitacaoOrcamento.findUnique({
     where: { id },
     include: incluirPedido,
@@ -174,21 +177,36 @@ export async function acompanharSolicitacaoRapida(id: string, token: string) {
       !compararHash(pedido.acessoTokenHash, hash(token))) {
     throw new SolicitacaoRapidaError('Link inválido ou expirado.', 404);
   }
-  const profissional = await prisma.usuario.findUnique({
-    where: { id: pedido.profissionalId }, select: { telefone: true },
-  });
-  // O acesso ao status continua funcionando se o perfil deixar de ser publicado.
+  return pedido;
+}
+
+export async function acompanharSolicitacaoRapida(id: string, token: string) {
+  const pedido = await validarAcessoSolicitacaoRapida(id, token);
+  const [profissional, avaliacao] = await Promise.all([
+    prisma.usuario.findUnique({
+      where: { id: pedido.profissionalId }, select: { telefone: true },
+    }),
+    prisma.avaliacaoVisitante.findUnique({
+      where: { solicitacaoId: pedido.id }, select: { nota: true, comentario: true },
+    }),
+  ]);
+  const _telefone = profissional?.telefone;
+  // Consulta por link nunca devolve o token nem informações do cliente.
   const resposta = {
     id: pedido.id,
+    referencia: referenciaPedidoCincoDigitos(pedido.id, pedido.referenciaCurta),
     status: pedido.status,
     criadoEm: pedido.criadoEm,
+    jaAvaliada: Boolean(avaliacao),
+    ...(avaliacao ? { avaliacao: { nota: avaliacao.nota, comentario: avaliacao.comentario } } : {}),
     categoria: { nome: pedido.categoria.nome },
     profissional: { nomeExibicao: pedido.profissional.nomeExibicao },
-    ...(profissional?.telefone ? { linkWhatsapp: gerarLinkWhatsappRapido(profissional.telefone, {
+    ...(_telefone ? { linkWhatsapp: gerarLinkWhatsappRapido(_telefone, {
       nomeCliente: pedido.clienteNomeRapido ?? 'Cliente LARTOP',
       categoriaNome: pedido.categoria.nome,
       descricao: pedido.descricao ?? '',
       pedidoId: pedido.id,
+      referenciaCurta: pedido.referenciaCurta,
     }) } : {}),
   };
   return resposta;
