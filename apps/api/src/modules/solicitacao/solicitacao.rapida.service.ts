@@ -24,24 +24,26 @@ function compararHash(a: string | null, b: string): boolean {
 // Um telefone informado NÃO é verificação de identidade. Limites reduzem abuso,
 // mas não impedem todos os pedidos falsos; monitorar e ajustar em operação.
 const SCRIPT_COTA = `
-  local ip = tonumber(redis.call('GET', KEYS[1]) or '0')
+  local totalProfissional = tonumber(redis.call('GET', KEYS[1]) or '0')
   local numero = tonumber(redis.call('GET', KEYS[2]) or '0')
-  if ip >= tonumber(ARGV[1]) or numero >= tonumber(ARGV[2]) then return 0 end
-  ip = redis.call('INCR', KEYS[1])
-  if ip == 1 then redis.call('EXPIRE', KEYS[1], tonumber(ARGV[3])) end
+  if totalProfissional >= tonumber(ARGV[1]) or numero >= tonumber(ARGV[2]) then return 0 end
+  totalProfissional = redis.call('INCR', KEYS[1])
+  if totalProfissional == 1 then redis.call('EXPIRE', KEYS[1], tonumber(ARGV[3])) end
   numero = redis.call('INCR', KEYS[2])
   if numero == 1 then redis.call('EXPIRE', KEYS[2], tonumber(ARGV[4])) end
   return 1
 `;
 
-export async function permitirPedidoRapido(ip: string, telefone: string): Promise<boolean> {
-  // IP é o de Fastify, sem confiar em cabeçalhos X-Forwarded-For arbitrários.
-  // Não armazenar o IP nem o telefone em claro nas chaves de Redis.
+export async function permitirPedidoRapido(profissionalId: string, telefone: string): Promise<boolean> {
+  // O backend recebe chamadas pelo BFF da Vercel: request.ip não identifica
+  // necessariamente o visitante. Limitar pelo IP da Vercel bloquearia outros
+  // clientes legítimos. A cota por prestador+telefone funciona entre réplicas.
+  // Não armazenar telefone em claro nas chaves de Redis.
   return Number(await redis.eval(
     SCRIPT_COTA, 2,
-    `limite:rapidas:ip:${hash(ip)}`,
+    `limite:rapidas:profissional:${hash(profissionalId)}`,
     `limite:rapidas:telefone:${hash(telefone)}`,
-    '30', '8', '60', '86400',
+    '20', '8', '60', '86400',
   )) === 1;
 }
 
