@@ -98,14 +98,30 @@ export async function listarAvaliacoesDoProfissional(profissionalId: string) {
     select: { usuarioId: true },
   });
   if (!visivel) return [];
-  return prisma.avaliacao.findMany({
-    where: { avaliadoId: profissionalId, tipo: 'CLIENTE_AVALIA_PROFISSIONAL' },
-    select: {
-      id: true, nota: true, comentario: true, criadoEm: true,
-      avaliador: { select: { nome: true } },
-    },
-    orderBy: { criadoEm: 'desc' },
-  });
+  // Mantém as avaliações antigas e agrega as avaliações por link, sem
+  // expor o nome/telefone informado pelo visitante a outros usuários.
+  const [cadastradas, visitantes] = await Promise.all([
+    prisma.avaliacao.findMany({
+      where: { avaliadoId: profissionalId, tipo: 'CLIENTE_AVALIA_PROFISSIONAL' },
+      select: {
+        id: true, nota: true, comentario: true, criadoEm: true,
+        avaliador: { select: { nome: true } },
+      },
+      orderBy: { criadoEm: 'desc' },
+    }),
+    prisma.avaliacaoVisitante.findMany({
+      where: { solicitacao: { profissionalId } },
+      select: { id: true, nota: true, comentario: true, criadoEm: true },
+      orderBy: { criadoEm: 'desc' },
+    }),
+  ]);
+  return [
+    ...cadastradas,
+    ...visitantes.map((avaliacao) => ({
+      ...avaliacao,
+      avaliador: { nome: 'Cliente LARTOP' },
+    })),
+  ].sort((a, b) => b.criadoEm.getTime() - a.criadoEm.getTime());
 }
 
 async function recalcularNotaMediaProfissional(tx: any, profissionalId: string) {
