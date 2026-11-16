@@ -18,6 +18,7 @@ interface Solicitacao {
   tamanhoM2: number;
   status: string;
   criadoEm: string;
+  jaAvaliada: boolean;
   categoria: { nome: string };
   profissional: { nomeExibicao: string; fotoPerfilUrl: string | null };
 }
