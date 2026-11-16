@@ -981,6 +981,7 @@ describe('central de notificações com banco de testes', () => {
       });
       assert.equal(recebidas.statusCode, 200, recebidas.body);
       const lead = (recebidas.json().itens as Record<string, any>[]).find(i => i.id === pedidoId);
+      assert.ok(lead, 'pedido rápido precisa aparecer no painel do prestador');
       assert.equal(lead.cliente.nome, 'Cliente sem conta');
       assert.equal(lead.cliente.telefoneVerificado, false);
       assert.equal(lead.acessoTokenHash, undefined);
