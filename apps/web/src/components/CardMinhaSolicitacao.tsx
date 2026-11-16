@@ -28,12 +28,13 @@ const ROTULOS_STATUS: Record<string, string> = {
 export function CardMinhaSolicitacao({ solicitacao, accessToken }: { solicitacao: Solicitacao; accessToken: string }) {
   const [avaliado, setAvaliado] = useState(solicitacao.jaAvaliada ?? false);
   const [mostrarForm, setMostrarForm] = useState(false);
-  const [nota, setNota] = useState(5);
+  const [nota, setNota] = useState(0);
   const [comentario, setComentario] = useState("");
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
 
   async function enviarAvaliacao() {
+    if (nota < 1 || nota > 5 || enviando) return;
     setEnviando(true);
     setErro("");
     try {
@@ -45,6 +46,7 @@ export function CardMinhaSolicitacao({ solicitacao, accessToken }: { solicitacao
       await lerRespostaAutenticacao<{ id: string }>(resposta, "Não foi possível enviar a avaliação");
       setAvaliado(true);
       setMostrarForm(false);
+      setComentario("");
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Erro ao avaliar");
     } finally {
@@ -68,7 +70,7 @@ export function CardMinhaSolicitacao({ solicitacao, accessToken }: { solicitacao
       <p className="mt-1 font-data text-sm text-terra-600">{solicitacao.tamanhoM2} m2</p>
 
       {solicitacao.status === "CONCLUIDA" && avaliado && (
-        <p className="mt-3 text-sm text-relva-600">Avaliação enviada, obrigado!</p>
+        <p role="status" className="mt-3 text-sm text-relva-600">Sua avaliação foi registrada. Obrigado!</p>
       )}
 
       {solicitacao.status === "CONCLUIDA" && !avaliado && (
@@ -79,19 +81,44 @@ export function CardMinhaSolicitacao({ solicitacao, accessToken }: { solicitacao
             </button>
           ) : (
             <div className="rounded-xl border border-areia-300 bg-sauge-50 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-pinho-700">Sua nota</p>
-              <div className="mt-1 flex gap-1">
+              <p id={`nota-avaliacao-${solicitacao.id}`} className="text-xs font-medium uppercase tracking-wide text-pinho-700">Sua nota (obrigatória)</p>
+              <div className="mt-2 flex gap-2" role="group" aria-labelledby={`nota-avaliacao-${solicitacao.id}`}>
                 {[1, 2, 3, 4, 5].map((n) => (
-                  <button key={n} onClick={() => setNota(n)} className={n <= nota ? "text-2xl text-terra-500" : "text-2xl text-areia-300"}>
-                    ★
+                  <button
+                    type="button"
+                    key={n}
+                    onClick={() => setNota(n)}
+                    aria-label={`Avaliar com ${n} ${n === 1 ? "estrela" : "estrelas"}`}
+                    aria-pressed={nota === n}
+                    className={`min-h-11 min-w-11 rounded-lg text-2xl focus-visible:outline-2 focus-visible:outline-relva-500 ${n <= nota ? "text-terra-500" : "text-areia-300"}`}
+                  >
+                    <span aria-hidden="true">★</span>
                   </button>
                 ))}
               </div>
-              <textarea value={comentario} onChange={(e) => setComentario(e.target.value)} placeholder="Como foi o serviço? (opcional)" rows={2} className="mt-2 w-full rounded-lg border border-areia-300 bg-white px-3 py-2 text-sm text-pinho-900 outline-none focus:border-relva-500" />
-              {erro && <p className="mt-1 text-sm text-terra-600">{erro}</p>}
-              <button onClick={enviarAvaliacao} disabled={enviando} className="mt-2 rounded-lg bg-relva-500 px-4 py-2 text-sm font-medium text-sauge-50 hover:bg-relva-600 disabled:opacity-60">
-                {enviando ? "Enviando..." : "Enviar avaliação"}
-              </button>
+              <p className="mt-1 text-xs text-pinho-700" aria-live="polite">
+                {nota ? `${nota} de 5 estrelas` : "Selecione uma nota para continuar."}
+              </p>
+              <label htmlFor={`comentario-avaliacao-${solicitacao.id}`} className="mt-3 block text-sm font-medium text-pinho-900">Comentário (opcional)</label>
+              <textarea
+                id={`comentario-avaliacao-${solicitacao.id}`}
+                value={comentario}
+                onChange={(e) => setComentario(e.target.value)}
+                maxLength={500}
+                placeholder="Como foi o serviço?"
+                rows={3}
+                className="mt-1 w-full rounded-lg border border-areia-300 bg-white px-3 py-2 text-sm text-pinho-900 outline-none focus:border-relva-500"
+              />
+              <p className="text-right text-xs text-pinho-700">{comentario.length}/500</p>
+              {erro && <p role="alert" className="mt-1 text-sm text-terra-600">{erro}</p>}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" onClick={enviarAvaliacao} disabled={enviando || nota === 0} className="min-h-11 rounded-lg bg-relva-500 px-4 py-2 text-sm font-medium text-sauge-50 hover:bg-relva-600 disabled:cursor-not-allowed disabled:opacity-60">
+                  {enviando ? "Enviando..." : "Enviar avaliação"}
+                </button>
+                <button type="button" onClick={() => { setMostrarForm(false); setErro(""); }} disabled={enviando} className="min-h-11 rounded-lg border border-areia-300 px-4 py-2 text-sm font-medium text-pinho-900">
+                  Cancelar
+                </button>
+              </div>
             </div>
           )}
         </div>
