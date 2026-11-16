@@ -168,12 +168,16 @@ model FotoPortfolio {
 
 model SolicitacaoOrcamento {
   id             String            @id @default(uuid())
-  clienteId      String            @map("cliente_id")
+  clienteId      String?           @map("cliente_id")
   profissionalId String            @map("profissional_id")
   categoriaId    String            @map("categoria_id")
-  cep            String
-  endereco       String
-  tamanhoM2      Float             @map("tamanho_m2")
+  cep            String?
+  endereco       String?
+  tamanhoM2      Float?            @map("tamanho_m2")
+  clienteNomeRapido     String?     @map("cliente_nome_rapido")
+  clienteWhatsappRapido String?     @map("cliente_whatsapp_rapido")
+  acessoTokenHash      String?     @map("acesso_token_hash")
+  acessoExpiraEm       DateTime?   @map("acesso_expira_em")
   descricao      String?
   fotos          String[]          @default([])
   // Hash SHA-256(clienteId + UUID do pedido). Nulo para clientes PWA legados.
@@ -184,7 +188,7 @@ model SolicitacaoOrcamento {
   criadoEm       DateTime          @default(now()) @map("criado_em")
   atualizadoEm   DateTime          @updatedAt @map("atualizado_em")
 
-  cliente      Usuario            @relation("ClienteSolicitacoes", fields: [clienteId], references: [id])
+  cliente      Usuario?           @relation("ClienteSolicitacoes", fields: [clienteId], references: [id])
   profissional PerfilProfissional @relation("ProfissionalSolicitacoes", fields: [profissionalId], references: [usuarioId])
   categoria    Categoria          @relation(fields: [categoriaId], references: [id])
   avaliacoes   Avaliacao[]
