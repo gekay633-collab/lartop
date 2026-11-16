@@ -11,6 +11,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "test:notificacoes": "tsx --test src/modules/notificacao/notificacao.eventos.test.ts",
+    "test:feedback": "tsx --test src/modules/avaliacao/avaliacao.schemas.test.ts",
     "test:notificacoes:integration": "tsx --test src/modules/notificacao/notificacao.integracao.test.ts",
     "test:push": "tsx --test src/modules/push/push.service.test.ts",
     "test:auth:security": "tsx --test src/modules/auth/auth.seguranca.test.ts",
