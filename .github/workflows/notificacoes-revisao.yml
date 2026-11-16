@@ -83,6 +83,8 @@ jobs:
         run: pnpm --filter @lartop/api exec prisma migrate status
       - name: Testar regras e mensagens
         run: pnpm --filter @lartop/api test:notificacoes
+      - name: Testar regras de nota e comentário de avaliação
+        run: pnpm --filter @lartop/api test:feedback
       - name: Testar revogação e renovação de sessões com banco e Redis isolados
         run: pnpm --filter @lartop/api test:auth:security
       - name: Testar login e logout HTTP em múltiplos dispositivos e recuperação de senha
