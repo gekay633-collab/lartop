@@ -26,4 +26,7 @@ CREATE TABLE "public"."avaliacoes_visitantes" (
     ON DELETE RESTRICT ON UPDATE CASCADE
 );
 CREATE UNIQUE INDEX "avaliacoes_visitantes_solicitacao_id_key" ON "public"."avaliacoes_visitantes" ("solicitacao_id");
+-- A API pública lê/escreve por Prisma com credenciais do servidor;
+-- não permitir acesso direto de anon/authenticated via Supabase Data API.
+ALTER TABLE "public"."avaliacoes_visitantes" ENABLE ROW LEVEL SECURITY;
 ALTER TYPE "public"."TipoNotificacao" ADD VALUE IF NOT EXISTS 'NOVA_AVALIACAO';
