@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { restaurarSessao, entrar, registrarComoCliente, fetchAutenticado, type SessaoLocal } from "@/lib/auth-client";
+import { restaurarSessao, fetchAutenticado, type SessaoLocal } from "@/lib/auth-client";
+import { FormularioRapido } from "@/components/FormularioRapido";
 
 
 
@@ -56,7 +57,7 @@ export function FormularioSolicitacao({ profissionalId, profissionalNome, catego
   }
 
   if (!sessao) {
-    return <AcessoRapido onEntrou={setSessao} />;
+    return <FormularioRapido profissionalId={profissionalId} profissionalNome={profissionalNome} categorias={categorias} />;
   }
 
   if (sessao.tipo !== "CLIENTE") {
@@ -67,55 +68,17 @@ export function FormularioSolicitacao({ profissionalId, profissionalNome, catego
     );
   }
 
-  return <FormularioPedido profissionalId={profissionalId} profissionalNome={profissionalNome} categorias={categorias} accessToken={sessao.accessToken} />;
-}
-
-function AcessoRapido({ onEntrou }: { onEntrou: (s: SessaoLocal) => void }) {
-  const [modo, setModo] = useState<"entrar" | "cadastrar">("entrar");
-  const [nome, setNome] = useState("");
-  const [email, setEmail] = useState("");
-  const [senha, setSenha] = useState("");
-  const [telefone, setTelefone] = useState("");
-  const [erro, setErro] = useState("");
-  const [carregando, setCarregando] = useState(false);
-
-  async function aoSubmeter(evento: React.FormEvent) {
-    evento.preventDefault();
-    setErro("");
-    setCarregando(true);
-    try {
-      const sessao = modo === "entrar" ? await entrar(email, senha) : await registrarComoCliente({ nome, email, senha, telefone: telefone || undefined });
-      onEntrou(sessao);
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : "Algo deu errado");
-    } finally {
-      setCarregando(false);
-    }
-  }
-
   return (
-    <div className="rounded-2xl border border-areia-300 bg-white/70 p-6">
-      <div className="mb-4 flex gap-4 border-b border-areia-300">
-        <button type="button" onClick={() => setModo("entrar")} className={modo === "entrar" ? "pb-3 text-sm font-medium border-b-2 border-relva-500 text-pinho-900" : "pb-3 text-sm font-medium text-pinho-700"}>Já tenho conta</button>
-        <button type="button" onClick={() => setModo("cadastrar")} className={modo === "cadastrar" ? "pb-3 text-sm font-medium border-b-2 border-relva-500 text-pinho-900" : "pb-3 text-sm font-medium text-pinho-700"}>Criar conta</button>
-      </div>
-
-      <form onSubmit={aoSubmeter} className="flex flex-col gap-3">
-        {modo === "cadastrar" && (
-          <input type="text" placeholder="Seu nome" value={nome} onChange={(e) => setNome(e.target.value)} required className="rounded-lg border border-areia-300 bg-white px-3 py-2 text-pinho-900 outline-none focus:border-relva-500" />
-        )}
-        <input type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} required className="rounded-lg border border-areia-300 bg-white px-3 py-2 text-pinho-900 outline-none focus:border-relva-500" />
-        <input type="password" placeholder="Senha" value={senha} onChange={(e) => setSenha(e.target.value)} required minLength={8} className="rounded-lg border border-areia-300 bg-white px-3 py-2 text-pinho-900 outline-none focus:border-relva-500" />
-        {modo === "cadastrar" && (
-          <input type="tel" placeholder="Telefone (opcional)" value={telefone} onChange={(e) => setTelefone(e.target.value)} className="rounded-lg border border-areia-300 bg-white px-3 py-2 text-pinho-900 outline-none focus:border-relva-500" />
-        )}
-
-        {erro && <p className="text-sm text-terra-600">{erro}</p>}
-
-        <button type="submit" disabled={carregando} className="rounded-lg bg-relva-500 px-4 py-2 font-semibold text-sauge-50 transition hover:bg-relva-600 disabled:opacity-60">
-          {carregando ? "Aguarde..." : modo === "entrar" ? "Entrar" : "Criar conta e continuar"}
-        </button>
-      </form>
+    <div className="flex flex-col gap-5">
+      <FormularioRapido profissionalId={profissionalId} profissionalNome={profissionalNome} categorias={categorias} />
+      <details className="rounded-xl border border-areia-300 bg-white/70 p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-pinho-900">
+          Já tem conta? Fazer solicitação detalhada
+        </summary>
+        <div className="mt-4">
+          <FormularioPedido profissionalId={profissionalId} profissionalNome={profissionalNome} categorias={categorias} accessToken={sessao.accessToken} />
+        </div>
+      </details>
     </div>
   );
 }
