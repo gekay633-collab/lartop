@@ -1,5 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
 import type { CriarAvaliacaoInput } from './avaliacao.schemas.js';
+import { AVISO_NOVA_AVALIACAO } from '../notificacao/notificacao.eventos.js';
+import { enviarPushNotificacao } from '../push/push.service.js';
 
 class AvaliacaoError extends Error {
   status: number;
@@ -29,24 +31,47 @@ export async function avaliarComoCliente(clienteId: string, input: CriarAvaliaca
     throw new AvaliacaoError('Você já avaliou essa solicitação', 409);
   }
 
-  const avaliacao = await prisma.$transaction(async (tx: any) => {
-    const novaAvaliacao = await tx.avaliacao.create({
-      data: {
-        solicitacaoId: input.solicitacaoId,
-        avaliadorId: clienteId,
-        avaliadoId: solicitacao.profissionalId,
-        tipo: 'CLIENTE_AVALIA_PROFISSIONAL',
-        nota: input.nota,
-        comentario: input.comentario,
-      },
+  let resultado;
+  try {
+    resultado = await prisma.$transaction(async (tx: any) => {
+      const avaliacao = await tx.avaliacao.create({
+        data: {
+          solicitacaoId: input.solicitacaoId,
+          avaliadorId: clienteId,
+          avaliadoId: solicitacao.profissionalId,
+          tipo: 'CLIENTE_AVALIA_PROFISSIONAL',
+          nota: input.nota,
+          comentario: input.comentario,
+        },
+      });
+
+      await recalcularNotaMediaProfissional(tx, solicitacao.profissionalId);
+
+      // Persistir o aviso junto com a avaliação. Nunca enviar Push antes do commit.
+      const avisoPush = await tx.notificacao.create({
+        data: {
+          destinatarioId: solicitacao.profissionalId,
+          solicitacaoId: solicitacao.id,
+          ...AVISO_NOVA_AVALIACAO,
+        },
+      });
+
+      return { avaliacao, avisoPush };
     });
+  } catch (erro) {
+    // Duas abas podem enviar a mesma avaliação ao mesmo tempo.
+    // O índice único no banco impede a duplicação; devolvemos 409, não 500.
+    if (erro && typeof erro === 'object' && 'code' in erro && erro.code === 'P2002') {
+      throw new AvaliacaoError('Você já avaliou essa solicitação', 409);
+    }
+    throw erro;
+  }
 
-    await recalcularNotaMediaProfissional(tx, solicitacao.profissionalId);
-
-    return novaAvaliacao;
+  await enviarPushNotificacao(solicitacao.profissionalId, resultado.avisoPush).catch((erro) => {
+    console.error('[push] falha após avaliação', erro instanceof Error ? erro.name : 'desconhecida');
   });
 
-  return avaliacao;
+  return resultado.avaliacao;
 }
 
 export async function avaliarComoProfissional(profissionalId: string, input: CriarAvaliacaoInput) {

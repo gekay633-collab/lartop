@@ -934,4 +934,74 @@ describe('central de notificações com banco de testes', () => {
     });
     assert.equal(resposta.statusCode, 400);
   });
+  it('feedback: cliente concluído avalia uma vez e prestador recebe aviso sem dados privados', async () => {
+    const ids: string[] = [];
+    const criarPedidoConcluido = async () => {
+      const pedido = await prisma.solicitacaoOrcamento.create({
+        data: { clienteId, profissionalId, categoriaId, cep: '24900000',
+          endereco: 'Pedido fictício de avaliação', tamanhoM2: 12, status: 'CONCLUIDA' },
+      });
+      ids.push(pedido.id);
+      return pedido;
+    };
+
+    try {
+      const pedido = await criarPedidoConcluido();
+      const url = '/api/avaliacoes/cliente';
+      const payload = { solicitacaoId: pedido.id, nota: 5, comentario: 'Atendeu bem' };
+
+      assert.equal((await app.inject({ method: 'POST', url, payload })).statusCode, 401);
+      assert.equal((await app.inject({
+        method: 'POST', url,
+        headers: { authorization: `Bearer ${profissionalToken}` }, payload,
+      })).statusCode, 403);
+
+      const ok = await app.inject({
+        method: 'POST', url,
+        headers: { authorization: `Bearer ${clienteToken}` }, payload,
+      });
+      assert.equal(ok.statusCode, 201, ok.body);
+      const repetida = await app.inject({
+        method: 'POST', url,
+        headers: { authorization: `Bearer ${clienteToken}` }, payload,
+      });
+      assert.equal(repetida.statusCode, 409, repetida.body);
+
+      const notificacoes = await prisma.notificacao.findMany({
+        where: { solicitacaoId: pedido.id, destinatarioId: profissionalId, tipo: 'NOVA_AVALIACAO' },
+      });
+      assert.equal(notificacoes.length, 1, 'apenas um aviso de avaliação');
+      assert.doesNotMatch(notificacoes[0].mensagem, /Atendeu bem|24900000/i);
+
+      const pedidoConcorrente = await criarPedidoConcluido();
+      const payloadConcorrente = { solicitacaoId: pedidoConcorrente.id, nota: 4 };
+      const envios = await Promise.all([1, 2].map(() => app.inject({
+        method: 'POST', url,
+        headers: { authorization: `Bearer ${clienteToken}` },
+        payload: payloadConcorrente,
+      })));
+      assert.deepEqual(envios.map(r => r.statusCode).sort(), [201, 409]);
+      assert.equal(await prisma.avaliacao.count({
+        where: { solicitacaoId: pedidoConcorrente.id, tipo: 'CLIENTE_AVALIA_PROFISSIONAL' },
+      }), 1);
+      assert.equal(await prisma.notificacao.count({
+        where: { solicitacaoId: pedidoConcorrente.id, tipo: 'NOVA_AVALIACAO' },
+      }), 1);
+
+      const agregado = await prisma.avaliacao.aggregate({
+        where: { avaliadoId: profissionalId, tipo: 'CLIENTE_AVALIA_PROFISSIONAL' },
+        _avg: { nota: true }, _count: { nota: true },
+      });
+      const perfil = await prisma.perfilProfissional.findUniqueOrThrow({
+        where: { usuarioId: profissionalId },
+      });
+      assert.equal(perfil.totalAvaliacoes, agregado._count.nota);
+      assert.equal(perfil.notaMedia, agregado._avg.nota);
+    } finally {
+      await prisma.notificacao.deleteMany({ where: { solicitacaoId: { in: ids } } });
+      await prisma.avaliacao.deleteMany({ where: { solicitacaoId: { in: ids } } });
+      await prisma.solicitacaoOrcamento.deleteMany({ where: { id: { in: ids } } });
+    }
+  });
+
 });

@@ -22,3 +22,10 @@ export const AVISOS_CLIENTE = {
     mensagem: 'O profissional marcou o serviço como concluído. Você já pode avaliá-lo no Lartop.',
   },
 } as const;
+
+/** Feedback do cliente: texto genérico, sem nota, comentário ou dados pessoais no Push. */
+export const AVISO_NOVA_AVALIACAO = {
+  tipo: 'NOVA_AVALIACAO',
+  titulo: 'Você recebeu uma avaliação',
+  mensagem: 'Um cliente avaliou seu atendimento. Consulte seu perfil na LARTOP.',
+} as const;
