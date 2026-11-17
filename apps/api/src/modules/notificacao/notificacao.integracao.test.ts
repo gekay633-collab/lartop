@@ -1064,7 +1064,7 @@ describe('central de notificações com banco de testes', () => {
         registro.referenciaCurta <= 99999);
       assert.match(novo.json().linkWhatsapp, /Refer%C3%AAncia%20LARTOP/);
       const textoWhatsapp = new URL(novo.json().linkWhatsapp).searchParams.get('text') ?? '';
-      assert.match(textoWhatsapp, /\\*Referência LARTOP:\\* [0-9]{5}(?![0-9])/);
+      assert.match(textoWhatsapp.split('Referência LARTOP:* ')[1] ?? '', /^[0-9]{5}$/);
       assert.equal(textoWhatsapp.includes(registro.referenciaCurta!.toString()), true);
 
       const url = `/api/solicitacoes/rapidas/${id}/avaliar`;
