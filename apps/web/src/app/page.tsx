@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 const PASSOS = [
   { numero: "01", titulo: "Digite seu CEP", texto: "Mostramos os profissionais mais próximos de você." },
   { numero: "02", titulo: "Compare perfis", texto: "Veja avaliações, fotos do portfólio e informações sobre os serviços." },
-  { numero: "03", titulo: "Solicite o serviço", texto: "Escolha o profissional e siga as etapas de solicitação disponíveis na Lartop." },
+  { numero: "03", titulo: "Peça sem cadastro", texto: "Informe nome e WhatsApp, acompanhe o pedido por link privado e converse com o profissional." },
 ];
 
 export default function HomePage() {
@@ -28,7 +28,7 @@ export default function HomePage() {
           <div className="relative mx-auto flex max-w-6xl flex-col gap-10 px-4 py-14 sm:px-6 sm:py-20 md:py-28">
             <div className="max-w-2xl">
               <h1 className="font-display text-3xl font-semibold leading-tight text-sauge-50 sm:text-4xl md:text-5xl">Encontre jardineiros e piscineiros em Maricá.</h1>
-              <p className="mt-4 text-lg text-sauge-100">Compare perfis de profissionais de jardinagem, corte de grama e manutenção de piscinas na sua região. Busque pelo CEP ou explore os serviços disponíveis em Maricá.</p>
+              <p className="mt-4 text-lg text-sauge-100">Compare perfis de jardinagem, corte de grama e manutenção de piscinas em Maricá. Solicite um serviço com nome e WhatsApp, sem criar conta ou senha.</p>
             </div>
             <div className="max-w-3xl">
               <AcessoBuscaCliente><BuscaHero /></AcessoBuscaCliente>
