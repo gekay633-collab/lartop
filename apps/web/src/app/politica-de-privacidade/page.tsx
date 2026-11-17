@@ -26,6 +26,7 @@ export default function PoliticaPrivacidadePage() {
                 <li>Fotos de perfil e de trabalhos realizados, quando o profissional opta por enviar.</li>
                 <li>Dados de uso, como pesquisas realizadas e perfis visualizados, para melhorar a qualidade da busca.</li>
                 <li>Avaliações e comentários que você escreve sobre um serviço.</li>
+                <li>Em avaliações de pedidos sem cadastro, o primeiro nome só é exibido publicamente quando o cliente autoriza expressamente. Sem autorização, usamos “Cliente LARTOP”. Não publicamos sobrenome nem WhatsApp nesse fluxo.</li>
               </ul>
             </section>
 
@@ -62,6 +63,7 @@ export default function PoliticaPrivacidadePage() {
                 <li>Solicitar a exclusão dos seus dados, exceto quando houver obrigação legal de retenção.</li>
                 <li>Revogar seu consentimento a qualquer momento.</li>
               </ul>
+              <p className="mt-2">É possível autorizar ou revogar a divulgação do primeiro nome na avaliação pelo link privado enquanto ele estiver válido. Após o vencimento do link, solicite a alteração diretamente à LARTOP.</p>
               <p className="mt-2">Para exercer qualquer um desses direitos, entre em contato pelo nosso Instagram <a href="https://www.instagram.com/lartopoficial/" target="_blank" rel="noopener noreferrer" className="text-relva-600 hover:underline">@lartopoficial</a>.</p>
             </section>
 
