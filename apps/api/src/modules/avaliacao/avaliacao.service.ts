@@ -124,19 +124,26 @@ export async function listarAvaliacoesDoProfissional(profissionalId: string) {
   ].sort((a, b) => b.criadoEm.getTime() - a.criadoEm.getTime());
 }
 
-async function recalcularNotaMediaProfissional(tx: any, profissionalId: string) {
-  const agregado = await tx.avaliacao.aggregate({
-    where: { avaliadoId: profissionalId, tipo: 'CLIENTE_AVALIA_PROFISSIONAL' },
-    _avg: { nota: true },
-    _count: { nota: true },
-  });
-
+export async function recalcularNotaMediaProfissional(tx: any, profissionalId: string) {
+  // Não perder o impacto das avaliações de visitantes quando um cliente
+  // cadastrado avaliar posteriormente o mesmo profissional.
+  const [cadastradas, visitantes] = await Promise.all([
+    tx.avaliacao.aggregate({
+      where: { avaliadoId: profissionalId, tipo: 'CLIENTE_AVALIA_PROFISSIONAL' },
+      _sum: { nota: true },
+      _count: { nota: true },
+    }),
+    tx.avaliacaoVisitante.aggregate({
+      where: { solicitacao: { profissionalId } },
+      _sum: { nota: true },
+      _count: { nota: true },
+    }),
+  ]);
+  const total = cadastradas._count.nota + visitantes._count.nota;
+  const soma = (cadastradas._sum.nota ?? 0) + (visitantes._sum.nota ?? 0);
   await tx.perfilProfissional.update({
     where: { usuarioId: profissionalId },
-    data: {
-      notaMedia: agregado._avg.nota ?? 0,
-      totalAvaliacoes: agregado._count.nota,
-    },
+    data: { notaMedia: total === 0 ? 0 : soma / total, totalAvaliacoes: total },
   });
 }
 
