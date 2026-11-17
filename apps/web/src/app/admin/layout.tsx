@@ -12,7 +12,6 @@ const ITENS_MENU = [
   { href: "/admin/resultados", label: "Resultados" },
   { href: "/admin/oferta-demanda", label: "Oferta e Demanda" },
   { href: "/admin/prestadores", label: "Prestadores" },
-  { href: "/admin/clientes", label: "Clientes" },
   { href: "/admin/categorias", label: "Serviços" },
 ];
 
