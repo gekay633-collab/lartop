@@ -178,6 +178,8 @@ model SolicitacaoOrcamento {
   clienteWhatsappRapido String?     @map("cliente_whatsapp_rapido")
   acessoTokenHash      String?     @map("acesso_token_hash")
   acessoExpiraEm       DateTime?   @map("acesso_expira_em")
+  // Sequência PostgreSQL não cíclica: referência pública de 10000 a 99999.
+  referenciaCurta       Int?       @unique(map: "solicitacoes_orcamento_referencia_curta_key") @default(dbgenerated("nextval('solicitacoes_referencia_curta_seq'::regclass)")) @map("referencia_curta")
   descricao      String?
   fotos          String[]          @default([])
   // Hash SHA-256(clienteId + UUID do pedido). Nulo para clientes PWA legados.
@@ -192,6 +194,7 @@ model SolicitacaoOrcamento {
   profissional PerfilProfissional @relation("ProfissionalSolicitacoes", fields: [profissionalId], references: [usuarioId])
   categoria    Categoria          @relation(fields: [categoriaId], references: [id])
   avaliacoes   Avaliacao[]
+  avaliacaoVisitante AvaliacaoVisitante?
   notificacoes Notificacao[]
 
   @@index([clienteId])
@@ -217,6 +220,18 @@ model Avaliacao {
   @@unique([solicitacaoId, avaliadorId])
   @@index([avaliadoId])
   @@map("avaliacoes")
+}
+
+model AvaliacaoVisitante {
+  id            String   @id @default(uuid())
+  solicitacaoId String   @unique(map: "avaliacoes_visitantes_solicitacao_id_key") @map("solicitacao_id")
+  nota          Int
+  comentario    String?
+  criadoEm      DateTime @default(now()) @map("criado_em")
+
+  solicitacao SolicitacaoOrcamento @relation(fields: [solicitacaoId], references: [id])
+
+  @@map("avaliacoes_visitantes")
 }
 
 enum TipoEvento {
@@ -257,6 +272,7 @@ enum TipoNotificacao {
   SOLICITACAO_RECUSADA
   SOLICITACAO_CONCLUIDA
   SOLICITACAO_CANCELADA
+  NOVA_AVALIACAO
 }
 
 model Notificacao {
