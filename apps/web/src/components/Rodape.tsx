@@ -60,7 +60,7 @@ export function Rodape() {
                   <>
                     <li><Link href="/buscar" className={estiloLink}>Encontrar profissional</Link></li>
                     <li><Link href="/para-profissionais" className={estiloLink}>Sou profissional</Link></li>
-                    <li><Link href="/entrar" className={estiloLink}>Entrar na minha conta</Link></li>
+                    <li><Link href="/entrar" className={estiloLink}>Entrar como profissional</Link></li>
                     <li><Link href="/para-profissionais" className={estiloLink}>Criar meu perfil</Link></li>
                   </>
                 )}
@@ -68,10 +68,7 @@ export function Rodape() {
                   <li><Link href="/painel" className={estiloLink}>Meu painel profissional</Link></li>
                 )}
                 {cliente && (
-                  <>
-                    <li><Link href="/buscar" className={estiloLink}>Buscar profissionais</Link></li>
-                    <li><Link href="/minhas-solicitacoes" className={estiloLink}>Minhas solicitações</Link></li>
-                  </>
+                  <li><Link href="/buscar" className={estiloLink}>Encontrar profissional</Link></li>
                 )}
                 {administrador && (
                   <>

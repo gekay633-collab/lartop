@@ -8,7 +8,7 @@ import { atualizarPerfilSchema, adicionarFotoPortfolioSchema } from '../modules/
 import { criarSolicitacaoSchema } from '../modules/solicitacao/solicitacao.schemas.js';
 import { gerarLinkRecuperacao } from './email.js';
 import {
-  registrarClienteSchema, loginSchema, redefinirSenhaSchema,
+  registrarProfissionalSchema, loginSchema, redefinirSenhaSchema,
 } from '../modules/auth/auth.schemas.js';
 
 test('bloqueia imagens remotas fora da conta Cloudinary do Lartop', () => {
@@ -99,12 +99,13 @@ test('links de redefinição usam HTTPS, origem oficial e parâmetros codificado
   }
 });
 
-test('contas são normalizadas e entradas de autenticação têm tamanho máximo', () => {
-  const cliente = registrarClienteSchema.safeParse({
-    nome: 'Cliente de teste', email: '  Teste@Example.COM  ', senha: 'SenhaSegura1234',
+test('cadastro de profissionais normaliza dados e valida limite da autenticação', () => {
+  const profissional = registrarProfissionalSchema.safeParse({
+    nome: 'Profissional teste', email: '  Teste@Example.COM  ', senha: 'SenhaSegura1234',
+    telefone: '21999997777', cepBase: '24900000',
   });
-  assert.equal(cliente.success, true);
-  if (cliente.success) assert.equal(cliente.data.email, 'teste@example.com');
+  assert.equal(profissional.success, true);
+  if (profissional.success) assert.equal(profissional.data.email, 'teste@example.com');
   assert.equal(loginSchema.safeParse({ email: 'teste@example.com', senha: 'x'.repeat(73) }).success, false);
   assert.equal(redefinirSenhaSchema.safeParse({
     usuarioId: '11111111-1111-4111-8111-111111111111',

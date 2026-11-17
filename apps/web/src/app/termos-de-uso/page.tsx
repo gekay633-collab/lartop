@@ -8,7 +8,7 @@ export default function TermosDeUsoPage() {
       <main className="flex-1">
         <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
           <h1 className="font-display text-3xl font-semibold text-pinho-900">Termos de Uso</h1>
-          <p className="mt-2 text-sm text-pinho-700">Última atualização: setembro de 2026</p>
+          <p className="mt-2 text-sm text-pinho-700">Última atualização: novembro de 2026</p>
 
           <div className="mt-8 flex flex-col gap-6 text-pinho-900/90">
             <section>
@@ -23,7 +23,7 @@ export default function TermosDeUsoPage() {
 
             <section>
               <h2 className="font-display text-xl font-semibold text-pinho-900">3. Cadastro</h2>
-              <p className="mt-2">Para usar certas funcionalidades, é necessário criar uma conta como cliente ou profissional, fornecendo informações verdadeiras e atualizadas. Você é responsável por manter a confidencialidade da sua senha e por todas as atividades realizadas na sua conta.</p>
+              <p className="mt-2">Clientes podem buscar, solicitar e acompanhar serviços pelo link privado sem criar conta ou senha. Para publicar um perfil e atender pedidos como profissional, é necessário criar uma conta com dados verdadeiros e atualizados. Contas de cliente existentes podem continuar sendo usadas para acessar seus pedidos anteriores. Titulares de contas devem proteger suas credenciais.</p>
             </section>
 
             <section>
@@ -39,7 +39,7 @@ export default function TermosDeUsoPage() {
             <section>
               <h2 className="font-display text-xl font-semibold text-pinho-900">5. Responsabilidades do cliente</h2>
               <ul className="mt-2 list-disc pl-5">
-                <li>Fornecer informações verdadeiras sobre o serviço desejado (endereço, tamanho do terreno, descrição).</li>
+                <li>Fornecer informações verdadeiras ao pedir um serviço (nome, WhatsApp e descrição) e guardar o link privado de acompanhamento.</li>
                 <li>Negociar e combinar diretamente com o profissional os termos do serviço, incluindo valor, prazo e forma de pagamento.</li>
                 <li>Avaliar o profissional de forma honesta após o serviço.</li>
               </ul>

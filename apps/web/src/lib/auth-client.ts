@@ -215,24 +215,6 @@ export async function entrar(email: string, senha: string): Promise<SessaoLocal>
   return sessao;
 }
 
-export async function registrarComoCliente(input: {
-  nome: string; email: string; senha: string; telefone?: string;
-}): Promise<SessaoLocal> {
-  const resposta = await fetch("/bff/auth/registrar/cliente", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    credentials: "same-origin", body: JSON.stringify(input),
-  });
-  const dados = await lerRespostaAutenticacao<{
-    usuario: { tipo: SessaoLocal["tipo"]; nome: string };
-  }>(resposta, "Não foi possível cadastrar");
-  if (!tipoValido(dados.usuario?.tipo) || !dados.usuario?.nome) {
-    throw new Error("Resposta incompleta do servidor ao cadastrar.");
-  }
-  const sessao = { tipo: dados.usuario.tipo, nome: dados.usuario.nome, accessToken: MARCADOR_SESSAO };
-  salvarSessao(sessao);
-  return sessao;
-}
-
 export async function encerrarSessao(_accessToken?: string): Promise<void> {
   await comBloqueioSessao(async () => {
     const resposta = await fetch("/bff/auth/logout", {

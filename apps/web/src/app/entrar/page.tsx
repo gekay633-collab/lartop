@@ -39,7 +39,7 @@ export default function EntrarPage() {
       <main className="flex-1">
         <div className="mx-auto max-w-sm px-4 py-16 sm:px-6">
           <h1 className="font-display text-2xl font-semibold text-pinho-900">Entrar</h1>
-          <p className="mt-2 text-pinho-700">Acesse sua conta de cliente ou profissional.</p>
+          <p className="mt-2 text-pinho-700">Acesse sua conta de profissional ou administrador. Para contratar serviços, não é necessário criar conta.</p>
 
           <form onSubmit={aoSubmeter} className="mt-6 flex flex-col gap-3">
             <input type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} required className="rounded-lg border border-areia-300 bg-white px-3 py-2 text-pinho-900 outline-none focus:border-relva-500" />
@@ -57,8 +57,8 @@ export default function EntrarPage() {
           </form>
 
           <p className="mt-6 text-sm text-pinho-700">
-            Ainda não tem conta?{" "}
-            <a href="/cadastro" className="font-medium text-relva-600 hover:underline">Crie uma conta de cliente</a>
+            Procurando um serviço?{" "}
+            <a href="/" className="font-medium text-relva-600 hover:underline">Encontrar profissional sem cadastro</a>
           </p>
 
           <p className="mt-6 text-sm text-pinho-700">

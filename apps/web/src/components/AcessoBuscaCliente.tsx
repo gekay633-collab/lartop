@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { obterSessao, observarSessao, type SessaoLocal } from "@/lib/auth-client";
 
 /**
- * Pesquisa e contratação são fluxos de cliente. A consulta pública dos perfis
+ * Pesquisa e contratação são fluxos de visitante. A consulta pública dos perfis
  * continua acessível a visitantes; profissionais e admins logados retornam aos
  * seus painéis. A regra de autorização definitiva vive na API.
  */
@@ -45,7 +45,7 @@ export function AcessoBuscaCliente({
     const destino = tipo === "PROFISSIONAL" ? "/painel" : "/admin";
     return (
       <div className="rounded-2xl bg-sauge-50/95 p-5 text-pinho-900">
-        <p className="font-medium">A busca e a contratação são destinadas a contas de cliente.</p>
+        <p className="font-medium">A busca e os pedidos rápidos são destinados a visitantes, sem necessidade de cadastro.</p>
         <p className="mt-2 text-sm text-pinho-700">Sua conta está conectada como {tipo === "PROFISSIONAL" ? "profissional" : "administrador"}.</p>
         <Link href={destino} className="mt-4 inline-block rounded-xl bg-relva-500 px-5 py-2 font-semibold text-sauge-50">Voltar ao meu painel</Link>
       </div>

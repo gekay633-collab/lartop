@@ -9,7 +9,11 @@ const PERGUNTAS = [
   },
   {
     pergunta: "Como contrato um profissional pela Lartop?",
-    resposta: "Digite seu CEP na busca, escolha o serviço que precisa, compare os perfis disponíveis na sua região e clique em \"Pedir orçamento\". Você preenche os detalhes do serviço e a Lartop gera um link para conversar direto no WhatsApp do profissional.",
+    resposta: "Digite seu CEP, escolha o serviço e compare os perfis. Depois, informe apenas seu nome, WhatsApp e o que precisa. A LARTOP registra o pedido, fornece um link privado de acompanhamento e prepara a mensagem no WhatsApp do profissional; você confirma o envio.",
+  },
+  {
+    pergunta: "Preciso criar conta ou senha para solicitar um serviço?",
+    resposta: "Não. Você pede diretamente pelo perfil do prestador, só com nome e WhatsApp. Guarde o link privado recebido na tela: é por ele que você acompanha a solicitação e avalia o serviço depois de concluído.",
   },
   {
     pergunta: "Eu pago alguma taxa para contratar?",

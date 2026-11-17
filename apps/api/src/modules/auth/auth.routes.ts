@@ -1,13 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import {
-  registrarClienteSchema,
   registrarProfissionalSchema,
   loginSchema,
   solicitarRecuperacaoSchema,
   redefinirSenhaSchema,
 } from './auth.schemas.js';
 import {
-  registrarCliente,
   registrarProfissional,
   autenticar,
   renovarTokens,
@@ -38,28 +36,12 @@ function definirCookieRefresh(reply: any, refreshToken: string) {
 }
 
 export async function authRoutes(app: FastifyInstance) {
-  app.post('/auth/registrar/cliente', limiteAutenticacao, async (request, reply) => {
-    const parse = registrarClienteSchema.safeParse(request.body);
-    if (!parse.success) {
-      return reply.status(400).send({ erro: 'Dados inválidos', detalhes: parse.error.flatten() });
-    }
-
-    try {
-      const usuario = await registrarCliente(parse.data);
-      const { accessToken, refreshToken } = await emitirTokens(usuario.id, 'CLIENTE');
-      definirCookieRefresh(reply, refreshToken);
-      return reply.status(201).send({
-        usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, tipo: usuario.tipo },
-        accessToken,
-      });
-    } catch (err) {
-      if (err instanceof AuthError) {
-        return reply.status(409).send({ erro: err.message });
-      }
-      request.log.error(err);
-      return reply.status(500).send({ erro: 'Erro interno ao registrar cliente' });
-    }
-  });
+  // Cadastro de cliente desativado: pedidos públicos usam nome, WhatsApp e link privado.
+  // Mantemos um 410 explícito sem gravar contas, e preservamos os usuários legados no banco.
+  app.post('/auth/registrar/cliente', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    async (_request, reply) => reply.status(410).send({
+      erro: 'O cadastro de clientes não é mais necessário. Solicite o serviço diretamente pelo perfil do prestador.',
+    }));
 
   app.post('/auth/registrar/profissional', limiteAutenticacao, async (request, reply) => {
     const parse = registrarProfissionalSchema.safeParse(request.body);
