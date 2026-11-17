@@ -12,8 +12,8 @@ const backend = (
 ).replace(/[/]+$/, "");
 
 const CAMINHOS_PERMITIDOS = new Set([
-  "login", "logout", "refresh", "registrar/cliente",
-  "registrar/profissional", "esqueci-senha", "redefinir-senha",
+  "login", "logout", "refresh", "registrar/profissional",
+  "esqueci-senha", "redefinir-senha",
 ]);
 
 type Contexto = { params: Promise<{ path: string[] }> };
@@ -68,6 +68,9 @@ async function lerCorpoComLimite(request: NextRequest): Promise<string | null> {
 export async function POST(request: NextRequest, { params }: Contexto): Promise<NextResponse> {
   const { path } = await params;
   const acao = path.join("/");
+  if (acao === "registrar/cliente") {
+    return enviarErro(410, "O cliente não precisa criar conta. Solicite o serviço diretamente pelo perfil do prestador.");
+  }
   if (!CAMINHOS_PERMITIDOS.has(acao)) return enviarErro(404, "Rota indisponível");
   if (!origemConfiavel(
     request.nextUrl.origin,
@@ -137,7 +140,7 @@ export async function POST(request: NextRequest, { params }: Contexto): Promise<
   const refreshAtualizado = cookieDoServidor
     ? cookieDoServidor.split(";", 1)[0].slice("lartop_refresh=".length)
     : null;
-  const exigeRefresh = sucesso && ["login", "refresh", "registrar/cliente", "registrar/profissional"].includes(acao);
+  const exigeRefresh = sucesso && ["login", "refresh", "registrar/profissional"].includes(acao);
   if (exigeRefresh && (!refreshAtualizado || refreshAtualizado.length > 4096)) {
     return enviarErro(502, "O servidor não confirmou o cookie de renovação.");
   }
