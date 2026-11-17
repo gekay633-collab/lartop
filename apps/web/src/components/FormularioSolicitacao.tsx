@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { restaurarSessao, type SessaoLocal } from "@/lib/auth-client";
+import { obterSessao, observarSessao, type SessaoLocal } from "@/lib/auth-client";
 import { FormularioRapido } from "@/components/FormularioRapido";
 
 interface Categoria {
@@ -22,27 +22,25 @@ export function FormularioSolicitacao({
   profissionalNome: string;
   categorias: Categoria[];
 }) {
-  const [sessao, setSessao] = useState<SessaoLocal | null>(null);
-  const [carregando, setCarregando] = useState(true);
+  // Nenhuma chamada de autenticação bloqueia a exibição para visitantes.
+  // O papel armazenado é apenas uma dica de interface, nunca autorização da API.
+  const [tipo, setTipo] = useState<SessaoLocal["tipo"] | null | undefined>(undefined);
 
   useEffect(() => {
-    let ativo = true;
-    void restaurarSessao()
-      .then((atual) => { if (ativo) setSessao(atual); })
-      .catch(() => { if (ativo) setSessao(null); })
-      .finally(() => { if (ativo) setCarregando(false); });
-    return () => { ativo = false; };
+    const atualizar = () => setTipo(obterSessao()?.tipo ?? null);
+    atualizar();
+    return observarSessao(atualizar);
   }, []);
 
-  if (carregando) return <p className="text-pinho-700">Carregando...</p>;
+  if (tipo === undefined) return null;
 
-  if (sessao?.tipo === "PROFISSIONAL" || sessao?.tipo === "ADMIN") {
-    const destino = sessao.tipo === "ADMIN" ? "/admin" : "/painel";
+  if (tipo === "PROFISSIONAL" || tipo === "ADMIN") {
+    const destino = tipo === "ADMIN" ? "/admin" : "/painel";
     return (
       <div className="rounded-2xl border border-terra-500/30 bg-terra-500/10 p-6">
         <p className="font-medium text-terra-600">
           Esta área é destinada a quem precisa contratar um serviço.
-          Você está conectado à sua conta de {sessao.tipo === "ADMIN" ? "administrador" : "prestador"}.
+          Você está conectado à sua conta de {tipo === "ADMIN" ? "administrador" : "prestador"}.
         </p>
         <Link href={destino} className="mt-3 inline-block text-sm font-semibold text-relva-600 underline">
           Voltar ao meu painel
