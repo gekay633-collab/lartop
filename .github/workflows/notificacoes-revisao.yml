@@ -99,6 +99,8 @@ jobs:
         run: pnpm --filter @lartop/api test:push
       - name: Validar WhatsApp com mensagem pronta e DDD brasileiro
         run: pnpm --filter @lartop/api test:whatsapp
+      - name: Validar privacidade na exibição do primeiro nome do cliente
+        run: pnpm --filter @lartop/api test:feedback:nome
       - name: "Integracao real: permissoes, pedidos e concorrencia"
         run: pnpm --filter @lartop/api test:notificacoes:integration
       - name: Gerar tipagem de rotas do Next.js

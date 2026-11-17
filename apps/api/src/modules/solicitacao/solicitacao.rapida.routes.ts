@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import { avaliarSolicitacaoRapida } from '../avaliacao/avaliacao.rapida.service.js';
-import { avaliarSolicitacaoRapidaSchema } from '../avaliacao/avaliacao.rapida.schemas.js';
+import { avaliarSolicitacaoRapida, alterarNomePublicoAvaliacao } from '../avaliacao/avaliacao.rapida.service.js';
+import { avaliarSolicitacaoRapidaSchema, alterarNomePublicoSchema } from '../avaliacao/avaliacao.rapida.schemas.js';
 import { z } from 'zod';
 import {
   criarSolicitacaoRapidaSchema,
@@ -84,6 +84,28 @@ export async function solicitacaoRapidaRoutes(app: FastifyInstance) {
       }
       request.log.error({ err: erro }, 'Falha ao registrar feedback sem cadastro');
       return reply.status(503).send({ erro: 'Não foi possível registrar seu feedback agora.' });
+    }
+  });
+
+  // O titular do link pode autorizar ou revogar a divulgação do primeiro nome,
+  // inclusive em avaliações feitas antes desta funcionalidade.
+  app.post('/solicitacoes/rapidas/:id/avaliacao/nome-publico', {
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
+    reply.header('Cache-Control', 'no-store');
+    const parametro = z.object({ id: z.string().uuid() }).safeParse(request.params);
+    const corpo = alterarNomePublicoSchema.safeParse(request.body);
+    if (!parametro.success || !corpo.success) {
+      return reply.status(400).send({ erro: 'Preferência inválida.' });
+    }
+    try {
+      return reply.send(await alterarNomePublicoAvaliacao(parametro.data.id, corpo.data));
+    } catch (erro) {
+      if (erro instanceof SolicitacaoRapidaError) {
+        return reply.status(erro.status).send({ erro: erro.message });
+      }
+      request.log.error({ err: erro }, 'Falha ao atualizar nome público da avaliação');
+      return reply.status(503).send({ erro: 'Não foi possível atualizar a exibição do nome.' });
     }
   });
 

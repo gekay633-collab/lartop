@@ -111,15 +111,18 @@ export async function listarAvaliacoesDoProfissional(profissionalId: string) {
     }),
     prisma.avaliacaoVisitante.findMany({
       where: { solicitacao: { profissionalId } },
-      select: { id: true, nota: true, comentario: true, criadoEm: true },
+      select: { id: true, nota: true, comentario: true, criadoEm: true, nomePublico: true },
       orderBy: { criadoEm: 'desc' },
     }),
   ]);
   return [
     ...cadastradas,
     ...visitantes.map((avaliacao) => ({
-      ...avaliacao,
-      avaliador: { nome: 'Cliente LARTOP' },
+      id: avaliacao.id,
+      nota: avaliacao.nota,
+      comentario: avaliacao.comentario,
+      criadoEm: avaliacao.criadoEm,
+      avaliador: { nome: avaliacao.nomePublico ?? 'Cliente LARTOP' },
     })),
   ].sort((a, b) => b.criadoEm.getTime() - a.criadoEm.getTime());
 }

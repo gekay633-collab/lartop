@@ -227,6 +227,8 @@ model AvaliacaoVisitante {
   solicitacaoId String   @unique(map: "avaliacoes_visitantes_solicitacao_id_key") @map("solicitacao_id")
   nota          Int
   comentario    String?
+  // Publicado somente quando a pessoa aceita expressamente no link privado.
+  nomePublico   String?  @map("nome_publico")
   criadoEm      DateTime @default(now()) @map("criado_em")
 
   solicitacao SolicitacaoOrcamento @relation(fields: [solicitacaoId], references: [id])

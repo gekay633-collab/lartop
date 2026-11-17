@@ -1114,6 +1114,36 @@ describe('central de notificações com banco de testes', () => {
       assert.equal(publicas.statusCode, 200, publicas.body);
       assert.ok(publicas.json().some((x: any) =>
         x.avaliador.nome === 'Cliente LARTOP' && x.comentario === 'Serviço realizado corretamente.'));
+      // A pessoa pode autorizar o primeiro nome posteriormente usando seu link.
+      // A autorização nunca muda a nota nem o comentário.
+      const visibilidadeUrl = `/api/solicitacoes/rapidas/${id}/avaliacao/nome-publico`;
+      const visibilidade = (body: Record<string, unknown>) =>
+        app.inject({ method: 'POST', url: visibilidadeUrl, payload: body });
+      assert.equal((await visibilidade({ token: tokenInvalido, publicarPrimeiroNome: true })).statusCode, 404);
+      assert.equal((await visibilidade({ token, publicarPrimeiroNome: 'sim' })).statusCode, 400);
+      assert.equal((await visibilidade({ publicarPrimeiroNome: true })).statusCode, 400);
+      const aprovado = await visibilidade({ token, publicarPrimeiroNome: true });
+      assert.equal(aprovado.statusCode, 200, aprovado.body);
+      assert.equal(aprovado.json().nomePublico, 'Visitante');
+      const publicasComNome = await app.inject({
+        method: 'GET', url: `/api/profissionais/${profissionalId}/avaliacoes`,
+      });
+      assert.ok(publicasComNome.json().some((x: { avaliador: { nome: string }; comentario: string }) =>
+        x.avaliador.nome === 'Visitante' && x.comentario === 'Serviço realizado corretamente.'));
+      assert.doesNotMatch(publicasComNome.body, /Visitante de teste|21999991212/);
+      const depoisNome = (await acompanhar()).json();
+      assert.equal(depoisNome.avaliacao.nomePublico, 'Visitante');
+      assert.equal(depoisNome.primeiroNomeParaAvaliacao, 'Visitante');
+      const revogado = await visibilidade({ token, publicarPrimeiroNome: false });
+      assert.equal(revogado.statusCode, 200, revogado.body);
+      assert.equal(revogado.json().nomePublico, null);
+      const publicasNovamente = await app.inject({
+        method: 'GET', url: `/api/profissionais/${profissionalId}/avaliacoes`,
+      });
+      assert.ok(publicasNovamente.json().some((x: { avaliador: { nome: string }; comentario: string }) =>
+        x.avaliador.nome === 'Cliente LARTOP' && x.comentario === 'Serviço realizado corretamente.'));
+      assert.equal(await prisma.avaliacaoVisitante.count({ where: { solicitacaoId: id! } }), 1);
+
       const perfil = await prisma.perfilProfissional.findUniqueOrThrow({ where: { usuarioId: profissionalId } });
       const anteriores = await prisma.avaliacao.aggregate({
         where: { avaliadoId: profissionalId, tipo: 'CLIENTE_AVALIA_PROFISSIONAL' },

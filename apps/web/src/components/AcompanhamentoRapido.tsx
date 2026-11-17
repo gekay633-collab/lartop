@@ -8,7 +8,8 @@ interface Pedido {
   status: string;
   criadoEm: string;
   jaAvaliada?: boolean;
-  avaliacao?: { nota: number; comentario: string | null };
+  primeiroNomeParaAvaliacao?: string | null;
+  avaliacao?: { nota: number; comentario: string | null; nomePublico?: string | null };
   categoria: { nome: string };
   profissional: { nomeExibicao: string };
   linkWhatsapp?: string;
@@ -32,6 +33,9 @@ export function AcompanhamentoRapido({ id }: { id: string }) {
   const [nota, setNota] = useState(0);
   const [comentario, setComentario] = useState("");
   const [enviandoAvaliacao, setEnviandoAvaliacao] = useState(false);
+  const [publicarNome, setPublicarNome] = useState(false);
+  const [salvandoNome, setSalvandoNome] = useState(false);
+  const [mensagemNome, setMensagemNome] = useState("");
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -60,7 +64,10 @@ export function AcompanhamentoRapido({ id }: { id: string }) {
           !("nomeExibicao" in resultado.profissional)) {
         throw new Error("O servidor retornou dados inesperados.");
       }
-      setPedido(resultado as Pedido);
+      const pedidoRecebido = resultado as Pedido;
+      setPedido(pedidoRecebido);
+      setPublicarNome(Boolean(pedidoRecebido.avaliacao?.nomePublico));
+      setMensagemNome("");
     } catch (falha) {
       setPedido(null);
       setErro(falha instanceof Error ? falha.message : "Erro ao acompanhar solicitação.");
@@ -96,7 +103,8 @@ export function AcompanhamentoRapido({ id }: { id: string }) {
         cache: "no-store",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, confirmacao: true, nota, comentario: comentario.trim() }),
+        body: JSON.stringify({ token, confirmacao: true, nota,
+          comentario: comentario.trim(), publicarPrimeiroNome: publicarNome }),
       });
       const resultado: unknown = await resposta.json().catch(() => null);
       if (!resposta.ok) {
@@ -105,12 +113,66 @@ export function AcompanhamentoRapido({ id }: { id: string }) {
         if (resposta.status === 409) void carregar();
         throw new Error(mensagem);
       }
-      setPedido({ ...pedido, jaAvaliada: true, avaliacao: { nota, comentario: comentario.trim() || null } });
+      setPedido({ ...pedido, jaAvaliada: true, avaliacao: {
+        nota, comentario: comentario.trim() || null,
+        nomePublico: publicarNome ? pedido.primeiroNomeParaAvaliacao ?? null : null,
+      } });
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : "Não foi possível enviar a avaliação.");
     } finally {
       setEnviandoAvaliacao(false);
     }
+  }
+
+  async function salvarPreferenciaNome() {
+    if (!pedido?.jaAvaliada || salvandoNome) return;
+    setSalvandoNome(true);
+    setMensagemNome("");
+    setErro("");
+    try {
+      const token = window.location.hash.slice(1);
+      if (!/^[A-Za-z0-9_-]{43}$/.test(token)) {
+        throw new Error("Abra o link privado original para atualizar a avaliação.");
+      }
+      const resposta = await fetch(`/api/solicitacoes/rapidas/${encodeURIComponent(id)}/avaliacao/nome-publico`, {
+        method: "POST", credentials: "same-origin", cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, publicarPrimeiroNome: publicarNome }),
+      });
+      const resultado: unknown = await resposta.json().catch(() => null);
+      if (!resposta.ok) {
+        const mensagem = resultado && typeof resultado === "object" && "erro" in resultado &&
+          typeof resultado.erro === "string" ? resultado.erro : "Falha ao atualizar a preferência.";
+        throw new Error(mensagem);
+      }
+      if (!resultado || typeof resultado !== "object" ||
+          !("nomePublico" in resultado) ||
+          !(resultado.nomePublico === null || typeof resultado.nomePublico === "string")) {
+        throw new Error("Resposta inesperada ao salvar a preferência.");
+      }
+      setPedido({ ...pedido, avaliacao: pedido.avaliacao ? {
+        ...pedido.avaliacao, nomePublico: resultado.nomePublico as string | null,
+      } : undefined });
+      setMensagemNome(resultado.nomePublico
+        ? "Seu primeiro nome está autorizado a aparecer publicamente."
+        : "Seu nome ficará oculto nas avaliações públicas.");
+    } catch (falha) {
+      setErro(falha instanceof Error ? falha.message : "Não foi possível salvar.");
+    } finally {
+      setSalvandoNome(false);
+    }
+  }
+
+  function opcaoNomePublico() {
+    if (!pedido?.primeiroNomeParaAvaliacao) return null;
+    return (
+      <label className="flex items-start gap-2 text-sm text-pinho-900">
+        <input type="checkbox" checked={publicarNome}
+          onChange={(e) => { setPublicarNome(e.target.checked); setMensagemNome(""); }}
+          className="mt-1" />
+        <span>Autorizo mostrar meu primeiro nome <strong>({pedido.primeiroNomeParaAvaliacao})</strong> publicamente nesta avaliação. O sobrenome e o WhatsApp não serão exibidos.</span>
+      </label>
+    );
   }
 
   return (
@@ -143,6 +205,20 @@ export function AcompanhamentoRapido({ id }: { id: string }) {
                   <p className="mt-1 text-sm text-pinho-700">
                     Obrigado pelo feedback. {pedido.avaliacao ? `Sua nota: ${pedido.avaliacao.nota}/5.` : "Sua avaliação foi recebida."}
                   </p>
+                  <div className="mt-4 flex flex-col gap-3 border-t border-areia-300 pt-3">
+                    <p className="text-sm text-pinho-700">
+                      Nome exibido publicamente: <strong>{pedido.avaliacao?.nomePublico ?? "Cliente LARTOP"}</strong>
+                    </p>
+                    {opcaoNomePublico()}
+                    {pedido.primeiroNomeParaAvaliacao && (
+                      <button type="button" onClick={() => void salvarPreferenciaNome()}
+                        disabled={salvandoNome}
+                        className="min-h-11 rounded-lg border border-relva-500 px-4 py-2 text-sm font-semibold text-relva-600 disabled:opacity-60">
+                        {salvandoNome ? "Salvando..." : "Salvar preferência de nome"}
+                      </button>
+                    )}
+                    {mensagemNome && <p role="status" className="text-sm text-pinho-700">{mensagemNome}</p>}
+                  </div>
                 </div>
               ) : (
                 <form onSubmit={(e) => void enviarAvaliacao(e)} className="flex flex-col gap-3">
@@ -193,6 +269,7 @@ export function AcompanhamentoRapido({ id }: { id: string }) {
                           className="mt-1 w-full rounded-lg border border-areia-300 bg-white px-3 py-2 text-sm text-pinho-900" />
                         <p className="text-right text-xs text-pinho-700">{comentario.length}/500</p>
                       </div>
+                      {opcaoNomePublico()}
                       <button type="submit" disabled={!nota || enviandoAvaliacao}
                         className="min-h-11 rounded-xl bg-relva-500 px-4 py-3 font-semibold text-sauge-50 disabled:opacity-60">
                         {enviandoAvaliacao ? "Registrando avaliação..." : "Enviar avaliação"}

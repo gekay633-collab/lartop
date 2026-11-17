@@ -2,7 +2,8 @@ import { prisma } from '../../lib/prisma.js';
 import { recalcularNotaMediaProfissional } from './avaliacao.service.js';
 import { enviarPushNotificacao } from '../push/push.service.js';
 import { SolicitacaoRapidaError, validarAcessoSolicitacaoRapida } from '../solicitacao/solicitacao.rapida.service.js';
-import type { AvaliarSolicitacaoRapidaInput } from './avaliacao.rapida.schemas.js';
+import type { AvaliarSolicitacaoRapidaInput, AlterarNomePublicoInput } from './avaliacao.rapida.schemas.js';
+import { primeiroNomePublico } from './avaliacao.nome-publico.js';
 
 /**
  * A credencial é o link privado de acompanhamento (256 bits).
@@ -26,6 +27,7 @@ export async function avaliarSolicitacaoRapida(
           solicitacaoId: pedido.id,
           nota: input.nota,
           comentario: input.comentario || null,
+          nomePublico: input.publicarPrimeiroNome ? primeiroNomePublico(pedido.clienteNomeRapido) : null,
         },
       });
 
@@ -60,4 +62,27 @@ export async function avaliarSolicitacaoRapida(
     comentario: criado.avaliacao.comentario,
     criadoEm: criado.avaliacao.criadoEm,
   };
+}
+
+/** Permite ajustar apenas a visibilidade do primeiro nome de uma avaliação
+ * já existente; nota, comentário, pontuação e notificações nunca são alterados.
+ */
+export async function alterarNomePublicoAvaliacao(
+  solicitacaoId: string, input: AlterarNomePublicoInput,
+) {
+  const pedido = await validarAcessoSolicitacaoRapida(solicitacaoId, input.token);
+  const nomePublico = input.publicarPrimeiroNome
+    ? primeiroNomePublico(pedido.clienteNomeRapido)
+    : null;
+  if (input.publicarPrimeiroNome && !nomePublico) {
+    throw new SolicitacaoRapidaError('O primeiro nome informado não pode ser exibido publicamente.', 400);
+  }
+  const atualizado = await prisma.avaliacaoVisitante.updateMany({
+    where: { solicitacaoId: pedido.id },
+    data: { nomePublico },
+  });
+  if (atualizado.count === 0) {
+    throw new SolicitacaoRapidaError('Nenhuma avaliação encontrada para este pedido.', 404);
+  }
+  return { nomePublico };
 }

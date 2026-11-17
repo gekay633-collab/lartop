@@ -4,6 +4,7 @@ import { redis } from '../../lib/redis.js';
 import { enviarPushNotificacao } from '../push/push.service.js';
 import { registrarEvento } from '../evento/evento.service.js';
 import { gerarLinkWhatsappRapido, referenciaPedidoCincoDigitos } from '../../lib/whatsapp.js';
+import { primeiroNomePublico } from '../avaliacao/avaliacao.nome-publico.js';
 import type { CriarSolicitacaoRapidaInput } from './solicitacao.rapida.schemas.js';
 
 export class SolicitacaoRapidaError extends Error {
@@ -187,7 +188,7 @@ export async function acompanharSolicitacaoRapida(id: string, token: string) {
       where: { id: pedido.profissionalId }, select: { telefone: true },
     }),
     prisma.avaliacaoVisitante.findUnique({
-      where: { solicitacaoId: pedido.id }, select: { nota: true, comentario: true },
+      where: { solicitacaoId: pedido.id }, select: { nota: true, comentario: true, nomePublico: true },
     }),
   ]);
   const _telefone = profissional?.telefone;
@@ -198,7 +199,10 @@ export async function acompanharSolicitacaoRapida(id: string, token: string) {
     status: pedido.status,
     criadoEm: pedido.criadoEm,
     jaAvaliada: Boolean(avaliacao),
-    ...(avaliacao ? { avaliacao: { nota: avaliacao.nota, comentario: avaliacao.comentario } } : {}),
+    // Sugestão de nome visível SOMENTE ao portador do link privado.
+    primeiroNomeParaAvaliacao: primeiroNomePublico(pedido.clienteNomeRapido),
+    ...(avaliacao ? { avaliacao: { nota: avaliacao.nota, comentario: avaliacao.comentario,
+      nomePublico: avaliacao.nomePublico } } : {}),
     categoria: { nome: pedido.categoria.nome },
     profissional: { nomeExibicao: pedido.profissional.nomeExibicao },
     ...(_telefone ? { linkWhatsapp: gerarLinkWhatsappRapido(_telefone, {

@@ -17,6 +17,7 @@ eventos = []
 pedido_capturado = []
 concluido = False
 avaliacao_feita = False
+nome_publico = None
 
 class BackendSimulado(BaseHTTPRequestHandler):
     def log_message(self, *_args):
@@ -53,7 +54,7 @@ class BackendSimulado(BaseHTTPRequestHandler):
         return self.responder(404, {"erro": "Recurso simulado indisponível"})
 
     def do_POST(self):
-        global avaliacao_feita
+        global avaliacao_feita, nome_publico
         caminho = urlparse(self.path).path
         tamanho = int(self.headers.get("Content-Length", "0"))
         assert tamanho <= 16_384, "Corpo da solicitação deve ser pequeno"
@@ -88,7 +89,9 @@ class BackendSimulado(BaseHTTPRequestHandler):
                 "id": PEDIDO, "referencia": "10427",
                 "status": "CONCLUIDA" if concluido else "PENDENTE",
                 "jaAvaliada": avaliacao_feita,
-                "avaliacao": {"nota": 5, "comentario": "Prestador atencioso."} if avaliacao_feita else None,
+                "primeiroNomeParaAvaliacao": "João",
+                "avaliacao": {"nota": 5, "comentario": "Prestador atencioso.",
+                              "nomePublico": nome_publico} if avaliacao_feita else None,
                 "criadoEm": "2026-11-16T20:00:00.000Z",
                 "categoria": {"nome": "Limpeza de piscina"},
                 "profissional": {"nomeExibicao": "Prestador Simulado"},
@@ -103,15 +106,24 @@ class BackendSimulado(BaseHTTPRequestHandler):
                 return self.responder(400, {"erro": "Confirme e selecione nota"})
             if avaliacao_feita:
                 return self.responder(409, {"erro": "Avaliação já registrada"})
+            assert isinstance(dados.get("publicarPrimeiroNome"), bool)
             avaliacao_feita = True
+            nome_publico = "João" if dados["publicarPrimeiroNome"] else None
             return self.responder(201, {"id": "avaliacao-test", "nota": dados["nota"]})
+        if caminho == f"/api/solicitacoes/rapidas/{PEDIDO}/avaliacao/nome-publico":
+            if not avaliacao_feita or not pedido_capturado or dados.get("token") != pedido_capturado[-1]["token"]:
+                return self.responder(404, {"erro": "Link inválido"})
+            assert isinstance(dados.get("publicarPrimeiroNome"), bool)
+            nome_publico = "João" if dados["publicarPrimeiroNome"] else None
+            return self.responder(200, {"nomePublico": nome_publico})
         return self.responder(404, {"erro": "Rota simulada indisponível"})
 
 
 def executar(browser, mobile=False):
-    global concluido, avaliacao_feita
+    global concluido, avaliacao_feita, nome_publico
     concluido = False
     avaliacao_feita = False
+    nome_publico = None
     context = browser.new_context(
         viewport={"width": 390 if mobile else 1366, "height": 844 if mobile else 768},
         is_mobile=mobile, has_touch=mobile,
@@ -166,9 +178,18 @@ def executar(browser, mobile=False):
     pagina.get_by_label("Sim, o serviço foi realizado").check()
     pagina.get_by_role("button", name="5 estrelas").click()
     pagina.get_by_label("Comentário (opcional)").fill("Prestador atencioso.")
+    pagina.get_by_label(re.compile("Autorizo mostrar meu primeiro nome")).check()
     pagina.get_by_role("button", name="Enviar avaliação").click()
     pagina.get_by_role("heading", name="Avaliação registrada").wait_for(timeout=20000)
     assert avaliacao_feita, "A API simulada deve registrar uma avaliação"
+    assert nome_publico == "João"
+    pagina.get_by_text("Nome exibido publicamente:").wait_for(timeout=20000)
+    assert "Nome exibido publicamente: João" in pagina.locator("main").inner_text()
+    pagina.get_by_label(re.compile("Autorizo mostrar meu primeiro nome")).uncheck()
+    pagina.get_by_role("button", name="Salvar preferência de nome").click()
+    pagina.get_by_text("Seu nome ficará oculto nas avaliações públicas.").wait_for(timeout=20000)
+    assert nome_publico is None
+    assert "Nome exibido publicamente: Cliente LARTOP" in pagina.locator("main").inner_text()
     assert pagina.get_by_role("button", name="Enviar avaliação").count() == 0
     context.close()
     print(("MOBILE" if mobile else "DESKTOP") + " contratação sem cadastro, WhatsApp e link privado OK")
