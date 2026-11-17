@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
+import { recalcularNotaMediaProfissional } from './avaliacao.service.js';
 import { enviarPushNotificacao } from '../push/push.service.js';
 import { SolicitacaoRapidaError, validarAcessoSolicitacaoRapida } from '../solicitacao/solicitacao.rapida.service.js';
 import type { AvaliarSolicitacaoRapidaInput } from './avaliacao.rapida.schemas.js';
@@ -28,30 +29,7 @@ export async function avaliarSolicitacaoRapida(
         },
       });
 
-      const [deClientesCadastrados, deVisitantes] = await Promise.all([
-        tx.avaliacao.aggregate({
-          where: {
-            avaliadoId: pedido.profissionalId,
-            tipo: 'CLIENTE_AVALIA_PROFISSIONAL',
-          },
-          _sum: { nota: true },
-          _count: { nota: true },
-        }),
-        tx.avaliacaoVisitante.aggregate({
-          where: { solicitacao: { profissionalId: pedido.profissionalId } },
-          _sum: { nota: true },
-          _count: { nota: true },
-        }),
-      ]);
-      const total = deClientesCadastrados._count.nota + deVisitantes._count.nota;
-      const soma = (deClientesCadastrados._sum.nota ?? 0) + (deVisitantes._sum.nota ?? 0);
-      await tx.perfilProfissional.update({
-        where: { usuarioId: pedido.profissionalId },
-        data: {
-          totalAvaliacoes: total,
-          notaMedia: total === 0 ? 0 : soma / total,
-        },
-      });
+      await recalcularNotaMediaProfissional(tx, pedido.profissionalId);
 
       const aviso = await tx.notificacao.create({
         data: {
