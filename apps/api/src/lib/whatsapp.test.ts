@@ -44,11 +44,11 @@ describe('mensagem do pedido rápido no WhatsApp', () => {
   });
   it('usa exatamente cinco dígitos únicos enviados pelo banco e fallback estável para pedidos antigos', () => {
     const link = new URL(gerarLinkWhatsappRapido('21999992222', { ...info, referenciaCurta: 10427 }));
-    assert.match(link.searchParams.get('text') ?? '', /\\*Referência LARTOP:\\* 10427(?:\\n|$)/);
+    assert.ok((link.searchParams.get('text') ?? '').endsWith('*Referência LARTOP:* 10427'));
     const antigoA = new URL(gerarLinkWhatsappRapido('21999992222', info)).searchParams.get('text') ?? '';
     const antigoB = new URL(gerarLinkWhatsappRapido('21999992222', info)).searchParams.get('text') ?? '';
     assert.equal(antigoA, antigoB);
-    assert.match(antigoA, /\\*Referência LARTOP:\\* [0-9]{5}(?![0-9])/);
+    assert.match(antigoA.split('Referência LARTOP:* ')[1] ?? '', /^[0-9]{5}$/);
   });
 
 });
