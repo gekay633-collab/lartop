@@ -9,32 +9,6 @@ const REFRESH_TOKEN_TTL_SEGUNDOS = 60 * 60 * 24 * 30;
 
 class AuthError extends Error {}
 
-export async function registrarCliente(input: {
-  nome: string;
-  email: string;
-  senha: string;
-  telefone?: string;
-}) {
-  const existente = await prisma.usuario.findUnique({ where: { email: input.email } });
-  if (existente) {
-    throw new AuthError('E-mail já cadastrado');
-  }
-
-  const senhaHash = await gerarHashSenha(input.senha);
-
-  const usuario = await prisma.usuario.create({
-    data: {
-      nome: input.nome,
-      email: input.email,
-      senhaHash,
-      telefone: input.telefone,
-      tipo: 'CLIENTE',
-    },
-  });
-
-  return usuario;
-}
-
 export async function registrarProfissional(input: {
   nome: string;
   email: string;
