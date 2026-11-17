@@ -305,7 +305,7 @@ def teste_profissional_nao_entra_no_fluxo_cliente(browser, mobile=False):
 
     # Página inicial continua pública, mas a busca não é exibida para o prestador.
     page.goto(BASE + "/", wait_until="load")
-    page.get_by_text("A busca e a contratação são destinadas a contas de cliente.").first.wait_for(timeout=15000)
+    page.get_by_text("A busca e os pedidos rápidos são destinados a visitantes, sem necessidade de cadastro.").first.wait_for(timeout=15000)
     assert page.get_by_role("button", name="Buscar profissionais").count() == 0
     context.close()
     print(("MOBILE" if mobile else "DESKTOP") + " PRESTADOR: logo/páginas de busca/contratação bloqueadas OK")
@@ -373,8 +373,12 @@ def teste_rodape_contextual(browser, mobile=False):
     page.route("**/api/**", api)
     page.goto(BASE + "/", wait_until="load")
     footer = page.locator("footer")
-    footer.get_by_role("link", name="Entrar na minha conta").wait_for(timeout=15000)
+    footer.get_by_role("link", name="Entrar como profissional").wait_for(timeout=15000)
     assert footer.get_by_text("Tipos de serviço").count() == 1
+    # A URL legada de cadastro nunca deve oferecer formulário de senha.
+    page.goto(BASE + "/cadastro", wait_until="domcontentloaded")
+    page.wait_for_url(BASE + "/", timeout=20000)
+    assert page.locator("main input[type='password']").count() == 0
 
     def alterar_papel(papel):
         papel_atual[0] = papel
@@ -387,7 +391,7 @@ def teste_rodape_contextual(browser, mobile=False):
 
     alterar_papel("PROFISSIONAL")
     footer.get_by_role("link", name="Meu painel profissional").wait_for(timeout=15000)
-    for nome in ("Entrar na minha conta", "Encontrar profissional", "Criar meu perfil", "Sou profissional"):
+    for nome in ("Entrar como profissional", "Encontrar profissional", "Criar meu perfil", "Sou profissional"):
         assert footer.get_by_role("link", name=nome).count() == 0, nome
     assert footer.get_by_text("Tipos de serviço").count() == 0
     assert footer.get_by_role("link", name="Termos de uso").count() == 1
@@ -395,14 +399,14 @@ def teste_rodape_contextual(browser, mobile=False):
     # Valida o rodapé exatamente no painel do prestador, como na captura do usuário.
     page.goto(BASE + "/painel", wait_until="load")
     page.locator("footer").get_by_role("link", name="Meu painel profissional").wait_for(timeout=15000)
-    assert page.locator("footer").get_by_role("link", name="Entrar na minha conta").count() == 0
+    assert page.locator("footer").get_by_role("link", name="Entrar como profissional").count() == 0
 
     page.goto(BASE + "/", wait_until="load")
     alterar_papel("CLIENTE")
     footer = page.locator("footer")
-    footer.get_by_role("link", name="Minhas solicitações").wait_for(timeout=15000)
-    assert footer.get_by_role("link", name="Buscar profissionais").count() == 1
-    assert footer.get_by_role("link", name="Entrar na minha conta").count() == 0
+    footer.get_by_role("link", name="Encontrar profissional").wait_for(timeout=15000)
+    assert footer.get_by_role("link", name="Minhas solicitações").count() == 0
+    assert footer.get_by_role("link", name="Entrar como profissional").count() == 0
     assert footer.get_by_text("Tipos de serviço").count() == 0
 
     alterar_papel("ADMIN")
@@ -416,7 +420,7 @@ def teste_rodape_contextual(browser, mobile=False):
       localStorage.removeItem('lartop_nome_usuario');
       window.dispatchEvent(new Event('lartop:sessao-alterada'));
     }""")
-    footer.get_by_role("link", name="Entrar na minha conta").wait_for(timeout=15000)
+    footer.get_by_role("link", name="Entrar como profissional").wait_for(timeout=15000)
     assert footer.get_by_text("Tipos de serviço").count() == 1
     context.close()
     print(("MOBILE" if mobile else "DESKTOP") + " RODAPÉ: visitante/cliente/prestador/admin e atualização de sessão OK")
