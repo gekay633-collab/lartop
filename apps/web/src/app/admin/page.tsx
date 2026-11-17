@@ -1,6 +1,7 @@
 "use client";
 
 import { fetchAutenticado } from "@/lib/auth-client";
+import Link from "next/link";
 
 import { useEffect, useState } from "react";
 import { useGuardaAdmin } from "@/components/GuardaAdmin";
@@ -16,7 +17,15 @@ interface Dashboard {
     prestadoresNaoPublicados: number;
     solicitacoesTotal: number;
     avaliacoesTotal: number;
+    feedbacksClientesTotal: number;
     usuariosBloqueados: number;
+  };
+  ultimos30dias: {
+    pedidosRecebidos: number;
+    pedidosSemCadastro: number;
+    concluidosInformados: number;
+    feedbacksClientes: number;
+    feedbacksVisitantes: number;
   };
 }
 
@@ -64,14 +73,33 @@ export default function AdminDashboardPage() {
         <Cartao titulo="Solicitações" valor={dados.hoje.solicitacoes} />
       </div>
 
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-pinho-700">Atendimento — últimos 30 dias</p>
+        <Link href="/admin/resultados" className="rounded-lg border border-relva-500 px-3 py-2 text-sm font-semibold text-relva-600">
+          Ver resultados por prestador
+        </Link>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <Cartao titulo="Pedidos recebidos" valor={dados.ultimos30dias.pedidosRecebidos} />
+        <Cartao titulo="Pedidos sem cadastro" valor={dados.ultimos30dias.pedidosSemCadastro} />
+        <Cartao titulo="Concluídos informados" valor={dados.ultimos30dias.concluidosInformados} />
+        <Cartao titulo="Feedbacks de clientes" valor={dados.ultimos30dias.feedbacksClientes} />
+        <Cartao titulo="Feedbacks sem cadastro" valor={dados.ultimos30dias.feedbacksVisitantes} />
+      </div>
+      <p className="mt-3 text-xs text-pinho-700">
+        Concluído = status declarado pelo prestador. Não significa pagamento ou contratação confirmada.
+        Os feedbacks são contados pela data do envio, e os pedidos pela data de criação.
+      </p>
+
       <p className="mt-8 text-xs font-medium uppercase tracking-wide text-pinho-700">Geral</p>
-      <div className="mt-2 grid grid-cols-3 gap-4">
+      <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <Cartao titulo="Total de clientes" valor={dados.geral.totalClientes} />
         <Cartao titulo="Total de prestadores" valor={dados.geral.totalPrestadores} />
         <Cartao titulo="Prestadores publicados" valor={dados.geral.prestadoresPublicados} />
         <Cartao titulo="Aguardando publicação" valor={dados.geral.prestadoresNaoPublicados} />
         <Cartao titulo="Solicitações totais" valor={dados.geral.solicitacoesTotal} />
-        <Cartao titulo="Avaliações totais" valor={dados.geral.avaliacoesTotal} />
+        <Cartao titulo="Avaliações registradas" valor={dados.geral.avaliacoesTotal} />
+        <Cartao titulo="Feedbacks de clientes" valor={dados.geral.feedbacksClientesTotal} />
       </div>
 
       {dados.geral.usuariosBloqueados > 0 && (
