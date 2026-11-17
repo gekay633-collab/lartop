@@ -159,6 +159,19 @@ def main():
             assert antigo_refresh.status == 410, antigo_refresh.text()
             assert "accessToken" not in antigo_refresh.text()
 
+            # Cadastro de cliente foi desativado sem afetar login profissional/ADM.
+            qtd_cadastro = sum(x[1] == "/api/auth/registrar/cliente" for x in eventos)
+            desativado = context.request.post(BASE + "/bff/auth/registrar/cliente", headers={
+                "Origin": BASE, "Sec-Fetch-Site": "same-origin",
+                "Content-Type": "application/json",
+            }, data=json.dumps({
+                "nome": "Cliente Teste", "email": "cliente-novo@example.test",
+                "senha": "SenhaValida123!",
+            }))
+            assert desativado.status == 410, desativado.text()
+            assert "accessToken" not in desativado.text()
+            assert sum(x[1] == "/api/auth/registrar/cliente" for x in eventos) == qtd_cadastro
+
             # Dados excessivos devem ser rejeitados antes da API Fastify,
             # sem alocar o corpo inteiro em memória nem gerar log de senha.
             qtd_login_antes_limite = sum(x[1] == "/api/auth/login" for x in eventos)
