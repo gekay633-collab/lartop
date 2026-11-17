@@ -235,7 +235,7 @@ describe('central de notificações com banco de testes', () => {
   });
 
   it('admin não aceita requisições anônimas, cliente, prestador ou papel falso', async () => {
-    for (const rota of ['/api/admin/dashboard', '/api/admin/prestadores', '/api/admin/clientes']) {
+    for (const rota of ['/api/admin/dashboard', '/api/admin/prestadores', '/api/admin/clientes', '/api/admin/resultados-prestadores']) {
       const visitante = await app.inject({ method: 'GET', url: rota });
       assert.equal(visitante.statusCode, 401, rota);
       for (const token of [clienteToken, profissionalToken]) {
@@ -1167,6 +1167,102 @@ describe('central de notificações com banco de testes', () => {
         await prisma.avaliacaoVisitante.deleteMany({ where: { solicitacaoId: id } });
         await prisma.solicitacaoOrcamento.deleteMany({ where: { id } });
       }
+    }
+  });
+
+  it('ADM: métricas por prestador exigem ADMIN e distinguem pedidos, conclusão e feedback', async () => {
+    const adm = await prisma.usuario.create({
+      data: {
+        email: `adm-resultados-${randomUUID()}@example.test`,
+        senhaHash: 'nao-usada', nome: 'ADM descartável', tipo: 'ADMIN',
+      },
+    });
+    const ids: string[] = [];
+    try {
+      const adminToken = (await emitirTokens(adm.id, 'ADMIN')).accessToken;
+      const consultar = (periodo = '30d') => app.inject({
+        method: 'GET',
+        url: `/api/admin/resultados-prestadores?periodo=${periodo}&busca=Profissional%20teste`,
+        headers: { authorization: `Bearer ${adminToken}` },
+      });
+      const inicial = await consultar();
+      assert.equal(inicial.statusCode, 200, inicial.body);
+      const base = inicial.json().itens.find((item: { usuarioId: string }) => item.usuarioId === profissionalId);
+      assert.ok(base);
+      const antes = base.metricas;
+
+      const semCadastro = await prisma.solicitacaoOrcamento.create({
+        data: {
+          profissionalId, categoriaId, clienteId: null,
+          clienteNomeRapido: 'Cliente confidencial', clienteWhatsappRapido: '21999992222',
+          descricao: 'Pedido de teste de integração ADM', status: 'CONCLUIDA',
+        },
+      });
+      ids.push(semCadastro.id);
+      const cadastrado = await prisma.solicitacaoOrcamento.create({
+        data: {
+          profissionalId, categoriaId, clienteId,
+          cep: '24900000', endereco: 'Rua simulada no CI', tamanhoM2: 15,
+          status: 'ACEITA',
+        },
+      });
+      ids.push(cadastrado.id);
+
+      await prisma.avaliacaoVisitante.create({
+        data: { solicitacaoId: semCadastro.id, nota: 4, comentario: 'Somente CI' },
+      });
+      await prisma.avaliacao.create({
+        data: {
+          solicitacaoId: cadastrado.id, avaliadorId: clienteId, avaliadoId: profissionalId,
+          tipo: 'CLIENTE_AVALIA_PROFISSIONAL', nota: 5,
+        },
+      });
+      await prisma.notificacao.createMany({
+        data: ids.map((solicitacaoId) => ({
+          destinatarioId: profissionalId, solicitacaoId, tipo: 'NOVA_SOLICITACAO' as const,
+          titulo: 'Pedido teste', mensagem: 'Aviso fictício de CI',
+        })),
+      });
+
+      const depoisResposta = await consultar();
+      assert.equal(depoisResposta.statusCode, 200, depoisResposta.body);
+      const resultado = depoisResposta.json();
+      assert.equal(resultado.periodo, '30d');
+      const linha = resultado.itens.find((item: { usuarioId: string }) => item.usuarioId === profissionalId);
+      assert.ok(linha);
+      const m = linha.metricas;
+      assert.equal(m.recebidos, antes.recebidos + 2);
+      assert.equal(m.semCadastro, antes.semCadastro + 1);
+      assert.equal(m.concluidosInformados, antes.concluidosInformados + 1);
+      assert.equal(m.aceitosOuConcluidos, antes.aceitosOuConcluidos + 2);
+      assert.equal(m.avaliacoes, antes.avaliacoes + 2);
+      assert.equal(m.feedbacksVisitantes, antes.feedbacksVisitantes + 1);
+      assert.equal(m.avisosRegistrados, antes.avisosRegistrados + 2);
+      assert.equal(linha.usuarioId, profissionalId);
+      for (const segredo of ['clienteWhatsappRapido', 'acessoTokenHash', 'senhaHash', '21999992222',
+                             'Cliente confidencial', 'Rua simulada no CI']) {
+        assert.ok(!depoisResposta.body.includes(segredo), `API ADM vazou dado desnecessário: ${segredo}`);
+      }
+
+      const dashboard = await app.inject({
+        method: 'GET', url: '/api/admin/dashboard',
+        headers: { authorization: `Bearer ${adminToken}` },
+      });
+      assert.equal(dashboard.statusCode, 200, dashboard.body);
+      assert.ok(dashboard.json().ultimos30dias.pedidosRecebidos >= 2);
+      assert.ok(dashboard.json().ultimos30dias.feedbacksClientes >= 2);
+      assert.equal((await consultar('invalido')).statusCode, 400);
+      const paginaInvalida = await app.inject({
+        method: 'GET', url: '/api/admin/resultados-prestadores?porPagina=1000',
+        headers: { authorization: `Bearer ${adminToken}` },
+      });
+      assert.equal(paginaInvalida.statusCode, 400);
+    } finally {
+      await prisma.notificacao.deleteMany({ where: { solicitacaoId: { in: ids } } });
+      await prisma.avaliacaoVisitante.deleteMany({ where: { solicitacaoId: { in: ids } } });
+      await prisma.avaliacao.deleteMany({ where: { solicitacaoId: { in: ids } } });
+      await prisma.solicitacaoOrcamento.deleteMany({ where: { id: { in: ids } } });
+      await prisma.usuario.delete({ where: { id: adm.id } });
     }
   });
 

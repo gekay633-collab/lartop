@@ -1,7 +1,9 @@
 import type { FastifyInstance } from 'fastify';
+import { listarResultadosPrestadores } from './admin.resultados.service.js';
 import { z } from 'zod';
 import {
   listarPrestadoresQuerySchema,
+  listarResultadosPrestadoresQuerySchema,
   listarClientesQuerySchema,
   alternarBloqueioSchema,
   criarCategoriaSchema,
@@ -44,6 +46,20 @@ export async function adminRoutes(app: FastifyInstance) {
     } catch (err) {
       request.log.error(err);
       return reply.status(500).send({ erro: 'Erro interno ao carregar oferta e demanda' });
+    }
+  });
+
+  // Dados agregados, apenas leitura, sem revelar nomes ou telefones de clientes.
+  app.get('/admin/resultados-prestadores', { preHandler: somenteAdmin }, async (request, reply) => {
+    const parse = listarResultadosPrestadoresQuerySchema.safeParse(request.query);
+    if (!parse.success) return reply.status(400).send({ erro: 'Filtros inválidos' });
+    try {
+      reply.header('Cache-Control', 'private, no-store');
+      const resultado = await listarResultadosPrestadores(parse.data);
+      return reply.send(resultado);
+    } catch (err) {
+      request.log.error(err);
+      return reply.status(500).send({ erro: 'Não foi possível carregar os resultados' });
     }
   });
 

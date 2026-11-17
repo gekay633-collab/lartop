@@ -9,6 +9,7 @@ import { encerrarSessao } from "@/lib/auth-client";
 
 const ITENS_MENU = [
   { href: "/admin", label: "Dashboard" },
+  { href: "/admin/resultados", label: "Resultados" },
   { href: "/admin/oferta-demanda", label: "Oferta e Demanda" },
   { href: "/admin/prestadores", label: "Prestadores" },
   { href: "/admin/clientes", label: "Clientes" },
