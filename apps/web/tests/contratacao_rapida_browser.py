@@ -53,6 +53,7 @@ class BackendSimulado(BaseHTTPRequestHandler):
         return self.responder(404, {"erro": "Recurso simulado indisponível"})
 
     def do_POST(self):
+        global avaliacao_feita
         caminho = urlparse(self.path).path
         tamanho = int(self.headers.get("Content-Length", "0"))
         assert tamanho <= 16_384, "Corpo da solicitação deve ser pequeno"
@@ -94,7 +95,6 @@ class BackendSimulado(BaseHTTPRequestHandler):
                 "linkWhatsapp": "https://wa.me/5521999992222?text=Teste",
             })
         if caminho == f"/api/solicitacoes/rapidas/{PEDIDO}/avaliar":
-            global avaliacao_feita
             if not concluido:
                 return self.responder(409, {"erro": "Não concluído"})
             if not pedido_capturado or dados.get("token") != pedido_capturado[-1]["token"]:
