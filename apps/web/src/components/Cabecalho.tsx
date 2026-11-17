@@ -87,7 +87,7 @@ export function Cabecalho() {
               {erroSaida && <span role="alert" className="max-w-52 text-xs text-terra-600">{erroSaida}</span>}
             </div>
           ) : (
-            <Link href="/entrar" className="rounded-lg border border-pinho-900 px-4 py-2 text-pinho-900 transition hover:bg-pinho-900 hover:text-sauge-50">Entrar</Link>
+            <Link href="/entrar" className="rounded-lg border border-pinho-900 px-4 py-2 text-pinho-900 transition hover:bg-pinho-900 hover:text-sauge-50">Área profissional</Link>
           )}
         </nav>
 
@@ -113,7 +113,7 @@ export function Cabecalho() {
               {erroSaida && <p role="alert" className="text-sm text-terra-600">{erroSaida}</p>}
             </div>
           ) : (
-            <Link href="/entrar" className="mt-2 block rounded-lg border border-pinho-900 px-4 py-2 text-center text-pinho-900">Entrar</Link>
+            <Link href="/entrar" className="mt-2 block rounded-lg border border-pinho-900 px-4 py-2 text-center text-pinho-900">Área profissional</Link>
           )}
         </nav>
       )}
