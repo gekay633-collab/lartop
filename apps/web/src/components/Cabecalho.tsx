@@ -65,10 +65,7 @@ export function Cabecalho() {
   ) : sessao?.tipo === "PROFISSIONAL" ? (
     <Link href="/painel" className="block py-2 hover:text-pinho-900 sm:py-0">Meu painel</Link>
   ) : sessao?.tipo === "CLIENTE" ? (
-    <>
-      <Link href="/buscar" className="block py-2 hover:text-pinho-900 sm:py-0">Encontrar profissional</Link>
-      <Link href="/minhas-solicitacoes" className="block py-2 hover:text-pinho-900 sm:py-0">Minhas solicitações</Link>
-    </>
+    <Link href="/buscar" className="block py-2 hover:text-pinho-900 sm:py-0">Encontrar profissional</Link>
   ) : (
     <>
       <Link href="/buscar" className="block py-2 hover:text-pinho-900 sm:py-0">Encontrar profissional</Link>
