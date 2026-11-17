@@ -20,7 +20,7 @@ export default function PoliticaPrivacidadePage() {
               <h2 className="font-display text-xl font-semibold text-pinho-900">2. Quais dados coletamos</h2>
               <p className="mt-2">Coletamos os seguintes dados, conforme o uso que você faz da plataforma:</p>
               <ul className="mt-2 list-disc pl-5">
-                <li>Nome, e-mail, telefone e senha (armazenada de forma criptografada), no cadastro de conta.</li>
+                <li>No cadastro de profissionais e nas contas antigas de clientes: nome, e-mail, telefone e hash seguro da senha. Novos clientes não precisam criar conta.</li>
                 <li>Em solicitações sem cadastro: nome, WhatsApp e descrição do serviço. Não pedimos senha ou e-mail nesse fluxo.</li>
                 <li>CEP e endereço, para calcular a distância entre você e os profissionais disponíveis.</li>
                 <li>Fotos de perfil e de trabalhos realizados, quando o profissional opta por enviar.</li>
