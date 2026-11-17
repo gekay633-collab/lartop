@@ -14,6 +14,7 @@
     "test:notificacoes:integration": "tsx --test src/modules/notificacao/notificacao.integracao.test.ts",
     "test:push": "tsx --test src/modules/push/push.service.test.ts",
     "test:whatsapp": "tsx --test src/lib/whatsapp.test.ts",
+    "test:feedback:nome": "tsx --test src/modules/avaliacao/avaliacao.nome-publico.test.ts",
     "test:auth:security": "tsx --test src/modules/auth/auth.seguranca.test.ts",
     "test:auth:http": "tsx --test src/modules/auth/auth.http.test.ts",
     "test:upload": "tsx --test src/modules/upload/upload.routes.test.ts"
