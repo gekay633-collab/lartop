@@ -140,7 +140,10 @@ def admin_logout(browser, mobile=False):
                     "hoje": {"novosClientes":0,"novosPrestadores":0,"solicitacoes":0},
                     "geral": {"totalClientes":0,"totalPrestadores":0,"prestadoresPublicados":0,
                               "prestadoresNaoPublicados":0,"solicitacoesTotal":0,
-                              "avaliacoesTotal":0,"usuariosBloqueados":0}
+                              "avaliacoesTotal":0,"feedbacksClientesTotal":0,"usuariosBloqueados":0},
+                    "ultimos30dias": {"pedidosRecebidos":0,"pedidosSemCadastro":0,
+                                       "concluidosInformados":0,"feedbacksClientes":0,
+                                       "feedbacksVisitantes":0}
                 }))
         return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
 
@@ -789,6 +792,74 @@ def teste_portfolio_somente_fotos(browser, mobile=False):
     print(("MOBILE" if mobile else "DESKTOP") +
           " portfólio de até 6 fotos, exclusão e novo upload OK")
 
+
+def teste_resultados_adm(browser, mobile=False):
+    """Nova área ADM em Chromium: filtros e dados sem acessar produção."""
+    context = browser.new_context(
+        viewport={"width": 390 if mobile else 1366, "height": 844 if mobile else 768},
+        is_mobile=mobile, has_touch=mobile,
+    )
+    page = context.new_page()
+    consultas = []
+
+    def api(route):
+        url = route.request.url
+        if url.endswith("/api/usuarios/mim"):
+            return route.fulfill(status=200, content_type="application/json",
+                                 body=json.dumps({"id": "adm-ficticio", "tipo": "ADMIN", "nome": "ADM CI"}))
+        if "/api/admin/resultados-prestadores?" in url:
+            consultas.append(url)
+            periodo = "todos" if "periodo=todos" in url else "30d"
+            return route.fulfill(status=200, content_type="application/json",
+                body=json.dumps({
+                    "total": 1, "pagina": 1, "porPagina": 20, "periodo": periodo,
+                    "itens": [{
+                        "usuarioId": "11111111-1111-4111-8111-111111111111",
+                        "nomeExibicao": "Profissional Teste",
+                        "perfilPublicado": True, "contaAtiva": True,
+                        "cidade": {"nome": "Maricá", "estado": "RJ"},
+                        "notaMediaGeral": 4.5, "totalAvaliacoesGeral": 2,
+                        "metricas": {
+                            "recebidos": 8, "pendentes": 2, "respondidosOuAceitos": 5,
+                            "aceitosOuConcluidos": 3, "concluidosInformados": 1,
+                            "recusados": 1, "cancelados": 0, "semCadastro": 6,
+                            "avisosRegistrados": 8, "avaliacoes": 2, "feedbacksVisitantes": 1,
+                        },
+                    }],
+                }))
+        return route.fulfill(status=404, content_type="application/json", body='{"erro":"mock"}')
+
+    page.route("**/api/**", api)
+    page.goto(BASE + "/", wait_until="domcontentloaded")
+    page.evaluate("""() => {
+      localStorage.setItem('lartop_sessao_ativa', '1');
+      localStorage.setItem('lartop_tipo_usuario', 'ADMIN');
+      localStorage.setItem('lartop_nome_usuario', 'ADM CI');
+    }""")
+    page.goto(BASE + "/admin/resultados", wait_until="domcontentloaded")
+    page.get_by_role("heading", name="Resultados dos prestadores").wait_for(timeout=20000)
+    page.get_by_role("heading", name="Profissional Teste").wait_for(timeout=20000)
+    assert page.get_by_text("Concluídos informados").count() >= 1
+    assert page.get_by_text("Avisos registrados").count() >= 1
+    assert "8" in page.locator("main").inner_text()
+    assert len(consultas) >= 1
+    page.get_by_label("Período").select_option("todos")
+    page.wait_for_function("""() => performance.getEntriesByType('resource').some(
+      x => x.name.includes('/api/admin/resultados-prestadores?') && x.name.includes('periodo=todos')
+    )""", timeout=20000)
+    assert any("periodo=todos" in u for u in consultas)
+    page.get_by_label("Prestador").fill("Profissional Teste")
+    page.get_by_role("button", name="Pesquisar").click()
+    page.wait_for_function("""() => performance.getEntriesByType('resource').some(
+      x => x.name.includes('busca=Profissional')
+    )""", timeout=20000)
+    assert any("busca=Profissional" in u for u in consultas)
+    largura = page.evaluate("document.documentElement.scrollWidth")
+    viewport = page.evaluate("window.innerWidth")
+    assert largura <= viewport + 2, f"ADM com rolagem horizontal inesperada: {largura} > {viewport}"
+    context.close()
+    print(("MOBILE" if mobile else "DESKTOP") + " ADM resultados: busca, período, cartões e responsividade OK")
+
 if __name__ == "__main__":
     wait_server()
     with sync_playwright() as p:
@@ -798,6 +869,8 @@ if __name__ == "__main__":
             scenario(browser, mobile=True)
             admin_logout(browser, mobile=False)
             admin_logout(browser, mobile=True)
+            teste_resultados_adm(browser, mobile=False)
+            teste_resultados_adm(browser, mobile=True)
             teste_renovacao_entre_abas(browser)
             teste_profissional_nao_entra_no_fluxo_cliente(browser, mobile=False)
             teste_profissional_nao_entra_no_fluxo_cliente(browser, mobile=True)
