@@ -18,6 +18,7 @@ class AdminError extends Error {
 export async function obterDashboard() {
   const inicioHoje = new Date();
   inicioHoje.setHours(0, 0, 0, 0);
+  const inicio30dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
   const [
     totalClientes,
@@ -29,6 +30,13 @@ export async function obterDashboard() {
     solicitacoesHoje,
     solicitacoesTotal,
     avaliacoesTotal,
+    pedidos30dias,
+    pedidosVisitantes30dias,
+    concluidos30dias,
+    feedbacksCadastrados30dias,
+    feedbacksVisitantes30dias,
+    feedbacksVisitantesTotal,
+    feedbacksCadastradosTotal,
   ] = await Promise.all([
     prisma.usuario.count({ where: { tipo: 'CLIENTE' } }),
     prisma.usuario.count({ where: { tipo: 'PROFISSIONAL' } }),
@@ -39,6 +47,15 @@ export async function obterDashboard() {
     prisma.solicitacaoOrcamento.count({ where: { criadoEm: { gte: inicioHoje } } }),
     prisma.solicitacaoOrcamento.count(),
     prisma.avaliacao.count(),
+    prisma.solicitacaoOrcamento.count({ where: { criadoEm: { gte: inicio30dias } } }),
+    prisma.solicitacaoOrcamento.count({ where: { criadoEm: { gte: inicio30dias }, clienteId: null } }),
+    prisma.solicitacaoOrcamento.count({ where: { criadoEm: { gte: inicio30dias }, status: 'CONCLUIDA' } }),
+    prisma.avaliacao.count({
+      where: { criadoEm: { gte: inicio30dias }, tipo: 'CLIENTE_AVALIA_PROFISSIONAL' },
+    }),
+    prisma.avaliacaoVisitante.count({ where: { criadoEm: { gte: inicio30dias } } }),
+    prisma.avaliacaoVisitante.count(),
+    prisma.avaliacao.count({ where: { tipo: 'CLIENTE_AVALIA_PROFISSIONAL' } }),
   ]);
 
   const usuariosBloqueados = await prisma.usuario.count({ where: { ativo: false } });
@@ -56,7 +73,15 @@ export async function obterDashboard() {
       prestadoresNaoPublicados,
       solicitacoesTotal,
       avaliacoesTotal,
+      feedbacksClientesTotal: feedbacksCadastradosTotal + feedbacksVisitantesTotal,
       usuariosBloqueados,
+    },
+    ultimos30dias: {
+      pedidosRecebidos: pedidos30dias,
+      pedidosSemCadastro: pedidosVisitantes30dias,
+      concluidosInformados: concluidos30dias,
+      feedbacksClientes: feedbacksCadastrados30dias + feedbacksVisitantes30dias,
+      feedbacksVisitantes: feedbacksVisitantes30dias,
     },
   };
 }
