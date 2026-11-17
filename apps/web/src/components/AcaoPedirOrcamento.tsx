@@ -24,7 +24,7 @@ export function AcaoPedirOrcamento({ profissionalId }: { profissionalId: string 
     return (
       <div className="mt-5">
         <p className="text-sm text-pinho-700">
-          Para solicitar um serviço é necessário usar uma conta de cliente.
+          Para solicitar um serviço, use a contratação rápida sem cadastro como visitante.
         </p>
         <Link href={destino} className="mt-3 block rounded-xl border border-pinho-900 px-4 py-3 text-center font-semibold text-pinho-900 transition hover:bg-sauge-100">
           Voltar ao meu painel
