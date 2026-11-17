@@ -62,6 +62,25 @@ describe('autenticação HTTP com duas sessões e recuperação de senha', () =>
     redis.disconnect();
   });
 
+  it('não permite criar conta de cliente, mas mantém o cadastro profissional ativo', async () => {
+    const emailNovo = `cliente-cadastro-desativado-${randomUUID()}@example.test`;
+    const proibido = await app.inject({
+      method: 'POST', url: '/api/auth/registrar/cliente',
+      payload: { nome: 'Cliente teste', email: emailNovo, senha: 'SenhaValida2026!' },
+    });
+    assert.equal(proibido.statusCode, 410, proibido.body);
+    assert.match(proibido.body, /cadastro de clientes não é mais necessário/i);
+    assert.equal((await prisma.usuario.count({ where: { email: emailNovo } })), 0);
+    assert.equal(proibido.headers['set-cookie'], undefined, 'cadastro desativado não cria sessão');
+
+    // Não removemos a rota que os prestadores precisam para se cadastrar.
+    const profissionalInvalido = await app.inject({
+      method: 'POST', url: '/api/auth/registrar/profissional',
+      payload: { nome: '', email: 'incorreto', senha: '123' },
+    });
+    assert.equal(profissionalInvalido.statusCode, 400);
+  });
+
   it('login cria cookies HttpOnly; logout revoga só a sessão corrente e o access JWT', async () => {
     const login = () => app.inject({
       method: 'POST', url: '/api/auth/login',
