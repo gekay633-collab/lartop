@@ -11,8 +11,8 @@ export const metadata: Metadata = {
   description: "Encontre profissionais de corte de grama, poda e paisagismo na sua cidade. Compare avaliações e fale direto pelo WhatsApp.",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: [{ url: "/icon.svg", type: "image/svg+xml", sizes: "any" }],
-    apple: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    icon: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
   },
   appleWebApp: {
     capable: true,
